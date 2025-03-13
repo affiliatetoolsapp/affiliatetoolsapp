@@ -13,7 +13,7 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Get affiliate applications for my offers with improved query
+  // Get affiliate applications for my offers with more direct query approach
   const { data: applications, isLoading, error } = useQuery({
     queryKey: ['affiliate-applications', user?.id],
     queryFn: async () => {
@@ -24,92 +24,92 @@ export default function AffiliateApprovals() {
       
       console.log('Fetching affiliate applications for advertiser:', user.id);
       
-      // First get all offers from this advertiser
-      const { data: myOffers, error: offersError } = await supabase
-        .from('offers')
-        .select('id, name')
-        .eq('advertiser_id', user.id);
-      
-      if (offersError) {
-        console.error('Error fetching offers:', offersError);
-        throw offersError;
-      }
-      
-      console.log('Advertiser offers:', myOffers);
-      
-      if (!myOffers || myOffers.length === 0) {
-        console.log('No offers found for this advertiser');
-        return [];
-      }
-      
-      const offerIds = myOffers.map(offer => offer.id);
-      console.log('Offer IDs to check for applications:', offerIds);
-      
-      // Then get all pending applications for these offers
-      // Using a simpler query structure to ensure we get the right data
-      const { data, error } = await supabase
-        .from('affiliate_offers')
-        .select(`
-          id,
-          offer_id,
-          affiliate_id,
-          status,
-          traffic_source,
-          notes,
-          applied_at,
-          reviewed_at
-        `)
-        .in('offer_id', offerIds)
-        .eq('status', 'pending');
-      
-      if (error) {
-        console.error('Error fetching applications:', error);
-        throw error;
-      }
-      
-      console.log('Raw pending applications:', data);
-      
-      if (!data || data.length === 0) {
-        console.log('No pending applications found');
-        return [];
-      }
-      
-      // Now fetch additional data for each application
-      const enrichedApplications = await Promise.all(data.map(async (app) => {
-        // Get offer details
-        const { data: offer, error: offerError } = await supabase
+      try {
+        // Get all offers from this advertiser
+        const { data: myOffers, error: offersError } = await supabase
           .from('offers')
-          .select('id, name, description')
-          .eq('id', app.offer_id)
-          .single();
-          
-        if (offerError) {
-          console.error(`Error fetching offer ${app.offer_id}:`, offerError);
+          .select('id, name')
+          .eq('advertiser_id', user.id);
+        
+        if (offersError) {
+          console.error('Error fetching offers:', offersError);
+          throw offersError;
         }
         
-        // Get affiliate details
-        const { data: affiliate, error: affiliateError } = await supabase
-          .from('users')
-          .select('id, email, contact_name')
-          .eq('id', app.affiliate_id)
-          .single();
-          
-        if (affiliateError) {
-          console.error(`Error fetching affiliate ${app.affiliate_id}:`, affiliateError);
+        console.log('Advertiser offers found:', myOffers?.length, myOffers);
+        
+        if (!myOffers || myOffers.length === 0) {
+          console.log('No offers found for this advertiser');
+          return [];
         }
         
-        return {
-          ...app,
-          offers: offer,
-          affiliates: affiliate
-        };
-      }));
-      
-      console.log('Enriched applications:', enrichedApplications);
-      return enrichedApplications;
+        const offerIds = myOffers.map(offer => offer.id);
+        console.log('Checking for applications with these offer IDs:', offerIds);
+        
+        // Direct query for pending applications
+        const { data: pendingApplications, error: applicationsError } = await supabase
+          .from('affiliate_offers')
+          .select('*')
+          .in('offer_id', offerIds)
+          .eq('status', 'pending');
+        
+        if (applicationsError) {
+          console.error('Error fetching applications:', applicationsError);
+          throw applicationsError;
+        }
+        
+        console.log('Raw pending applications found:', pendingApplications?.length, pendingApplications);
+        
+        if (!pendingApplications || pendingApplications.length === 0) {
+          console.log('No pending applications found');
+          return [];
+        }
+        
+        // Enrich with affiliate and offer details in parallel
+        const enrichedApplications = await Promise.all(
+          pendingApplications.map(async (app) => {
+            // Get offer details
+            const { data: offerData, error: offerError } = await supabase
+              .from('offers')
+              .select('id, name, description, niche')
+              .eq('id', app.offer_id)
+              .single();
+            
+            if (offerError) {
+              console.error(`Error fetching offer details for ${app.offer_id}:`, offerError);
+            }
+            
+            // Get affiliate details
+            const { data: affiliateData, error: affiliateError } = await supabase
+              .from('users')
+              .select('id, email, contact_name, company_name, website')
+              .eq('id', app.affiliate_id)
+              .single();
+            
+            if (affiliateError) {
+              console.error(`Error fetching affiliate details for ${app.affiliate_id}:`, affiliateError);
+            }
+            
+            const enrichedApp = {
+              ...app,
+              offers: offerData || null,
+              affiliates: affiliateData || null
+            };
+            
+            console.log('Enriched application:', enrichedApp);
+            return enrichedApp;
+          })
+        );
+        
+        console.log('Final enriched applications:', enrichedApplications);
+        return enrichedApplications;
+      } catch (err) {
+        console.error('Error in affiliate applications query:', err);
+        throw err;
+      }
     },
     enabled: !!user && user.role === 'advertiser',
-    refetchInterval: 5000, // Check every 5 seconds
+    refetchInterval: 3000, // Check every 3 seconds for faster updates
     refetchOnWindowFocus: true,
     staleTime: 0, // Consider data stale immediately
   });

@@ -46,7 +46,7 @@ export default function OfferManagement() {
     enabled: !!user && user.role === 'advertiser',
   });
   
-  // Get affiliate applications for advertiser's offers - improved query
+  // Get affiliate applications for advertiser's offers - improved direct query
   const { data: applications, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery({
     queryKey: ['affiliate-applications-count', user?.id],
     queryFn: async () => {
@@ -54,43 +54,48 @@ export default function OfferManagement() {
       
       console.log('Fetching affiliate applications count for advertiser:', user.id);
       
-      // First get all offers from this advertiser
-      const { data: myOffers, error: offersError } = await supabase
-        .from('offers')
-        .select('id')
-        .eq('advertiser_id', user.id);
-      
-      if (offersError) {
-        console.error("Error fetching offers:", offersError);
-        throw offersError;
+      try {
+        // First get all offers from this advertiser
+        const { data: myOffers, error: offersError } = await supabase
+          .from('offers')
+          .select('id')
+          .eq('advertiser_id', user.id);
+        
+        if (offersError) {
+          console.error("Error fetching offers:", offersError);
+          throw offersError;
+        }
+        
+        if (!myOffers || myOffers.length === 0) {
+          console.log("No offers found for this advertiser");
+          return [];
+        }
+        
+        const offerIds = myOffers.map(o => o.id);
+        console.log("Fetching applications for offer IDs:", offerIds);
+        
+        // Direct query just for pending applications count
+        const { data, error } = await supabase
+          .from('affiliate_offers')
+          .select('id, offer_id, affiliate_id, status')
+          .eq('status', 'pending')
+          .in('offer_id', offerIds);
+        
+        if (error) {
+          console.error("Error fetching applications:", error);
+          throw error;
+        }
+        
+        console.log("Fetched applications count:", data?.length, data);
+        return data || [];
+      } catch (err) {
+        console.error("Error in applications count query:", err);
+        throw err;
       }
-      
-      if (!myOffers || myOffers.length === 0) {
-        console.log("No offers found for this advertiser");
-        return [];
-      }
-      
-      const offerIds = myOffers.map(o => o.id);
-      console.log("Fetching applications for offer IDs:", offerIds);
-      
-      // Simplified query to just get the count and basic info
-      const { data, error } = await supabase
-        .from('affiliate_offers')
-        .select('id, offer_id, affiliate_id, status')
-        .eq('status', 'pending')
-        .in('offer_id', offerIds);
-      
-      if (error) {
-        console.error("Error fetching applications:", error);
-        throw error;
-      }
-      
-      console.log("Fetched applications count:", data?.length);
-      return data || [];
     },
     enabled: !!user && user.role === 'advertiser',
     // Add refetch interval to periodically check for new applications
-    refetchInterval: 10000,
+    refetchInterval: 5000, // Check every 5 seconds
     refetchOnWindowFocus: true,
   });
   

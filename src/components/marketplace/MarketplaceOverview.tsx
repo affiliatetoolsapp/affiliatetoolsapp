@@ -38,7 +38,7 @@ export default function MarketplaceOverview() {
   
   return (
     <div className="space-y-6">
-      <div>
+      <div className="text-left">
         <h1 className="text-3xl font-bold tracking-tight">Marketplace Overview</h1>
         <p className="text-muted-foreground">
           Explore trending offers and find new opportunities for your business
@@ -50,11 +50,11 @@ export default function MarketplaceOverview() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Performance Insights</CardTitle>
-                <CardDescription>Understand how your offers compare</CardDescription>
+                <CardTitle className="text-lg text-left">Performance Insights</CardTitle>
+                <CardDescription className="text-left">Understand how your offers compare</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm">
+                <p className="text-sm text-left">
                   Analyze market trends and see how your offers are performing relative to others in your niche.
                 </p>
                 <Button className="mt-4" variant="outline">View Insights</Button>
@@ -63,11 +63,11 @@ export default function MarketplaceOverview() {
             
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Affiliate Acquisition</CardTitle>
-                <CardDescription>Find and recruit quality affiliates</CardDescription>
+                <CardTitle className="text-lg text-left">Affiliate Acquisition</CardTitle>
+                <CardDescription className="text-left">Find and recruit quality affiliates</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm">
+                <p className="text-sm text-left">
                   Browse profiles of top-performing affiliates and invite them to promote your offers.
                 </p>
                 <Button className="mt-4" variant="outline">Browse Affiliates</Button>
@@ -76,11 +76,11 @@ export default function MarketplaceOverview() {
             
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Offer Optimization</CardTitle>
-                <CardDescription>Improve your offer performance</CardDescription>
+                <CardTitle className="text-lg text-left">Offer Optimization</CardTitle>
+                <CardDescription className="text-left">Improve your offer performance</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm">
+                <p className="text-sm text-left">
                   Get recommendations on how to make your offers more appealing to affiliates.
                 </p>
                 <Button className="mt-4" variant="outline">Get Recommendations</Button>
@@ -89,13 +89,13 @@ export default function MarketplaceOverview() {
           </div>
           
           <div className="mt-8">
-            <h2 className="text-xl font-semibold mb-4">Featured Offers in the Marketplace</h2>
+            <h2 className="text-xl font-semibold mb-4 text-left">Featured Offers in the Marketplace</h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {topOffers?.map((offer) => (
                 <Card key={offer.id}>
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{offer.name}</CardTitle>
+                      <CardTitle className="text-lg text-left">{offer.name}</CardTitle>
                       {offer.is_featured && (
                         <Badge className="ml-2">
                           <Award className="h-3 w-3 mr-1" />
@@ -103,10 +103,10 @@ export default function MarketplaceOverview() {
                         </Badge>
                       )}
                     </div>
-                    <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
+                    <CardDescription className="line-clamp-2 text-left">{offer.description}</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2 text-sm">
+                    <div className="space-y-2 text-sm text-left">
                       <div>
                         <span className="font-medium">Commission: </span>
                         {offer.commission_type === 'RevShare' 

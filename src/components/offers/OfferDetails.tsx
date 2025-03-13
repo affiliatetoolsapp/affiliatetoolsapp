@@ -198,7 +198,7 @@ export default function OfferDetails({ offerId }: OfferDetailsProps) {
   
   if (!offer) {
     return (
-      <div className="p-8 text-center">
+      <div className="p-8 text-left">
         <h2 className="text-xl font-bold mb-2">Offer Not Found</h2>
         <p className="text-muted-foreground mb-4">The requested offer could not be found</p>
         <Button asChild>
@@ -216,12 +216,12 @@ export default function OfferDetails({ offerId }: OfferDetailsProps) {
       <div className="flex justify-between items-start">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight">{offer.name}</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-left">{offer.name}</h1>
             <Badge variant={offer.status === 'active' ? 'default' : 'secondary'} className="capitalize">
               {offer.status}
             </Badge>
           </div>
-          <p className="text-muted-foreground mt-1">{offer.description}</p>
+          <p className="text-muted-foreground mt-1 text-left">{offer.description}</p>
         </div>
         
         {isOwner && (
@@ -262,37 +262,37 @@ export default function OfferDetails({ offerId }: OfferDetailsProps) {
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
+              <CardTitle className="text-sm font-medium text-left">Total Clicks</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{offerStats.clicks}</div>
+              <div className="text-2xl font-bold text-left">{offerStats.clicks}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Conversions</CardTitle>
+              <CardTitle className="text-sm font-medium text-left">Conversions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{offerStats.conversions}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-2xl font-bold text-left">{offerStats.conversions}</div>
+              <p className="text-xs text-muted-foreground text-left">
                 CR: {offerStats.clicks ? ((offerStats.conversions / offerStats.clicks) * 100).toFixed(2) : '0.00'}%
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+              <CardTitle className="text-sm font-medium text-left">Revenue</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${offerStats.revenue.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-left">${offerStats.revenue.toFixed(2)}</div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Commissions</CardTitle>
+              <CardTitle className="text-sm font-medium text-left">Commissions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${offerStats.commissions.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-left">${offerStats.commissions.toFixed(2)}</div>
             </CardContent>
           </Card>
         </div>
@@ -300,14 +300,14 @@ export default function OfferDetails({ offerId }: OfferDetailsProps) {
       
       <Card>
         <CardHeader>
-          <CardTitle>Offer Details</CardTitle>
+          <CardTitle className="text-left">Offer Details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <h4 className="text-sm font-medium text-muted-foreground">Offer URL</h4>
+              <h4 className="text-sm font-medium text-muted-foreground text-left">Offer URL</h4>
               <div className="flex items-center gap-2 mt-1">
-                <p className="font-mono text-sm truncate">{offer.url}</p>
+                <p className="font-mono text-sm truncate text-left">{offer.url}</p>
                 <Button size="icon" variant="ghost" className="h-6 w-6" asChild>
                   <a href={offer.url} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-4 w-4" />
@@ -317,8 +317,8 @@ export default function OfferDetails({ offerId }: OfferDetailsProps) {
             </div>
             
             <div>
-              <h4 className="text-sm font-medium text-muted-foreground">Commission</h4>
-              <p className="mt-1">
+              <h4 className="text-sm font-medium text-muted-foreground text-left">Commission</h4>
+              <p className="mt-1 text-left">
                 {offer.commission_type === 'RevShare' 
                   ? `${offer.commission_percent}% Revenue Share` 
                   : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
@@ -327,17 +327,17 @@ export default function OfferDetails({ offerId }: OfferDetailsProps) {
             
             {offer.niche && (
               <div>
-                <h4 className="text-sm font-medium text-muted-foreground">Niche</h4>
-                <p className="mt-1">{offer.niche}</p>
+                <h4 className="text-sm font-medium text-muted-foreground text-left">Niche</h4>
+                <p className="mt-1 text-left">{offer.niche}</p>
               </div>
             )}
             
             {isAdvertiser && (
               <div>
-                <h4 className="text-sm font-medium text-muted-foreground">Affiliates</h4>
+                <h4 className="text-sm font-medium text-muted-foreground text-left">Affiliates</h4>
                 <div className="flex items-center gap-2 mt-1">
                   <Users className="h-4 w-4 text-muted-foreground" />
-                  <p>{approvedAffiliates} approved</p>
+                  <p className="text-left">{approvedAffiliates} approved</p>
                   {pendingAffiliates > 0 && (
                     <Badge variant="outline" className="flex items-center gap-1">
                       {pendingAffiliates} pending
@@ -360,8 +360,8 @@ export default function OfferDetails({ offerId }: OfferDetailsProps) {
           <TabsContent value="affiliates">
             <Card>
               <CardHeader>
-                <CardTitle>Approved Affiliates</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-left">Approved Affiliates</CardTitle>
+                <CardDescription className="text-left">
                   Affiliates currently promoting this offer
                 </CardDescription>
               </CardHeader>
@@ -383,11 +383,11 @@ export default function OfferDetails({ offerId }: OfferDetailsProps) {
                             .filter((ao: any) => ao.status === 'approved')
                             .map((ao: any) => (
                               <tr key={ao.id} className="border-b hover:bg-muted/50">
-                                <td className="p-2">
+                                <td className="p-2 text-left">
                                   {ao.affiliates.contact_name || ao.affiliates.email}
                                 </td>
-                                <td className="p-2">{ao.traffic_source || 'Not specified'}</td>
-                                <td className="p-2">
+                                <td className="p-2 text-left">{ao.traffic_source || 'Not specified'}</td>
+                                <td className="p-2 text-left">
                                   {new Date(ao.reviewed_at).toLocaleDateString()}
                                 </td>
                                 <td className="p-2">
@@ -402,7 +402,7 @@ export default function OfferDetails({ offerId }: OfferDetailsProps) {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-6 border rounded-md">
+                  <div className="text-left py-6 border rounded-md pl-4">
                     <p className="text-muted-foreground">No approved affiliates yet</p>
                   </div>
                 )}
@@ -413,48 +413,48 @@ export default function OfferDetails({ offerId }: OfferDetailsProps) {
           <TabsContent value="tracking">
             <Card>
               <CardHeader>
-                <CardTitle>Tracking Information</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-left">Tracking Information</CardTitle>
+                <CardDescription className="text-left">
                   Implementation details for your technical team
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Postback URL</h4>
-                  <div className="bg-muted p-3 rounded-md font-mono text-sm break-all">
+                  <h4 className="text-sm font-medium mb-2 text-left">Postback URL</h4>
+                  <div className="bg-muted p-3 rounded-md font-mono text-sm break-all text-left">
                     {`${window.location.origin}/api/conversion?click_id={click_id}&event_type=sale&revenue=100&secret_key=YOUR_SECRET_KEY`}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
+                  <p className="text-xs text-muted-foreground mt-2 text-left">
                     Use this URL to send conversion data back to our system. Replace <code>{`{click_id}`}</code> with the click ID passed to your offer URL, and update the event type and revenue as needed.
                   </p>
                 </div>
                 
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Available Parameters</h4>
+                  <h4 className="text-sm font-medium mb-2 text-left">Available Parameters</h4>
                   <div className="grid gap-2">
                     <div className="grid grid-cols-4 p-2 border-b">
-                      <div className="font-medium">Parameter</div>
-                      <div className="font-medium">Required</div>
-                      <div className="font-medium">Example</div>
-                      <div className="font-medium">Description</div>
+                      <div className="font-medium text-left">Parameter</div>
+                      <div className="font-medium text-left">Required</div>
+                      <div className="font-medium text-left">Example</div>
+                      <div className="font-medium text-left">Description</div>
                     </div>
                     <div className="grid grid-cols-4 p-2 border-b">
-                      <div className="font-mono text-sm">click_id</div>
-                      <div>Yes</div>
-                      <div className="font-mono text-sm">abc123</div>
-                      <div className="text-sm">Unique identifier for the click</div>
+                      <div className="font-mono text-sm text-left">click_id</div>
+                      <div className="text-left">Yes</div>
+                      <div className="font-mono text-sm text-left">abc123</div>
+                      <div className="text-sm text-left">Unique identifier for the click</div>
                     </div>
                     <div className="grid grid-cols-4 p-2 border-b">
-                      <div className="font-mono text-sm">event_type</div>
-                      <div>Yes</div>
-                      <div className="font-mono text-sm">sale</div>
-                      <div className="text-sm">Type: lead, sale, action, deposit</div>
+                      <div className="font-mono text-sm text-left">event_type</div>
+                      <div className="text-left">Yes</div>
+                      <div className="font-mono text-sm text-left">sale</div>
+                      <div className="text-sm text-left">Type: lead, sale, action, deposit</div>
                     </div>
                     <div className="grid grid-cols-4 p-2 border-b">
-                      <div className="font-mono text-sm">revenue</div>
-                      <div>For RevShare</div>
-                      <div className="font-mono text-sm">99.95</div>
-                      <div className="text-sm">Transaction amount (for RevShare)</div>
+                      <div className="font-mono text-sm text-left">revenue</div>
+                      <div className="text-left">For RevShare</div>
+                      <div className="font-mono text-sm text-left">99.95</div>
+                      <div className="text-sm text-left">Transaction amount (for RevShare)</div>
                     </div>
                   </div>
                 </div>
@@ -472,7 +472,7 @@ export default function OfferDetails({ offerId }: OfferDetailsProps) {
               <AlertTriangle className="h-5 w-5 text-destructive" />
               Delete Offer
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-left">
               Are you sure you want to delete this offer? This action cannot be undone and will remove all related tracking links.
             </DialogDescription>
           </DialogHeader>

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
@@ -19,6 +20,7 @@ import { LoadingState } from '@/components/LoadingState';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import OfferDetailView from './OfferDetailView';
 
 export default function OfferBrowser() {
   const { user } = useAuth();
@@ -26,6 +28,7 @@ export default function OfferBrowser() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
+  const [selectedDetailOffer, setSelectedDetailOffer] = useState<Offer | null>(null);
   const [trafficSource, setTrafficSource] = useState('');
   const [notes, setNotes] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -167,6 +170,17 @@ export default function OfferBrowser() {
     const application = existingApplications?.find(app => app.offer_id === offerId);
     return application?.status || null;
   };
+
+  // Show detail view or browser
+  if (selectedDetailOffer) {
+    return (
+      <OfferDetailView 
+        offer={selectedDetailOffer}
+        applicationStatus={getApplicationStatus(selectedDetailOffer.id)}
+        onBack={() => setSelectedDetailOffer(null)}
+      />
+    );
+  }
   
   const renderOfferCard = (offer: Offer) => (
     <Card key={offer.id} className={cn("overflow-hidden", 
@@ -178,13 +192,13 @@ export default function OfferBrowser() {
         </div>
       )}
       <CardHeader className="p-4">
-        <CardTitle className="text-lg">{offer.name}</CardTitle>
-        <CardDescription className="line-clamp-2">
+        <CardTitle className="text-lg text-left">{offer.name}</CardTitle>
+        <CardDescription className="line-clamp-2 text-left">
           {offer.description}
         </CardDescription>
       </CardHeader>
       <CardContent className="p-4 pt-0 grid gap-2">
-        <div className="text-sm">
+        <div className="text-sm text-left">
           <span className="font-medium">Commission: </span>
           {offer.commission_type === 'RevShare' 
             ? `${offer.commission_percent}% Revenue Share` 
@@ -192,7 +206,7 @@ export default function OfferBrowser() {
         </div>
         
         {offer.niche && (
-          <div className="text-sm flex items-center space-x-1">
+          <div className="text-sm flex items-center space-x-1 text-left">
             <Tag className="h-3 w-3" />
             <span>{offer.niche}</span>
           </div>
@@ -202,11 +216,10 @@ export default function OfferBrowser() {
         <Button 
           variant="outline" 
           size="sm" 
-          onClick={() => window.open(offer.url, '_blank')}
+          onClick={() => setSelectedDetailOffer(offer)}
           className="flex items-center"
         >
-          <ExternalLink className="h-3 w-3 mr-1" />
-          Preview
+          View Details
         </Button>
         
         {hasApplied(offer.id) ? (
@@ -301,7 +314,7 @@ export default function OfferBrowser() {
         <TableBody>
           {offers.map((offer) => (
             <TableRow key={offer.id}>
-              <TableCell className="font-medium">
+              <TableCell className="font-medium text-left">
                 {offer.name}
                 {offer.is_featured && (
                   <Badge variant="outline" className="ml-2 bg-yellow-100 dark:bg-yellow-900">
@@ -310,13 +323,13 @@ export default function OfferBrowser() {
                   </Badge>
                 )}
               </TableCell>
-              <TableCell>{offer.niche || '-'}</TableCell>
-              <TableCell>
+              <TableCell className="text-left">{offer.niche || '-'}</TableCell>
+              <TableCell className="text-left">
                 {offer.commission_type === 'RevShare' 
                   ? `${offer.commission_percent}% Revenue Share` 
                   : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
               </TableCell>
-              <TableCell>
+              <TableCell className="text-left">
                 {hasApplied(offer.id) ? (
                   <Badge variant={
                     getApplicationStatus(offer.id) === 'approved' ? 'default' : 
@@ -336,9 +349,9 @@ export default function OfferBrowser() {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={() => window.open(offer.url, '_blank')}
+                    onClick={() => setSelectedDetailOffer(offer)}
                   >
-                    Preview
+                    View Details
                   </Button>
                   
                   {!hasApplied(offer.id) && (
@@ -352,7 +365,6 @@ export default function OfferBrowser() {
                         </Button>
                       </DialogTrigger>
                       <DialogContent>
-                        {/* Same dialog content as in the card view */}
                         <DialogHeader>
                           <DialogTitle>Apply for {selectedOffer?.name}</DialogTitle>
                           <DialogDescription>
@@ -416,7 +428,7 @@ export default function OfferBrowser() {
   
   return (
     <div className="space-y-6">
-      <div>
+      <div className="text-left">
         <h1 className="text-3xl font-bold tracking-tight">Marketplace</h1>
         <p className="text-muted-foreground">
           Browse available offers and apply to become an affiliate
@@ -607,8 +619,8 @@ export default function OfferBrowser() {
         </TabsContent>
         
         <TabsContent value="trending">
-          <Card className="p-8 text-center">
-            <TrendingUp className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <Card className="p-8 text-left">
+            <TrendingUp className="h-12 w-12 mb-4 text-muted-foreground" />
             <p className="text-muted-foreground mb-2">Trending offers data will be available soon</p>
             <p className="text-xs text-muted-foreground">This feature is coming in the next update</p>
           </Card>
@@ -629,7 +641,7 @@ export default function OfferBrowser() {
                 existingApplications.some(app => app.offer_id === offer.id)) || [])
             )
           ) : (
-            <Card className="p-8 text-center">
+            <Card className="p-8 text-left">
               <p className="text-muted-foreground">You haven't applied to any offers yet</p>
             </Card>
           )}

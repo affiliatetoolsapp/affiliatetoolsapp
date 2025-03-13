@@ -1,95 +1,94 @@
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { UserRole } from '@/types';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
-const signUpSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8, { message: 'Password must be at least 8 characters' }),
-  role: z.enum(['admin', 'advertiser', 'affiliate'] as const),
-  company_name: z.string().optional(),
-  contact_name: z.string().optional(),
-  website: z.string().url().optional().or(z.literal('')),
+const formSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  role: z.enum(['advertiser', 'affiliate']),
+  companyName: z.string().optional(),
+  contactName: z.string().optional(),
 });
 
-type SignUpValues = z.infer<typeof signUpSchema>;
+type FormValues = z.infer<typeof formSchema>;
 
 export default function SignUpForm() {
+  const { signUp } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const form = useForm<SignUpValues>({
-    resolver: zodResolver(signUpSchema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       email: '',
       password: '',
       role: 'affiliate',
-      company_name: '',
-      contact_name: '',
-      website: '',
+      companyName: '',
+      contactName: '',
     },
   });
 
-  const onSubmit = async (data: SignUpValues) => {
+  const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
     try {
-      // Sign up the user with Supabase Auth
-      const { error } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-          data: {
-            role: data.role,
-            company_name: data.company_name || null,
-            contact_name: data.contact_name || null,
-            website: data.website || null,
-          },
-        },
-      });
-
-      if (error) {
-        throw error;
+      await signUp(data.email, data.password, data.role);
+      
+      // Update profile with company name and contact name
+      const { data: userData } = await supabase.auth.getUser();
+      
+      if (userData && userData.user) {
+        const { error } = await supabase
+          .from('users')
+          .update({
+            company_name: data.companyName,
+            contact_name: data.contactName,
+          })
+          .eq('id', userData.user.id);
+          
+        if (error) throw error;
       }
-
-      toast({
-        title: 'Account created',
-        description: 'Please check your email to verify your account.',
-      });
-
+      
       navigate('/signup-success');
     } catch (error: any) {
       toast({
-        variant: 'destructive',
         title: 'Error',
-        description: error.message || 'Failed to create account',
+        description: error.message || 'An error occurred during sign up',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const selectedRole = form.watch('role');
-
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>Create an account</CardTitle>
-        <CardDescription>
-          Join our affiliate network to start promoting or offering campaigns
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <div className="space-y-6">
+      <div className="bg-card rounded-lg shadow-sm p-6 border">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -105,6 +104,7 @@ export default function SignUpForm() {
                 </FormItem>
               )}
             />
+            
             <FormField
               control={form.control}
               name="password"
@@ -112,7 +112,22 @@ export default function SignUpForm() {
                 <FormItem>
                   <FormLabel>Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="********" {...field} />
+                    <div className="relative">
+                      <Input 
+                        type={showPassword ? "text" : "password"} 
+                        placeholder="••••••••" 
+                        {...field} 
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full px-3"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -124,90 +139,69 @@ export default function SignUpForm() {
               name="role"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>I am an</FormLabel>
-                  <FormControl>
-                    <RadioGroup
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      className="flex flex-col space-y-1 sm:flex-row sm:space-y-0 sm:space-x-4"
-                    >
-                      <FormItem className="flex items-center space-x-2">
-                        <FormControl>
-                          <RadioGroupItem value="affiliate" />
-                        </FormControl>
-                        <FormLabel className="font-normal">Affiliate</FormLabel>
-                      </FormItem>
-                      <FormItem className="flex items-center space-x-2">
-                        <FormControl>
-                          <RadioGroupItem value="advertiser" />
-                        </FormControl>
-                        <FormLabel className="font-normal">Advertiser</FormLabel>
-                      </FormItem>
-                    </RadioGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="contact_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contact Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="John Doe" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            {selectedRole === 'advertiser' && (
-              <FormField
-                control={form.control}
-                name="company_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Company Name</FormLabel>
+                  <FormLabel>Account Type</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
                     <FormControl>
-                      <Input placeholder="Your Company" {...field} />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select account type" />
+                      </SelectTrigger>
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
+                    <SelectContent>
+                      <SelectItem value="advertiser">Advertiser (I want to promote my products)</SelectItem>
+                      <SelectItem value="affiliate">Affiliate (I want to promote others' products)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
             <FormField
               control={form.control}
-              name="website"
+              name="companyName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Website {selectedRole === 'affiliate' ? '(Optional)' : ''}</FormLabel>
+                  <FormLabel>Company Name (Optional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="https://your-website.com" {...field} />
+                    <Input placeholder="Your company name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
             
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Creating account...' : 'Create account'}
+            <FormField
+              control={form.control}
+              name="contactName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Full Name (Optional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Your full name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <Button className="w-full" type="submit" disabled={isLoading}>
+              {isLoading ? "Creating Account..." : "Create Account"}
             </Button>
           </form>
         </Form>
-      </CardContent>
-      <CardFooter className="flex justify-center">
+      </div>
+      
+      <div className="text-center">
         <p className="text-sm text-muted-foreground">
-          Already have an account?{' '}
-          <a href="/login" className="text-primary hover:underline">
+          Already have an account?{" "}
+          <a href="/login" className="text-primary underline-offset-4 hover:underline">
             Sign in
           </a>
         </p>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }

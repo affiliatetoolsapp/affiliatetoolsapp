@@ -1,57 +1,55 @@
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/AuthContext';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 
-const signInSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1, { message: 'Password is required' }),
+const formSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(1, 'Password is required'),
 });
 
-type SignInValues = z.infer<typeof signInSchema>;
+type FormValues = z.infer<typeof formSchema>;
 
 export default function SignInForm() {
+  const { signIn } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const form = useForm<SignInValues>({
-    resolver: zodResolver(signInSchema),
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       email: '',
       password: '',
     },
   });
 
-  const onSubmit = async (data: SignInValues) => {
+  const onSubmit = async (data: FormValues) => {
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: 'Welcome back!',
-        description: 'You have successfully signed in.',
-      });
-
+      await signIn(data.email, data.password);
       navigate('/dashboard');
     } catch (error: any) {
       toast({
+        title: 'Error',
+        description: error.message || 'An error occurred during sign in',
         variant: 'destructive',
-        title: 'Authentication error',
-        description: error.message || 'Failed to sign in',
       });
     } finally {
       setIsLoading(false);
@@ -59,14 +57,8 @@ export default function SignInForm() {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>Sign In</CardTitle>
-        <CardDescription>
-          Access your affiliate network account
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <div className="space-y-6">
+      <div className="bg-card rounded-lg shadow-sm p-6 border">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -82,6 +74,7 @@ export default function SignInForm() {
                 </FormItem>
               )}
             />
+            
             <FormField
               control={form.control}
               name="password"
@@ -89,31 +82,49 @@ export default function SignInForm() {
                 <FormItem>
                   <FormLabel>Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="********" {...field} />
+                    <div className="relative">
+                      <Input 
+                        type={showPassword ? "text" : "password"} 
+                        placeholder="••••••••" 
+                        {...field} 
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-0 top-0 h-full px-3"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Signing in...' : 'Sign in'}
+            
+            <div className="flex items-center justify-end">
+              <a href="#" className="text-sm text-primary underline-offset-4 hover:underline">
+                Forgot password?
+              </a>
+            </div>
+            
+            <Button className="w-full" type="submit" disabled={isLoading}>
+              {isLoading ? "Signing In..." : "Sign In"}
             </Button>
           </form>
         </Form>
-      </CardContent>
-      <CardFooter className="flex flex-col space-y-2">
+      </div>
+      
+      <div className="text-center">
         <p className="text-sm text-muted-foreground">
-          Don't have an account?{' '}
-          <a href="/signup" className="text-primary hover:underline">
-            Create one
+          Don't have an account yet?{" "}
+          <a href="/signup" className="text-primary underline-offset-4 hover:underline">
+            Create an account
           </a>
         </p>
-        <p className="text-sm text-muted-foreground">
-          <a href="#" className="text-primary hover:underline">
-            Forgot your password?
-          </a>
-        </p>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 }

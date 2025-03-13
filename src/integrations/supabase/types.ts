@@ -325,31 +325,40 @@ export type Database = {
       }
       users: {
         Row: {
+          bio: string | null
           company_name: string | null
           contact_name: string | null
           created_at: string | null
           email: string
           id: string
+          phone: string | null
           role: string
           updated_at: string | null
+          website: string | null
         }
         Insert: {
+          bio?: string | null
           company_name?: string | null
           contact_name?: string | null
           created_at?: string | null
           email: string
           id: string
+          phone?: string | null
           role: string
           updated_at?: string | null
+          website?: string | null
         }
         Update: {
+          bio?: string | null
           company_name?: string | null
           contact_name?: string | null
           created_at?: string | null
           email?: string
           id?: string
+          phone?: string | null
           role?: string
           updated_at?: string | null
+          website?: string | null
         }
         Relationships: []
       }

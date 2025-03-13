@@ -1,4 +1,3 @@
-
 import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -72,13 +71,12 @@ export default function LinksPage() {
       const { data, error } = await supabase
         .from('clicks')
         .select('tracking_code, count')
-        .in('tracking_code', trackingCodes)
-        .execute();
+        .in('tracking_code', trackingCodes);
         
       if (error) throw error;
       
       const stats: Record<string, number> = {};
-      data.forEach((row: any) => {
+      data?.forEach((row: any) => {
         stats[row.tracking_code] = parseInt(row.count);
       });
       
@@ -109,8 +107,7 @@ export default function LinksPage() {
       const { data: conversions, error: convError } = await supabase
         .from('conversions')
         .select('click_id, count')
-        .in('click_id', clickIds)
-        .execute();
+        .in('click_id', clickIds);
         
       if (convError) throw convError;
       
@@ -120,7 +117,7 @@ export default function LinksPage() {
       });
       
       const stats: Record<string, number> = {};
-      conversions.forEach((conv: any) => {
+      conversions?.forEach((conv: any) => {
         const trackingCode = clickIdToTrackingCode[conv.click_id];
         if (trackingCode) {
           stats[trackingCode] = (stats[trackingCode] || 0) + parseInt(conv.count);

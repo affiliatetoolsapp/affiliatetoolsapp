@@ -1,4 +1,3 @@
-
 export type UserRole = 'admin' | 'advertiser' | 'affiliate';
 
 export interface User {
@@ -7,6 +6,9 @@ export interface User {
   role: UserRole;
   company_name?: string;
   contact_name?: string;
+  website?: string;
+  bio?: string;
+  phone?: string;
   created_at: string;
   updated_at: string;
 }

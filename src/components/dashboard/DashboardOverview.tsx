@@ -23,6 +23,38 @@ import { supabase } from '@/integrations/supabase/client';
 type TimeRange = '7d' | '30d' | '90d' | 'all';
 type ChartData = Array<{ name: string; value: number; }>;
 
+// Define base stats type and role-specific stats types
+interface BaseStats {
+  revenue: number;
+  clicks: number;
+  conversions: number;
+  conversionRate: string;
+}
+
+interface AdminStats extends BaseStats {
+  totalUsers: number;
+  activeAffiliates: number;
+  activeAdvertisers: number;
+  pendingApprovals: number;
+}
+
+interface AdvertiserStats extends BaseStats {
+  activeOffers: number;
+  totalAffiliates: number;
+  pendingAffiliates: number;
+  averageConversion: string;
+}
+
+interface AffiliateStats extends BaseStats {
+  approvedOffers: number;
+  activeLinks: number;
+  averageCTR: string;
+  pendingCommissions: number;
+}
+
+// Combined type for all possible stats
+type DashboardStats = BaseStats & Partial<AdminStats & AdvertiserStats & AffiliateStats>;
+
 export default function DashboardOverview() {
   const { user } = useAuth();
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
@@ -57,7 +89,7 @@ export default function DashboardOverview() {
       }[timeRange];
       
       // Simulate different stats based on user role
-      let roleSpecificStats: Record<string, any> = {};
+      let roleSpecificStats: Partial<AdminStats & AdvertiserStats & AffiliateStats> = {};
       
       switch (user.role) {
         case 'admin':
@@ -86,13 +118,18 @@ export default function DashboardOverview() {
           break;
       }
       
-      return {
+      const baseStats: BaseStats = {
         revenue: Math.floor(1200 * range.multiplier),
         clicks: Math.floor(5400 * range.multiplier),
         conversions: Math.floor(120 * range.multiplier),
-        conversionRate: (2.2 * range.multiplier).toFixed(1) + '%',
-        ...roleSpecificStats
+        conversionRate: (2.2 * range.multiplier).toFixed(1) + '%'
       };
+      
+      // Return combined stats
+      return {
+        ...baseStats,
+        ...roleSpecificStats
+      } as DashboardStats;
     },
     enabled: !!user
   });
@@ -125,88 +162,6 @@ export default function DashboardOverview() {
       </div>
     );
   }
-
-  const renderOverviewCards = () => (
-    <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-      {/* Revenue/Earnings Card */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                {user.role === 'affiliate' ? 'Earnings' : 'Revenue'}
-              </p>
-              <h3 className="text-2xl font-bold">${stats.revenue}</h3>
-            </div>
-            <div className="p-2 bg-green-100 rounded-full text-green-600">
-              <DollarSign className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="flex items-center text-sm text-green-600 mt-2">
-            <ArrowUpRight className="h-4 w-4 mr-1" />
-            <span>12% from last {timeRange === '7d' ? 'week' : 'month'}</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Clicks Card */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Clicks</p>
-              <h3 className="text-2xl font-bold">{stats.clicks.toLocaleString()}</h3>
-            </div>
-            <div className="p-2 bg-blue-100 rounded-full text-blue-600">
-              <Users className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="flex items-center text-sm text-green-600 mt-2">
-            <ArrowUpRight className="h-4 w-4 mr-1" />
-            <span>8% from last {timeRange === '7d' ? 'week' : 'month'}</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Conversions Card */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Conversions</p>
-              <h3 className="text-2xl font-bold">{stats.conversions.toLocaleString()}</h3>
-            </div>
-            <div className="p-2 bg-purple-100 rounded-full text-purple-600">
-              <LineChart className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="flex items-center text-sm text-red-600 mt-2">
-            <ArrowDownRight className="h-4 w-4 mr-1" />
-            <span>3% from last {timeRange === '7d' ? 'week' : 'month'}</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Conversion Rate Card */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Conversion Rate</p>
-              <h3 className="text-2xl font-bold">{stats.conversionRate}</h3>
-            </div>
-            <div className="p-2 bg-yellow-100 rounded-full text-yellow-600">
-              <Clock className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="flex items-center text-sm text-green-600 mt-2">
-            <ArrowUpRight className="h-4 w-4 mr-1" />
-            <span>5% from last {timeRange === '7d' ? 'week' : 'month'}</span>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
 
   return (
     <div className="space-y-6">

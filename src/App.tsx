@@ -11,6 +11,7 @@ import SignupSuccessPage from '@/pages/SignupSuccessPage';
 import DashboardPage from '@/pages/DashboardPage';
 import ProfilePage from '@/pages/ProfilePage';
 import UnauthorizedPage from '@/pages/UnauthorizedPage';
+import ClickRedirectPage from '@/pages/ClickRedirectPage';
 import { UserRole } from '@/types';
 import './App.css';
 
@@ -35,6 +36,7 @@ function App() {
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/signup-success" element={<SignupSuccessPage />} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
+            <Route path="/click/:trackingCode" element={<ClickRedirectPage />} />
             
             {/* Protected Routes */}
             <Route
@@ -49,7 +51,13 @@ function App() {
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="profile" element={<ProfilePage />} />
               
-              {/* Additional routes to be implemented in Phase 2 */}
+              {/* Phase 2 routes */}
+              <Route path="offers" element={<DashboardPage />} />
+              <Route path="offers/:id" element={<DashboardPage />} />
+              <Route path="offers/create" element={<DashboardPage />} />
+              <Route path="links" element={<DashboardPage />} />
+              <Route path="reports" element={<DashboardPage />} />
+              <Route path="payments" element={<DashboardPage />} />
             </Route>
           </Routes>
         </Router>

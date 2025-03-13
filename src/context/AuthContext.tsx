@@ -29,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Function to fetch user profile
   async function fetchUserProfile(userId: string) {
     try {
+      console.log('Fetching user profile for ID:', userId);
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -37,30 +38,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Error fetching user profile:', error);
-        return;
+        return null;
       }
 
+      console.log('User profile fetched:', data);
       setUser(data as User);
+      return data;
     } catch (error) {
       console.error('Unexpected error fetching user profile:', error);
+      return null;
     }
   }
 
   useEffect(() => {
+    console.log('AuthContext: Initializing auth state');
+    let isMounted = true;
+    
+    // Use a timeout to prevent getting stuck in loading state
+    const loadingTimeout = setTimeout(() => {
+      if (isMounted && isLoading) {
+        console.warn('Auth loading timed out after 10 seconds, forcing isLoading to false');
+        setIsLoading(false);
+      }
+    }, 10000);
+
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!isMounted) return;
+      
+      console.log('Initial session retrieved:', session?.user?.id);
       setSession(session);
       
       if (session?.user) {
-        fetchUserProfile(session.user.id);
+        const profile = await fetchUserProfile(session.user.id);
+        if (!profile && isMounted) {
+          console.warn('No user profile found, signing out');
+          // Handle case where auth session exists but no user profile
+          await supabase.auth.signOut();
+          setSession(null);
+        }
+      } else {
+        setUser(null);
       }
       
-      setIsLoading(false);
+      if (isMounted) setIsLoading(false);
+    }).catch(error => {
+      console.error('Error getting initial session:', error);
+      if (isMounted) setIsLoading(false);
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session?.user?.id);
+      
+      if (!isMounted) return;
+      
       setSession(session);
       
       if (session?.user) {
@@ -73,6 +105,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
+      isMounted = false;
+      clearTimeout(loadingTimeout);
       subscription.unsubscribe();
     };
   }, []);

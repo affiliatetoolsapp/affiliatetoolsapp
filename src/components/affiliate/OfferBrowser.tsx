@@ -16,7 +16,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ArrowUpRight, Clock, Filter, Grid, List, MapPin, Search, Trash2 } from 'lucide-react';
+import { ArrowUpRight, Clock, Eye, Filter, Grid, List, MapPin, Search, Trash2, Award, Tag, Target, DollarSign, Globe, AlertTriangle } from 'lucide-react';
+import OfferDetailView from './OfferDetailView';
 
 export default function OfferBrowser() {
   const { user } = useAuth();
@@ -28,6 +29,8 @@ export default function OfferBrowser() {
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [trafficSource, setTrafficSource] = useState('');
   const [applicationNotes, setApplicationNotes] = useState('');
+  const [showOfferDetail, setShowOfferDetail] = useState(false);
+  const [currentOfferId, setCurrentOfferId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch all active offers
@@ -161,6 +164,12 @@ export default function OfferBrowser() {
     cancelApplication.mutate(applicationId);
   };
 
+  // View offer details
+  const handleViewOffer = (offer: Offer) => {
+    setCurrentOfferId(offer.id);
+    setShowOfferDetail(true);
+  };
+
   // Get unique niches
   const niches = [...new Set(offers?.map(offer => offer.niche).filter(Boolean))];
   
@@ -184,12 +193,65 @@ export default function OfferBrowser() {
     return application ? { status: application.status, id: application.id } : null;
   };
 
+  // Format geo targets for display
+  const formatGeoTargets = (offer: Offer) => {
+    if (!offer.geo_targets) return "Worldwide";
+    
+    try {
+      // If geo_targets is a string, try to parse it
+      const geoObj = typeof offer.geo_targets === 'string' 
+        ? JSON.parse(offer.geo_targets) 
+        : offer.geo_targets;
+      
+      // If it's an empty object or not actually containing country data
+      if (!geoObj || Object.keys(geoObj).length === 0) {
+        return "Worldwide";
+      }
+      
+      return Object.keys(geoObj);
+    } catch (e) {
+      console.error("Error parsing geo targets:", e);
+      return "Worldwide";
+    }
+  };
+  
+  // Format restricted geos for display
+  const formatRestrictedGeos = (offer: Offer) => {
+    if (!offer.restricted_geos || !Array.isArray(offer.restricted_geos) || offer.restricted_geos.length === 0) {
+      return null;
+    }
+    
+    return offer.restricted_geos;
+  };
+
+  // Back from offer detail
+  const handleBackFromDetail = () => {
+    setShowOfferDetail(false);
+    setCurrentOfferId(null);
+  };
+
   // Loading state
   if (offersLoading || applicationsLoading) {
     return (
       <div className="flex justify-center items-center p-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
+    );
+  }
+
+  // Show offer detail view if an offer is selected
+  if (showOfferDetail && currentOfferId) {
+    const offer = offers?.find(o => o.id === currentOfferId);
+    if (!offer) return null;
+    
+    const applicationStatus = getApplicationStatus(currentOfferId)?.status || null;
+    
+    return (
+      <OfferDetailView 
+        offer={offer} 
+        applicationStatus={applicationStatus} 
+        onBack={handleBackFromDetail} 
+      />
     );
   }
 
@@ -263,6 +325,8 @@ export default function OfferBrowser() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredOffers?.map(offer => {
             const application = getApplicationStatus(offer.id);
+            const targetedGeos = formatGeoTargets(offer);
+            const restrictedGeos = formatRestrictedGeos(offer);
             
             return (
               <Card key={offer.id} className="overflow-hidden">
@@ -270,55 +334,100 @@ export default function OfferBrowser() {
                   <div className="flex justify-between items-start">
                     <CardTitle className="text-lg">{offer.name}</CardTitle>
                     {offer.is_featured && (
-                      <Badge variant="secondary">Featured</Badge>
+                      <Badge variant="secondary" className="flex items-center">
+                        <Award className="h-3 w-3 mr-1" />
+                        Featured
+                      </Badge>
                     )}
                   </div>
                   <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
                 </CardHeader>
                 
-                <CardContent className="p-4 pt-0 space-y-2">
-                  <div className="text-sm">
-                    <span className="font-medium">Commission: </span>
+                <CardContent className="p-4 pt-0 space-y-3">
+                  <div className="text-sm flex items-center">
+                    <DollarSign className="h-4 w-4 mr-1 text-green-500" />
+                    <span className="font-medium mr-1">Commission:</span>
                     {offer.commission_type === 'RevShare' 
                       ? `${offer.commission_percent}% Revenue Share` 
                       : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
                   </div>
                   
                   {offer.niche && (
-                    <div className="text-sm">
-                      <span className="font-medium">Niche: </span>{offer.niche}
+                    <div className="text-sm flex items-center">
+                      <Tag className="h-4 w-4 mr-1 text-blue-500" />
+                      <span className="font-medium mr-1">Niche:</span>
+                      {offer.niche}
                     </div>
                   )}
                   
-                  {offer.geo_targets && (
-                    <div className="text-sm flex items-start">
-                      <span className="font-medium mr-1">Geos: </span>
-                      <div className="flex flex-wrap gap-1">
-                        {Object.keys(offer.geo_targets).length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {Object.keys(offer.geo_targets).map(geo => (
-                              <Badge key={geo} variant="outline" className="flex items-center">
-                                <MapPin className="h-3 w-3 mr-1" />
-                                {geo}
-                              </Badge>
-                            ))}
-                          </div>
+                  {/* Targeted Geos Section */}
+                  <div className="text-sm">
+                    <div className="flex items-center mb-1">
+                      <Globe className="h-4 w-4 mr-1 text-indigo-500" />
+                      <span className="font-medium">Targeted Geos:</span>
+                    </div>
+                    {Array.isArray(targetedGeos) ? (
+                      <div className="flex flex-wrap gap-1 ml-5 mt-1">
+                        {targetedGeos.length > 0 ? (
+                          targetedGeos.map(geo => (
+                            <Badge key={geo} variant="outline" className="flex items-center">
+                              <MapPin className="h-3 w-3 mr-1" />
+                              {geo}
+                            </Badge>
+                          ))
                         ) : (
-                          <span>Worldwide</span>
+                          <span className="text-xs text-muted-foreground">Worldwide</span>
                         )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground ml-5">{targetedGeos}</span>
+                    )}
+                  </div>
+                  
+                  {/* Restricted Geos Section */}
+                  {restrictedGeos && restrictedGeos.length > 0 && (
+                    <div className="text-sm">
+                      <div className="flex items-center mb-1">
+                        <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />
+                        <span className="font-medium">Restricted Geos:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 ml-5 mt-1">
+                        {restrictedGeos.map(geo => (
+                          <Badge key={geo} variant="outline" className="flex items-center bg-red-50 text-red-700 border-red-200">
+                            <MapPin className="h-3 w-3 mr-1" />
+                            {geo}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Traffic Sources */}
+                  {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
+                    <div className="text-sm">
+                      <div className="flex items-center">
+                        <Target className="h-4 w-4 mr-1 text-purple-500" />
+                        <span className="font-medium">Allowed Traffic:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 ml-5 mt-1">
+                        {offer.allowed_traffic_sources.map(source => (
+                          <Badge key={source} variant="outline">{source}</Badge>
+                        ))}
                       </div>
                     </div>
                   )}
                 </CardContent>
                 
-                <CardFooter className="p-4 pt-0">
+                <CardFooter className="p-4 pt-0 flex flex-col gap-2">
                   {application?.status === 'approved' ? (
-                    <Button 
-                      className="w-full" 
-                      onClick={() => navigate(`/offers/${offer.id}`)}
-                    >
-                      View Offer
-                    </Button>
+                    <div className="w-full space-y-2">
+                      <Button 
+                        className="w-full" 
+                        onClick={() => navigate(`/offers/${offer.id}`)}
+                      >
+                        View Offer
+                      </Button>
+                    </div>
                   ) : application?.status === 'pending' ? (
                     <div className="w-full space-y-2">
                       <div className="flex justify-between items-center w-full">
@@ -351,60 +460,81 @@ export default function OfferBrowser() {
                       <Button 
                         variant="outline" 
                         className="w-full" 
-                        onClick={() => navigate(`/offers/${offer.id}`)}
+                        onClick={() => handleViewOffer(offer)}
                       >
+                        <Eye className="h-4 w-4 mr-2" />
                         View Details
                       </Button>
                     </div>
                   ) : application?.status === 'rejected' ? (
-                    <Button variant="outline" className="w-full" disabled>
-                      Application Rejected
-                    </Button>
+                    <div className="w-full space-y-2">
+                      <Button variant="outline" className="w-full" disabled>
+                        Application Rejected
+                      </Button>
+                      <Button 
+                        variant="secondary" 
+                        className="w-full" 
+                        onClick={() => handleViewOffer(offer)}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Details
+                      </Button>
+                    </div>
                   ) : (
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button className="w-full">Apply to Promote</Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Apply to Promote: {offer.name}</DialogTitle>
-                          <DialogDescription>
-                            Tell the advertiser how you plan to promote their offer
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="traffic-source">Traffic Source</Label>
-                            <Input
-                              id="traffic-source"
-                              placeholder="e.g., Email, Social Media, Blog"
-                              value={trafficSource}
-                              onChange={(e) => setTrafficSource(e.target.value)}
-                            />
+                    <div className="w-full flex flex-col gap-2">
+                      <Button 
+                        variant="secondary" 
+                        className="w-full" 
+                        onClick={() => handleViewOffer(offer)}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Details
+                      </Button>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button className="w-full">Apply to Promote</Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Apply to Promote: {offer.name}</DialogTitle>
+                            <DialogDescription>
+                              Tell the advertiser how you plan to promote their offer
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="grid gap-4 py-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="traffic-source">Traffic Source</Label>
+                              <Input
+                                id="traffic-source"
+                                placeholder="e.g., Email, Social Media, Blog"
+                                value={trafficSource}
+                                onChange={(e) => setTrafficSource(e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="notes">Additional Notes (Optional)</Label>
+                              <Input
+                                id="notes"
+                                placeholder="Tell the advertiser more about your promotion plan"
+                                value={applicationNotes}
+                                onChange={(e) => setApplicationNotes(e.target.value)}
+                              />
+                            </div>
                           </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="notes">Additional Notes (Optional)</Label>
-                            <Input
-                              id="notes"
-                              placeholder="Tell the advertiser more about your promotion plan"
-                              value={applicationNotes}
-                              onChange={(e) => setApplicationNotes(e.target.value)}
-                            />
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button 
-                            onClick={() => {
-                              setSelectedOffer(offer);
-                              handleApply();
-                            }}
-                            disabled={!trafficSource || applyToOffer.isPending}
-                          >
-                            {applyToOffer.isPending ? 'Submitting...' : 'Submit Application'}
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
+                          <DialogFooter>
+                            <Button 
+                              onClick={() => {
+                                setSelectedOffer(offer);
+                                handleApply();
+                              }}
+                              disabled={!trafficSource || applyToOffer.isPending}
+                            >
+                              {applyToOffer.isPending ? 'Submitting...' : 'Submit Application'}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                   )}
                 </CardFooter>
               </Card>
@@ -419,6 +549,7 @@ export default function OfferBrowser() {
                 <th className="text-left p-3 font-medium">Offer</th>
                 <th className="text-left p-3 font-medium">Niche</th>
                 <th className="text-left p-3 font-medium">Commission</th>
+                <th className="text-left p-3 font-medium hide-on-mobile">Geo Targeting</th>
                 <th className="text-left p-3 font-medium">Status</th>
                 <th className="text-left p-3 font-medium">Actions</th>
               </tr>
@@ -426,6 +557,8 @@ export default function OfferBrowser() {
             <tbody className="divide-y">
               {filteredOffers?.map(offer => {
                 const application = getApplicationStatus(offer.id);
+                const targetedGeos = formatGeoTargets(offer);
+                const restrictedGeos = formatRestrictedGeos(offer);
                 
                 return (
                   <tr key={offer.id} className="hover:bg-muted/50">
@@ -438,6 +571,47 @@ export default function OfferBrowser() {
                       {offer.commission_type === 'RevShare' 
                         ? `${offer.commission_percent}% Revenue Share` 
                         : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
+                    </td>
+                    <td className="p-3 hide-on-mobile">
+                      <div className="flex flex-col gap-1">
+                        <div className="text-xs font-medium">Targeted:</div>
+                        <div className="flex flex-wrap gap-1">
+                          {Array.isArray(targetedGeos) ? (
+                            targetedGeos.length > 0 ? (
+                              targetedGeos.slice(0, 3).map(geo => (
+                                <Badge key={geo} variant="outline" className="flex items-center">
+                                  {geo}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Worldwide</span>
+                            )
+                          ) : (
+                            <span className="text-xs text-muted-foreground">{targetedGeos}</span>
+                          )}
+                          {Array.isArray(targetedGeos) && targetedGeos.length > 3 && (
+                            <Badge variant="outline">+{targetedGeos.length - 3} more</Badge>
+                          )}
+                        </div>
+                        
+                        {restrictedGeos && restrictedGeos.length > 0 && (
+                          <>
+                            <div className="text-xs font-medium mt-1 text-amber-700">Restricted:</div>
+                            <div className="flex flex-wrap gap-1">
+                              {restrictedGeos.slice(0, 2).map(geo => (
+                                <Badge key={geo} variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                                  {geo}
+                                </Badge>
+                              ))}
+                              {restrictedGeos.length > 2 && (
+                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                                  +{restrictedGeos.length - 2} more
+                                </Badge>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </td>
                     <td className="p-3">
                       {application?.status === 'approved' ? (
@@ -454,13 +628,13 @@ export default function OfferBrowser() {
                       )}
                     </td>
                     <td className="p-3">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => navigate(`/offers/${offer.id}`)}
+                          onClick={() => handleViewOffer(offer)}
                         >
-                          <ArrowUpRight className="h-4 w-4 mr-1" />
+                          <Eye className="h-4 w-4 mr-1" />
                           View
                         </Button>
                         
@@ -544,6 +718,14 @@ export default function OfferBrowser() {
           </table>
         </div>
       )}
+
+      <style jsx>{`
+        @media (max-width: 768px) {
+          .hide-on-mobile {
+            display: none;
+          }
+        }
+      `}</style>
     </div>
   );
 }

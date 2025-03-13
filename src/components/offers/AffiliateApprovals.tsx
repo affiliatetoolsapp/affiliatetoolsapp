@@ -209,7 +209,10 @@ export default function AffiliateApprovals() {
             <div key={app.id} className="p-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <h4 className="font-medium">{app.affiliates?.contact_name || app.affiliates?.email}</h4>
+                  <h4 className="font-medium">
+                    {/* Add optional chaining and fallback for contact_name */}
+                    {app.affiliates?.contact_name || app.affiliates?.email || 'Unknown Affiliate'}
+                  </h4>
                   <p className="text-sm text-muted-foreground">{app.affiliates?.email}</p>
                   <p className="text-sm mt-1">Applied for: <span className="font-medium">{app.offers?.name}</span></p>
                   {app.traffic_source && (

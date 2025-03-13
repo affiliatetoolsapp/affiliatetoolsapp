@@ -41,7 +41,7 @@ export default function OfferBrowser() {
       return data.map(offer => ({
         ...offer,
         is_featured: offer.is_featured || false
-      }));
+      })) as Offer[];
     },
     enabled: !!user && user.role === 'affiliate',
   });

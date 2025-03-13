@@ -13,7 +13,7 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Get affiliate applications for my offers - improved query
+  // Get affiliate applications for my offers - fixed query
   const { data: applications, isLoading, refetch } = useQuery({
     queryKey: ['affiliate-applications', user?.id],
     queryFn: async () => {
@@ -40,11 +40,18 @@ export default function AffiliateApprovals() {
       const offerIds = myOffers.map(offer => offer.id);
       console.log('Found offers:', offerIds);
       
-      // Then get all pending applications for these offers using join
+      // Then get all pending applications for these offers with proper joins
       const { data, error } = await supabase
         .from('affiliate_offers')
         .select(`
-          *,
+          id,
+          offer_id,
+          affiliate_id,
+          status,
+          traffic_source,
+          notes,
+          applied_at,
+          reviewed_at,
           offers(*),
           affiliates:users!affiliate_id(*)
         `)
@@ -61,7 +68,9 @@ export default function AffiliateApprovals() {
     },
     enabled: !!user && user.role === 'advertiser',
     // Add refetch interval to periodically check for new applications
-    refetchInterval: 30000,
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Consider data stale immediately
   });
   
   // Mutation to update application status

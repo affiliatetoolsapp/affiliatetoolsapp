@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -92,7 +91,8 @@ export default function OfferManagement() {
     },
     enabled: !!user && user.role === 'advertiser',
     // Add refetch interval to periodically check for new applications
-    refetchInterval: 30000,
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
   });
   
   // Refresh applications when the applications tab is selected
@@ -426,7 +426,7 @@ export default function OfferManagement() {
                       {offer.geo_targets && Array.isArray(offer.geo_targets) && offer.geo_targets.length > 0 && (
                         <div className="text-sm flex items-center">
                           <Globe className="h-3.5 w-3.5 mr-1 text-blue-500" />
-                          <span className="font-medium mr-1">Targeting: </span>
+                          <span className="font-medium mr-1">Targeting: </span> 
                           {offer.geo_targets.length <= 3 
                             ? offer.geo_targets.join(', ') 
                             : `${offer.geo_targets.length} countries`}

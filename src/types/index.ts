@@ -12,7 +12,13 @@ export type User = Database['public']['Tables']['users']['Row'];
 export type PayoutRequest = Database['public']['Tables']['payout_requests']['Row'];
 
 export type UserRole = 'admin' | 'advertiser' | 'affiliate';
+export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'paid';
 
 export interface AffiliateOfferWithOffer extends AffiliateOffer {
   offer: Offer;
+}
+
+export interface TrackingLinkWithOffer extends TrackingLink {
+  offer: Partial<Offer>;
+  link_type: 'direct' | 'shortened' | 'qr';
 }

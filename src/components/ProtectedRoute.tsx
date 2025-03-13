@@ -1,41 +1,34 @@
-
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { Navigate, useLocation } from 'react-router-dom';
+import { LoadingState } from '@/components/LoadingState';
+
+// Add import for UserRole type
 import { UserRole } from '@/types';
 
-interface ProtectedRouteProps {
+// Update allowedRoles to use UserRole type
+type ProtectedRouteProps = {
   children: React.ReactNode;
   allowedRoles?: UserRole[];
-}
+};
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      navigate('/login', { replace: true });
-    } else if (!isLoading && user && allowedRoles && !allowedRoles.includes(user.role)) {
-      navigate('/unauthorized', { replace: true });
-    }
-  }, [user, isLoading, navigate, allowedRoles]);
-
+  const location = useLocation();
+  
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <LoadingState />;
   }
-
+  
   if (!user) {
-    return null;
+    // Not authenticated
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
-
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return null;
+  
+  if (allowedRoles && !allowedRoles.includes(user.role as UserRole)) {
+    // Not authorized
+    return <Navigate to="/unauthorized" replace />;
   }
-
+  
   return <>{children}</>;
 }

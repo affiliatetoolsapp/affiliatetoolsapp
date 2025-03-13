@@ -137,14 +137,21 @@ export default function LinkRedirectPage() {
         // Build redirect URL with clickId and parameters
         let redirectUrl = linkData.offer.url;
         
-        // Add clickId as a parameter
+        // Add parameters separator if needed
         redirectUrl += redirectUrl.includes('?') ? '&' : '?';
+        
+        // Add clickId as a parameter
         redirectUrl += `clickId=${clickId}`;
         
         // Add custom parameters
         Object.entries(customParams).forEach(([key, value]) => {
           redirectUrl += `&${key}=${encodeURIComponent(value)}`;
         });
+        
+        // If this is a short link or QR code, log additional analytics
+        if (linkData.link_type === 'shortened' || linkData.link_type === 'qr') {
+          console.log(`Redirect from ${linkData.link_type} link: ${trackingCode}`);
+        }
         
         // Redirect to the offer URL
         window.location.href = redirectUrl;

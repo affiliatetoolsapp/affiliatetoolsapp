@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,6 +32,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Link, QrCode, Copy, Download, RefreshCw } from 'lucide-react';
+import { TrackingLinkWithOffer } from '@/types';
 
 export default function TrackingLinkGenerator() {
   const { user } = useAuth();
@@ -322,7 +322,7 @@ export default function TrackingLinkGenerator() {
                     </tr>
                   </thead>
                   <tbody>
-                    {trackingLinks.map((link) => {
+                    {trackingLinks.map((link: TrackingLinkWithOffer) => {
                       const baseUrl = window.location.origin;
                       const trackingUrl = `${baseUrl}/r/${link.tracking_code}`;
                       

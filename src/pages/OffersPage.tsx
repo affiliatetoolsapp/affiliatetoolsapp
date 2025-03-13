@@ -9,6 +9,7 @@ import OfferBrowser from '@/components/affiliate/OfferBrowser';
 import OfferManagement from '@/components/advertiser/OfferManagement';
 import AffiliateOffers from '@/components/affiliate/AffiliateOffers';
 import { useEffect } from 'react';
+import AffiliateApprovals from '@/components/offers/AffiliateApprovals';
 
 export default function OffersPage() {
   const { id } = useParams();
@@ -27,6 +28,11 @@ export default function OffersPage() {
   // If we have an ID with "create", we show the creation form (only for advertisers and admins)
   if (id === 'create' && (user.role === 'advertiser' || user.role === 'admin')) {
     return <CreateOffer />;
+  }
+  
+  // If we have "approve" in the URL, show the approval interface (only for advertisers)
+  if (id === 'approve' && user.role === 'advertiser') {
+    return <AffiliateApprovals />;
   }
   
   // If we have an ID, we show the offer details

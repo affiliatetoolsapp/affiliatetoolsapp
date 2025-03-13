@@ -20,6 +20,29 @@ export default function AffiliateApprovals() {
     queryFn: async () => {
       if (!user) return [];
       
+      console.log('Fetching affiliate applications for advertiser:', user.id);
+      
+      // First get all offers from this advertiser
+      const { data: myOffers, error: offersError } = await supabase
+        .from('offers')
+        .select('id')
+        .eq('advertiser_id', user.id);
+      
+      if (offersError) {
+        console.error('Error fetching offers:', offersError);
+        throw offersError;
+      }
+      
+      if (!myOffers || myOffers.length === 0) {
+        console.log('No offers found for this advertiser');
+        return [];
+      }
+      
+      console.log('Found offers:', myOffers.map(o => o.id));
+      
+      // Then get all pending applications for these offers
+      const offerIds = myOffers.map(offer => offer.id);
+      
       const { data, error } = await supabase
         .from('affiliate_offers')
         .select(`
@@ -27,10 +50,15 @@ export default function AffiliateApprovals() {
           offers!inner(*),
           affiliates:users!affiliate_id(*)
         `)
-        .eq('offers.advertiser_id', user.id)
+        .in('offer_id', offerIds)
         .eq('status', 'pending');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching applications:', error);
+        throw error;
+      }
+      
+      console.log('Found applications:', data);
       return data;
     },
     enabled: !!user && user.role === 'advertiser',
@@ -39,6 +67,8 @@ export default function AffiliateApprovals() {
   // Mutation to update application status
   const updateApplication = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: 'approved' | 'rejected' }) => {
+      console.log(`Updating application ${id} to status: ${status}`);
+      
       const { error } = await supabase
         .from('affiliate_offers')
         .update({ 
@@ -47,7 +77,11 @@ export default function AffiliateApprovals() {
         })
         .eq('id', id);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating application:', error);
+        throw error;
+      }
+      
       return { id, status };
     },
     onSuccess: (data) => {

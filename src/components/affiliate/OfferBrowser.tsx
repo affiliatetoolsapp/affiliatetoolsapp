@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
@@ -41,12 +40,18 @@ export default function OfferBrowser() {
   const { data: availableOffers, isLoading: offersLoading } = useQuery({
     queryKey: ['available-offers'],
     queryFn: async () => {
+      console.log("Fetching available offers for affiliates");
       const { data, error } = await supabase
         .from('offers')
         .select('*')
         .eq('status', 'active');
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching offers:", error);
+        throw error;
+      }
+      
+      console.log("Available offers:", data);
       return data as Offer[];
     },
     enabled: !!user && user.role === 'affiliate',
@@ -58,12 +63,18 @@ export default function OfferBrowser() {
     queryFn: async () => {
       if (!user) return [];
       
+      console.log("Fetching existing applications for affiliate:", user.id);
       const { data, error } = await supabase
         .from('affiliate_offers')
         .select('offer_id, status')
         .eq('affiliate_id', user.id);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching applications:", error);
+        throw error;
+      }
+      
+      console.log("Existing applications:", data);
       return data;
     },
     enabled: !!user && user.role === 'affiliate',
@@ -74,6 +85,8 @@ export default function OfferBrowser() {
     mutationFn: async (offerId: string) => {
       if (!user) throw new Error("User not authenticated");
       
+      console.log("Applying for offer:", offerId, "with traffic source:", trafficSource);
+      
       // Get the advertiser ID from the offer
       const { data: offerData, error: offerError } = await supabase
         .from('offers')
@@ -81,7 +94,10 @@ export default function OfferBrowser() {
         .eq('id', offerId)
         .single();
       
-      if (offerError) throw offerError;
+      if (offerError) {
+        console.error("Error fetching offer data:", offerError);
+        throw offerError;
+      }
       
       if (!offerData.advertiser_id) {
         throw new Error("Offer has no advertiser assigned");
@@ -99,7 +115,10 @@ export default function OfferBrowser() {
         })
         .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error submitting application:", error);
+        throw error;
+      }
       
       console.log("Application submitted:", data);
       return data;

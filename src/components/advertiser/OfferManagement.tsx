@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,6 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Search, Filter, PlusCircle, MoreVertical, Edit, Trash2, Users, Pause, Play, Grid, List, Globe, Shield, Target } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import AffiliateApprovals from '@/components/offers/AffiliateApprovals';
 
 export default function OfferManagement() {
   const { user } = useAuth();
@@ -47,8 +47,8 @@ export default function OfferManagement() {
   });
   
   // Get affiliate applications for advertiser's offers
-  const { data: applications, isLoading: applicationsLoading } = useQuery({
-    queryKey: ['affiliate-applications', user?.id],
+  const { data: applications, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery({
+    queryKey: ['affiliate-applications-count', user?.id],
     queryFn: async () => {
       if (!user || !offers || offers.length === 0) return [];
       
@@ -74,6 +74,15 @@ export default function OfferManagement() {
     },
     enabled: !!offers && offers.length > 0 && !!user && user.role === 'advertiser',
   });
+  
+  // Refresh applications when the applications tab is selected
+  const [activeTab, setActiveTab] = useState('offers');
+  
+  useEffect(() => {
+    if (activeTab === 'applications') {
+      refetchApplications();
+    }
+  }, [activeTab, refetchApplications]);
   
   // Filter offers based on search query
   const filteredOffers = offers?.filter(offer => 
@@ -310,7 +319,7 @@ export default function OfferManagement() {
         </div>
       </div>
       
-      <Tabs defaultValue="offers">
+      <Tabs defaultValue="offers" onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="offers">My Offers</TabsTrigger>
           <TabsTrigger value="applications">
@@ -455,69 +464,7 @@ export default function OfferManagement() {
         </TabsContent>
         
         <TabsContent value="applications">
-          {applicationsLoading ? (
-            <div className="flex justify-center p-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          ) : applications?.length ? (
-            <div className="rounded-md border">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="p-3 text-left font-medium">Affiliate</th>
-                      <th className="p-3 text-left font-medium">Offer</th>
-                      <th className="p-3 text-left font-medium">Traffic Source</th>
-                      <th className="p-3 text-left font-medium">Notes</th>
-                      <th className="p-3 text-left font-medium">Applied On</th>
-                      <th className="p-3 text-left font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {applications.map((app: any) => (
-                      <tr key={app.id} className="border-b hover:bg-muted/50">
-                        <td className="p-3">
-                          {app.affiliate.contact_name || app.affiliate.email}
-                          {app.affiliate.company_name && (
-                            <div className="text-xs text-muted-foreground">{app.affiliate.company_name}</div>
-                          )}
-                        </td>
-                        <td className="p-3">{app.offer.name}</td>
-                        <td className="p-3">{app.traffic_source || 'Not specified'}</td>
-                        <td className="p-3">{app.notes || '-'}</td>
-                        <td className="p-3">
-                          {new Date(app.applied_at).toLocaleDateString()}
-                        </td>
-                        <td className="p-3">
-                          <div className="flex gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleApplicationAction(app.id, 'approved')}
-                            >
-                              Approve
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              className="text-destructive"
-                              onClick={() => handleApplicationAction(app.id, 'rejected')}
-                            >
-                              Reject
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground">No pending applications</p>
-            </Card>
-          )}
+          <AffiliateApprovals />
         </TabsContent>
       </Tabs>
     </div>

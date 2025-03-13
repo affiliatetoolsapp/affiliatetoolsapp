@@ -20,6 +20,7 @@ export default function AffiliateApprovals() {
     queryFn: async () => {
       if (!user) return [];
       
+      console.log("Fetching affiliate applications for advertiser:", user.id);
       const { data, error } = await supabase
         .from('affiliate_offers')
         .select(`
@@ -30,7 +31,12 @@ export default function AffiliateApprovals() {
         .eq('offers.advertiser_id', user.id)
         .eq('status', 'pending');
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching affiliate applications:", error);
+        throw error;
+      }
+      
+      console.log("Applications fetched:", data?.length);
       return data;
     },
     enabled: !!user && user.role === 'advertiser',
@@ -39,6 +45,7 @@ export default function AffiliateApprovals() {
   // Mutation to update application status
   const updateApplication = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: 'approved' | 'rejected' }) => {
+      console.log("Updating application:", id, "to status:", status);
       const { error } = await supabase
         .from('affiliate_offers')
         .update({ 
@@ -58,12 +65,12 @@ export default function AffiliateApprovals() {
       });
     },
     onError: (error) => {
+      console.error("Error updating application:", error);
       toast({
         variant: 'destructive',
         title: 'Error',
         description: 'Failed to update application status',
       });
-      console.error(error);
     },
   });
   

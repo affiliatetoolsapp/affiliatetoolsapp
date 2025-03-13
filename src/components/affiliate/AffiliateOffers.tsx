@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
@@ -22,13 +21,18 @@ export default function AffiliateOffers() {
     queryFn: async () => {
       if (!user) return [];
       
+      console.log("Fetching approved offers for affiliate:", user.id);
       const { data, error } = await supabase
         .from('affiliate_offers')
         .select('*, offer:offers(*)')
         .eq('affiliate_id', user.id)
         .eq('status', 'approved');
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching approved offers:", error);
+        throw error;
+      }
+      console.log("Approved offers fetched:", data?.length);
       return data as (AffiliateOffer & { offer: Offer })[];
     },
     enabled: !!user && user.role === 'affiliate',
@@ -40,13 +44,18 @@ export default function AffiliateOffers() {
     queryFn: async () => {
       if (!user) return [];
       
+      console.log("Fetching pending offers for affiliate:", user.id);
       const { data, error } = await supabase
         .from('affiliate_offers')
         .select('*, offer:offers(*)')
         .eq('affiliate_id', user.id)
         .eq('status', 'pending');
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching pending offers:", error);
+        throw error;
+      }
+      console.log("Pending offers fetched:", data?.length);
       return data as (AffiliateOffer & { offer: Offer })[];
     },
     enabled: !!user && user.role === 'affiliate',
@@ -58,13 +67,18 @@ export default function AffiliateOffers() {
     queryFn: async () => {
       if (!user) return [];
       
+      console.log("Fetching rejected offers for affiliate:", user.id);
       const { data, error } = await supabase
         .from('affiliate_offers')
         .select('*, offer:offers(*)')
         .eq('affiliate_id', user.id)
         .eq('status', 'rejected');
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching rejected offers:", error);
+        throw error;
+      }
+      console.log("Rejected offers fetched:", data?.length);
       return data as (AffiliateOffer & { offer: Offer })[];
     },
     enabled: !!user && user.role === 'affiliate',

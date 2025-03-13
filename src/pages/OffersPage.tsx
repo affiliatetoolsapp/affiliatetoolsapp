@@ -16,6 +16,7 @@ export default function OffersPage() {
   const navigate = useNavigate();
   
   useEffect(() => {
+    console.log("OffersPage rendered with id:", id, "user role:", user?.role);
     // If user is affiliate and tries to create an offer, redirect to the offers list
     if (id === 'create' && user?.role === 'affiliate') {
       navigate('/offers');
@@ -31,6 +32,7 @@ export default function OffersPage() {
   
   // If we have an ID, we show the offer details
   if (id) {
+    console.log("Rendering OfferDetails for offer:", id);
     return <OfferDetails offerId={id} />;
   }
   

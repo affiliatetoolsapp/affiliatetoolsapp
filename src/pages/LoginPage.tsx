@@ -9,7 +9,9 @@ export default function LoginPage() {
   const navigate = useNavigate();
   
   useEffect(() => {
+    console.log("LoginPage auth state:", { user, isLoading });
     if (!isLoading && user) {
+      console.log("User is authenticated, redirecting to dashboard");
       navigate('/dashboard');
     }
   }, [user, isLoading, navigate]);

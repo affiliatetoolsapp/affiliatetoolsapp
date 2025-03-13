@@ -29,6 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Function to fetch user profile
   async function fetchUserProfile(userId: string) {
     try {
+      console.log("Fetching user profile for:", userId);
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -40,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      console.log("User profile fetched:", data);
       setUser(data as User);
     } catch (error) {
       console.error('Unexpected error fetching user profile:', error);
@@ -48,15 +50,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      
-      if (session?.user) {
-        fetchUserProfile(session.user.id);
+    const initializeAuth = async () => {
+      setIsLoading(true);
+      try {
+        console.log("Initializing auth...");
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log("Initial session:", session?.user?.id || "No session");
+        
+        setSession(session);
+        
+        if (session?.user) {
+          await fetchUserProfile(session.user.id);
+        }
+      } catch (error) {
+        console.error("Error initializing auth:", error);
+      } finally {
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
-    });
+    };
+
+    initializeAuth();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -80,9 +93,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signIn(email: string, password: string) {
     setIsLoading(true);
     try {
+      console.log("Signing in with email:", email);
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Sign in error:", error);
+        throw error;
+      }
+      
+      console.log("Sign in successful:", data.user?.id);
       
       // Auth state change will handle session and user update
       toast({

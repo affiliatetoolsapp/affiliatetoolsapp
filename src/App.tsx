@@ -12,10 +12,17 @@ import DashboardPage from '@/pages/DashboardPage';
 import ProfilePage from '@/pages/ProfilePage';
 import UnauthorizedPage from '@/pages/UnauthorizedPage';
 import ClickRedirectPage from '@/pages/ClickRedirectPage';
+import LinkRedirectPage from '@/pages/LinkRedirectPage';
 import OffersPage from '@/pages/OffersPage';
 import ReportsPage from '@/pages/ReportsPage';
 import PaymentsPage from '@/pages/PaymentsPage';
 import LinksPage from '@/pages/LinksPage';
+import MarketplacePage from '@/pages/MarketplacePage';
+import WalletPage from '@/pages/WalletPage';
+import PerformancePage from '@/pages/PerformancePage';
+import EarningsPage from '@/pages/EarningsPage';
+import PartnersPage from '@/pages/PartnersPage';
+import SettingsPage from '@/pages/SettingsPage';
 import { UserRole } from '@/types';
 import './App.css';
 
@@ -40,6 +47,9 @@ function App() {
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/signup-success" element={<SignupSuccessPage />} />
             <Route path="/unauthorized" element={<UnauthorizedPage />} />
+            
+            {/* Redirect Routes */}
+            <Route path="/r/:trackingCode" element={<LinkRedirectPage />} />
             <Route path="/click/:trackingCode" element={<ClickRedirectPage />} />
             
             {/* Protected Routes */}
@@ -55,12 +65,22 @@ function App() {
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="profile" element={<ProfilePage />} />
               
-              {/* Main routes */}
+              {/* Common routes */}
               <Route path="offers" element={<OffersPage />} />
               <Route path="offers/:id" element={<OffersPage />} />
-              <Route path="links" element={<LinksPage />} />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="payments" element={<PaymentsPage />} />
+              <Route path="wallet" element={<WalletPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              
+              {/* Affiliate-specific routes */}
+              <Route path="marketplace" element={<MarketplacePage />} />
+              <Route path="links" element={<LinksPage />} />
+              <Route path="performance" element={<PerformancePage />} />
+              <Route path="earnings" element={<EarningsPage />} />
+              
+              {/* Advertiser-specific routes */}
+              <Route path="partners" element={<PartnersPage />} />
             </Route>
           </Routes>
         </Router>

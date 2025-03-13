@@ -13,7 +13,10 @@ import {
   Box, 
   Users, 
   Link as LinkIcon,
-  Store
+  Store,
+  FileText,
+  LayoutDashboard,
+  TrendingUp
 } from 'lucide-react';
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
@@ -29,31 +32,36 @@ export function Sidebar({ className, ...props }: SidebarProps) {
   if (!user) return null;
 
   const commonLinks = [
-    { name: 'Dashboard', href: '/dashboard', icon: Home },
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Profile', href: '/profile', icon: User },
   ];
   
   const adminLinks = [
     { name: 'Users', href: '/users', icon: Users },
-    { name: 'Offers', href: '/admin/offers', icon: Box },
+    { name: 'Offers', href: '/offers', icon: Box },
     { name: 'Payments', href: '/payments', icon: DollarSign },
+    { name: 'Reports', href: '/reports', icon: FileText },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
   
   const advertiserLinks = [
     { name: 'My Offers', href: '/offers', icon: Box },
     { name: 'Affiliates', href: '/partners', icon: Users },
+    { name: 'Reports', href: '/reports', icon: FileText },
     { name: 'Payments', href: '/payments', icon: DollarSign },
     { name: 'Wallet', href: '/wallet', icon: Wallet },
+    { name: 'Settings', href: '/settings', icon: Settings },
   ];
   
   const affiliateLinks = [
     { name: 'Marketplace', href: '/marketplace', icon: Store },
     { name: 'My Offers', href: '/offers', icon: Box },
     { name: 'Tracking Links', href: '/links', icon: LinkIcon },
-    { name: 'Performance', href: '/performance', icon: BarChart3 },
-    { name: 'Earnings', href: '/earnings', icon: DollarSign },
+    { name: 'Performance', href: '/performance', icon: TrendingUp },
+    { name: 'Reports', href: '/reports', icon: FileText },
+    { name: 'Earnings', href: '/earnings', icon: BarChart3 },
     { name: 'Wallet', href: '/wallet', icon: Wallet },
+    { name: 'Settings', href: '/settings', icon: Settings },
   ];
   
   let roleSpecificLinks = [];

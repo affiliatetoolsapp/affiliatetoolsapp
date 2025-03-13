@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -46,13 +47,30 @@ export default function OfferManagement() {
     enabled: !!user && user.role === 'advertiser',
   });
   
-  // Get affiliate applications for advertiser's offers
+  // Get affiliate applications for advertiser's offers - improved query
   const { data: applications, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery({
     queryKey: ['affiliate-applications-count', user?.id],
     queryFn: async () => {
-      if (!user || !offers || offers.length === 0) return [];
+      if (!user) return [];
       
-      console.log("Fetching applications for offer IDs:", offers.map(o => o.id));
+      // First get all offers from this advertiser
+      const { data: myOffers, error: offersError } = await supabase
+        .from('offers')
+        .select('id')
+        .eq('advertiser_id', user.id);
+      
+      if (offersError) {
+        console.error("Error fetching offers:", offersError);
+        throw offersError;
+      }
+      
+      if (!myOffers || myOffers.length === 0) {
+        console.log("No offers found for this advertiser");
+        return [];
+      }
+      
+      const offerIds = myOffers.map(o => o.id);
+      console.log("Fetching applications for offer IDs:", offerIds);
       
       const { data, error } = await supabase
         .from('affiliate_offers')
@@ -62,7 +80,7 @@ export default function OfferManagement() {
           affiliate:users!affiliate_id(*)
         `)
         .eq('status', 'pending')
-        .in('offer_id', offers.map(o => o.id));
+        .in('offer_id', offerIds);
       
       if (error) {
         console.error("Error fetching applications:", error);
@@ -70,9 +88,11 @@ export default function OfferManagement() {
       }
       
       console.log("Fetched applications:", data);
-      return data;
+      return data || [];
     },
-    enabled: !!offers && offers.length > 0 && !!user && user.role === 'advertiser',
+    enabled: !!user && user.role === 'advertiser',
+    // Add refetch interval to periodically check for new applications
+    refetchInterval: 30000,
   });
   
   // Refresh applications when the applications tab is selected
@@ -142,6 +162,7 @@ export default function OfferManagement() {
       }
       
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['affiliate-applications-count', user?.id] });
       
       toast({
         title: action === 'approved' ? 'Affiliate Approved' : 'Affiliate Rejected',
@@ -322,7 +343,7 @@ export default function OfferManagement() {
       <Tabs defaultValue="offers" onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="offers">My Offers</TabsTrigger>
-          <TabsTrigger value="applications">
+          <TabsTrigger value="applications" onClick={() => refetchApplications()}>
             Pending Applications
             {applications?.length ? (
               <Badge variant="secondary" className="ml-2">{applications.length}</Badge>

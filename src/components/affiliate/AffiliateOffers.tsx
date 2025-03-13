@@ -1,6 +1,5 @@
-
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { AffiliateOffer, Offer } from '@/types';
@@ -10,13 +9,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, ExternalLink, Link as LinkIcon, Clock, Check, X, Grid, List } from 'lucide-react';
+import { Search, ExternalLink, Link as LinkIcon, Clock, Check, X, Grid, List, Trash } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 export default function AffiliateOffers() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   // Get approved offers for this affiliate
   const { data: approvedOffers, isLoading: approvedLoading } = useQuery({
@@ -73,6 +76,34 @@ export default function AffiliateOffers() {
     enabled: !!user && user.role === 'affiliate',
   });
   
+  // Cancel application mutation
+  const cancelApplication = useMutation({
+    mutationFn: async (applicationId: string) => {
+      const { error } = await supabase
+        .from('affiliate_offers')
+        .delete()
+        .eq('id', applicationId);
+      
+      if (error) throw error;
+      return applicationId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['affiliate-pending-offers'] });
+      toast({
+        title: 'Application Cancelled',
+        description: 'Your application has been successfully cancelled',
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to cancel application. Please try again.',
+      });
+      console.error(error);
+    }
+  });
+  
   // Filter offers based on search query
   const filteredApprovedOffers = approvedOffers?.filter(item => 
     item.offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -82,57 +113,9 @@ export default function AffiliateOffers() {
   
   const isLoading = approvedLoading || pendingLoading || rejectedLoading;
   
-  const renderOffersTable = (offers: (AffiliateOffer & { offer: Offer })[]) => (
-    <div className="rounded-md border overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Offer</TableHead>
-            <TableHead>Niche</TableHead>
-            <TableHead>Commission</TableHead>
-            <TableHead>Traffic Source</TableHead>
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {offers.map((affiliateOffer) => (
-            <TableRow key={affiliateOffer.id}>
-              <TableCell className="font-medium">{affiliateOffer.offer.name}</TableCell>
-              <TableCell>{affiliateOffer.offer.niche || '-'}</TableCell>
-              <TableCell>
-                {affiliateOffer.offer.commission_type === 'RevShare' 
-                  ? `${affiliateOffer.offer.commission_percent}% Revenue Share` 
-                  : `$${affiliateOffer.offer.commission_amount} per ${affiliateOffer.offer.commission_type.slice(2)}`}
-              </TableCell>
-              <TableCell>{affiliateOffer.traffic_source || '-'}</TableCell>
-              <TableCell>
-                <div className="flex space-x-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => window.open(affiliateOffer.offer.url, '_blank')}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Preview
-                  </Button>
-                  
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      window.location.href = `/links?offer=${affiliateOffer.offer_id}`;
-                    }}
-                  >
-                    <LinkIcon className="h-4 w-4 mr-2" />
-                    Links
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
+  const handleCancelApplication = (applicationId: string) => {
+    cancelApplication.mutate(applicationId);
+  };
   
   const renderPendingTable = (applications: (AffiliateOffer & { offer: Offer })[]) => (
     <div className="rounded-md border overflow-hidden">
@@ -143,6 +126,7 @@ export default function AffiliateOffers() {
             <TableHead>Applied On</TableHead>
             <TableHead>Traffic Source</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -156,6 +140,30 @@ export default function AffiliateOffers() {
                   <Clock className="h-3 w-3 mr-1" />
                   Pending
                 </Badge>
+              </TableCell>
+              <TableCell>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="text-destructive">
+                      <Trash className="h-3 w-3 mr-1" />
+                      Cancel
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Cancel Application</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to cancel your application for "{application.offer.name}"? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>No, keep it</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleCancelApplication(application.id)}>
+                        Yes, cancel application
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </TableCell>
             </TableRow>
           ))}
@@ -283,11 +291,6 @@ export default function AffiliateOffers() {
                         </div>
                       )}
                       
-                      <div className="text-sm">
-                        <span className="font-medium">Your Traffic Source: </span>
-                        {affiliateOffer.traffic_source}
-                      </div>
-                      
                       <div className="mt-4 flex justify-between">
                         <Button 
                           variant="outline" 
@@ -313,7 +316,54 @@ export default function AffiliateOffers() {
                 ))}
               </div>
             ) : (
-              renderOffersTable(filteredApprovedOffers)
+              // Render table for approved offers
+              <div className="rounded-md border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Offer</TableHead>
+                      <TableHead>Niche</TableHead>
+                      <TableHead>Commission</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredApprovedOffers.map((affiliateOffer) => (
+                      <TableRow key={affiliateOffer.id}>
+                        <TableCell className="font-medium">{affiliateOffer.offer.name}</TableCell>
+                        <TableCell>{affiliateOffer.offer.niche || '-'}</TableCell>
+                        <TableCell>
+                          {affiliateOffer.offer.commission_type === 'RevShare' 
+                            ? `${affiliateOffer.offer.commission_percent}% Revenue Share` 
+                            : `$${affiliateOffer.offer.commission_amount} per ${affiliateOffer.offer.commission_type.slice(2)}`}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => window.open(affiliateOffer.offer.url, '_blank')}
+                            >
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              Preview
+                            </Button>
+                            
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                window.location.href = `/links?offer=${affiliateOffer.offer_id}`;
+                              }}
+                            >
+                              <LinkIcon className="h-4 w-4 mr-2" />
+                              Links
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )
           ) : (
             <Card className="p-8 text-center">
@@ -366,6 +416,28 @@ export default function AffiliateOffers() {
                           {application.notes}
                         </div>
                       )}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" className="mt-2 text-destructive">
+                            <Trash className="h-4 w-4 mr-2" />
+                            Cancel Application
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Cancel Application</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to cancel your application for "{application.offer.name}"? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>No, keep it</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleCancelApplication(application.id)}>
+                              Yes, cancel application
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </CardContent>
                   </Card>
                 ))}

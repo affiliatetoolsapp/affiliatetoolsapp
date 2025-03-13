@@ -362,13 +362,13 @@ export default function OfferBrowser() {
                     {application.status === 'approved' && (
                       <div className="mt-4">
                         <Button
-                          asChild
                           variant="outline"
                           className="w-full"
+                          onClick={() => {
+                            window.location.href = `/links?offer=${application.offer_id}`;
+                          }}
                         >
-                          <a href={`/links?offer=${application.offer_id}`}>
-                            Generate Tracking Links
-                          </a>
+                          Generate Tracking Links
                         </Button>
                       </div>
                     )}
@@ -379,7 +379,10 @@ export default function OfferBrowser() {
           ) : (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">You haven't applied to any offers yet</p>
-              <Button className="mt-4" onClick={() => document.querySelector('[data-value="available"]')?.click()}>
+              <Button className="mt-4" onClick={() => {
+                const availableTab = document.querySelector('[data-value="available"]') as HTMLElement;
+                if (availableTab) availableTab.click();
+              }}>
                 Browse Available Offers
               </Button>
             </Card>

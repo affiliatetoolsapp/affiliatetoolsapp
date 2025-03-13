@@ -39,6 +39,3 @@ enable_signup = true
 
 [realtime]
 enabled = true
-
-[edge_functions]
-enabled = true

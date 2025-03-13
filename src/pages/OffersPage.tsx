@@ -1,17 +1,27 @@
-import { useParams } from 'react-router-dom';
+
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import OffersList from '@/components/offers/OffersList';
 import OfferDetails from '@/components/offers/OfferDetails';
 import CreateOffer from '@/components/offers/CreateOffer';
+import { useEffect } from 'react';
 
 export default function OffersPage() {
   const { id } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    // If user is affiliate and tries to create an offer, redirect to the offers list
+    if (id === 'create' && user?.role === 'affiliate') {
+      navigate('/offers');
+    }
+  }, [id, user, navigate]);
   
   if (!user) return null;
   
-  // If we have an ID with "create", we show the creation form
-  if (id === 'create') {
+  // If we have an ID with "create", we show the creation form (only for advertisers and admins)
+  if (id === 'create' && (user.role === 'advertiser' || user.role === 'admin')) {
     return <CreateOffer />;
   }
   

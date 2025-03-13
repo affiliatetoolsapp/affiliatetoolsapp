@@ -1,14 +1,43 @@
 
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Offer, AffiliateOffer, Click, Conversion, Payment } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
+import { 
+  PlusCircle, 
+  TrendingUp, 
+  Users, 
+  MousePointerClick, 
+  CreditCard,
+  ArrowUpRight,
+  ArrowDownRight
+} from 'lucide-react';
+import AffiliateApprovals from '../offers/AffiliateApprovals';
+import { 
+  BarChart, 
+  Bar, 
+  LineChart, 
+  Line,
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer 
+} from 'recharts';
+import { format, subDays, startOfDay, endOfDay, eachDayOfInterval } from 'date-fns';
 
 export default function AdvertiserDashboard() {
   const { user } = useAuth();
+  const [dateRange] = useState(7); // Last 7 days default
+
+  // Calculate date range for charts
+  const endDate = new Date();
+  const startDate = subDays(endDate, dateRange);
 
   const { data: offers } = useQuery({
     queryKey: ['advertiser-offers', user?.id],
@@ -40,14 +69,16 @@ export default function AdvertiserDashboard() {
   });
 
   const { data: clicks } = useQuery({
-    queryKey: ['advertiser-clicks', offers],
+    queryKey: ['advertiser-clicks', offers, dateRange],
     queryFn: async () => {
       if (!offers || offers.length === 0) return [];
       const offerIds = offers.map(offer => offer.id);
       const { data, error } = await supabase
         .from('clicks')
         .select('*')
-        .in('offer_id', offerIds);
+        .in('offer_id', offerIds)
+        .gte('created_at', startOfDay(startDate).toISOString())
+        .lte('created_at', endOfDay(endDate).toISOString());
       if (error) throw error;
       return data as Click[];
     },
@@ -84,11 +115,80 @@ export default function AdvertiserDashboard() {
     enabled: !!user,
   });
   
+  // Prepare data for charts
+  const prepareChartData = () => {
+    if (!clicks) return [];
+    
+    // Create an array of all days in the date range
+    const days = eachDayOfInterval({ start: startDate, end: endDate });
+    
+    // Initialize the data array with counts of 0
+    const data = days.map(day => {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      return {
+        date: dateStr,
+        clicks: 0,
+        conversions: 0,
+        revenue: 0,
+        commissions: 0,
+      };
+    });
+    
+    // Count clicks by day
+    clicks.forEach(click => {
+      const clickDate = format(new Date(click.created_at), 'yyyy-MM-dd');
+      const dataPoint = data.find(d => d.date === clickDate);
+      if (dataPoint) {
+        dataPoint.clicks += 1;
+      }
+    });
+    
+    // Count conversions and sum revenue/commissions by day
+    if (conversions) {
+      conversions.forEach(conv => {
+        // Find associated click to get date
+        const click = clicks.find(c => c.click_id === conv.click_id);
+        if (click) {
+          const clickDate = format(new Date(click.created_at), 'yyyy-MM-dd');
+          const dataPoint = data.find(d => d.date === clickDate);
+          if (dataPoint) {
+            dataPoint.conversions += 1;
+            dataPoint.revenue += conv.revenue || 0;
+            dataPoint.commissions += conv.commission || 0;
+          }
+        }
+      });
+    }
+    
+    // Format dates for display
+    return data.map(item => ({
+      ...item,
+      date: format(new Date(item.date), 'MMM dd'),
+      revenue: parseFloat(item.revenue.toFixed(2)),
+      commissions: parseFloat(item.commissions.toFixed(2)),
+    }));
+  };
+  
+  const chartData = prepareChartData();
+  
   const totalOffers = offers?.length || 0;
   const pendingAffiliateRequests = affiliateOffers?.filter(ao => ao.status === 'pending').length || 0;
+  const approvedAffiliates = affiliateOffers?.filter(ao => ao.status === 'approved').length || 0;
   const totalClicks = clicks?.length || 0;
   const totalConversions = conversions?.length || 0;
+  const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0;
   const walletBalance = wallet?.balance || 0;
+  
+  // Calculate trends (compare to previous period)
+  const previousPeriodClicks = clicks?.filter(c => {
+    const clickDate = new Date(c.created_at);
+    const previousPeriodStart = subDays(startDate, dateRange);
+    return clickDate >= previousPeriodStart && clickDate < startDate;
+  }).length || 0;
+  
+  const clicksTrend = previousPeriodClicks > 0 
+    ? ((totalClicks - previousPeriodClicks) / previousPeriodClicks) * 100 
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -111,135 +211,347 @@ export default function AdvertiserDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Offers</CardTitle>
+            <div className="p-2 bg-primary/10 rounded-full">
+              <TrendingUp className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalOffers}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Affiliate Requests</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{pendingAffiliateRequests}</div>
-            <p className="text-xs text-muted-foreground">
-              Awaiting your approval
+            <p className="text-xs text-muted-foreground mt-1">
+              {offers?.filter(o => o.status === 'active').length || 0} active
             </p>
           </CardContent>
         </Card>
+        
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Clicks</CardTitle>
+            <CardTitle className="text-sm font-medium">Active Affiliates</CardTitle>
+            <div className="p-2 bg-primary/10 rounded-full">
+              <Users className="h-4 w-4 text-primary" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{approvedAffiliates}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {pendingAffiliateRequests} pending approval
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Clicks (7d)</CardTitle>
+            <div className="p-2 bg-primary/10 rounded-full">
+              <MousePointerClick className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalClicks}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Wallet Balance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${walletBalance.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-      </div>
-      
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Offers</CardTitle>
-            <CardDescription>Manage and track your affiliate offers</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {offers && offers.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-2">Name</th>
-                      <th className="text-left p-2">Commission</th>
-                      <th className="text-left p-2">Status</th>
-                      <th className="text-left p-2">Affiliates</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {offers.map((offer) => {
-                      const offerAffiliates = affiliateOffers?.filter(
-                        ao => ao.offer_id === offer.id && ao.status === 'approved'
-                      ).length || 0;
-                      
-                      return (
-                        <tr key={offer.id} className="border-b hover:bg-muted/50">
-                          <td className="p-2">
-                            <a href={`/offers/${offer.id}`} className="text-primary hover:underline">
-                              {offer.name}
-                            </a>
-                          </td>
-                          <td className="p-2">
-                            {offer.commission_type === 'RevShare' 
-                              ? `${offer.commission_percent}%` 
-                              : `$${offer.commission_amount}`}
-                          </td>
-                          <td className="p-2 capitalize">{offer.status}</td>
-                          <td className="p-2">{offerAffiliates}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-center py-6">
-                <p className="text-muted-foreground mb-4">You haven't created any offers yet</p>
-                <Button asChild>
-                  <a href="/offers/create">
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Create Your First Offer
-                  </a>
-                </Button>
+            {clicksTrend !== 0 && (
+              <div className="flex items-center text-xs mt-1">
+                {clicksTrend > 0 ? (
+                  <>
+                    <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
+                    <span className="text-green-500">{Math.abs(clicksTrend).toFixed(1)}% up</span>
+                  </>
+                ) : (
+                  <>
+                    <ArrowDownRight className="h-3 w-3 text-red-500 mr-1" />
+                    <span className="text-red-500">{Math.abs(clicksTrend).toFixed(1)}% down</span>
+                  </>
+                )}
+                <span className="text-muted-foreground ml-1">vs. previous</span>
               </div>
             )}
           </CardContent>
         </Card>
         
         <Card>
-          <CardHeader>
-            <CardTitle>Recent Conversions</CardTitle>
-            <CardDescription>Latest affiliate conversions for your offers</CardDescription>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Wallet Balance</CardTitle>
+            <div className="p-2 bg-primary/10 rounded-full">
+              <CreditCard className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
-            {conversions && conversions.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-2">Type</th>
-                      <th className="text-left p-2">Revenue</th>
-                      <th className="text-left p-2">Commission</th>
-                      <th className="text-left p-2">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {conversions.slice(0, 5).map((conversion) => (
-                      <tr key={conversion.id} className="border-b">
-                        <td className="p-2 capitalize">{conversion.event_type}</td>
-                        <td className="p-2">${conversion.revenue?.toFixed(2) || '0.00'}</td>
-                        <td className="p-2">${conversion.commission?.toFixed(2) || '0.00'}</td>
-                        <td className="p-2 capitalize">{conversion.status}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-center py-6">
-                <p className="text-muted-foreground">No conversions recorded yet</p>
-              </div>
-            )}
+            <div className="text-2xl font-bold">${walletBalance.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              For affiliate payments
+            </p>
           </CardContent>
         </Card>
       </div>
+      
+      <Tabs defaultValue="overview">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="offers">Offers</TabsTrigger>
+          <TabsTrigger value="affiliates">Affiliate Requests</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="overview" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Performance Trend</CardTitle>
+              <CardDescription>
+                {`${format(startDate, 'MMM dd, yyyy')} - ${format(endDate, 'MMM dd, yyyy')}`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={chartData}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis yAxisId="left" />
+                    <YAxis yAxisId="right" orientation="right" />
+                    <Tooltip />
+                    <Legend />
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="clicks"
+                      stroke="#8884d8"
+                      activeDot={{ r: 8 }}
+                    />
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="conversions"
+                      stroke="#82ca9d"
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="revenue"
+                      stroke="#ff7300"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Conversion Overview</CardTitle>
+                <CardDescription>Last 7 days breakdown</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[250px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
+                        {
+                          name: 'Leads',
+                          count: conversions?.filter(c => c.event_type === 'lead').length || 0,
+                          amount: conversions
+                            ?.filter(c => c.event_type === 'lead')
+                            .reduce((sum, c) => sum + (c.revenue || 0), 0) || 0
+                        },
+                        {
+                          name: 'Sales',
+                          count: conversions?.filter(c => c.event_type === 'sale').length || 0,
+                          amount: conversions
+                            ?.filter(c => c.event_type === 'sale')
+                            .reduce((sum, c) => sum + (c.revenue || 0), 0) || 0
+                        },
+                        {
+                          name: 'Actions',
+                          count: conversions?.filter(c => c.event_type === 'action').length || 0,
+                          amount: conversions
+                            ?.filter(c => c.event_type === 'action')
+                            .reduce((sum, c) => sum + (c.revenue || 0), 0) || 0
+                        }
+                      ]}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="count" name="Count" fill="#8884d8" />
+                      <Bar dataKey="amount" name="Revenue ($)" fill="#82ca9d" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Key Metrics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="border rounded-md">
+                    <div className="grid grid-cols-3 p-3 border-b bg-muted/50">
+                      <div className="font-medium">Metric</div>
+                      <div className="font-medium">Value</div>
+                      <div className="font-medium">Per Day</div>
+                    </div>
+                    <div className="divide-y">
+                      <div className="grid grid-cols-3 p-3">
+                        <div>Clicks</div>
+                        <div>{totalClicks}</div>
+                        <div>{(totalClicks / dateRange).toFixed(1)}</div>
+                      </div>
+                      <div className="grid grid-cols-3 p-3">
+                        <div>Conversions</div>
+                        <div>{totalConversions}</div>
+                        <div>{(totalConversions / dateRange).toFixed(1)}</div>
+                      </div>
+                      <div className="grid grid-cols-3 p-3">
+                        <div>Conversion Rate</div>
+                        <div>{conversionRate.toFixed(2)}%</div>
+                        <div>-</div>
+                      </div>
+                      <div className="grid grid-cols-3 p-3">
+                        <div>Revenue</div>
+                        <div>
+                          ${conversions?.reduce((sum, c) => sum + (c.revenue || 0), 0).toFixed(2) || '0.00'}
+                        </div>
+                        <div>
+                          ${((conversions?.reduce((sum, c) => sum + (c.revenue || 0), 0) || 0) / dateRange).toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 p-3">
+                        <div>Commissions</div>
+                        <div>
+                          ${conversions?.reduce((sum, c) => sum + (c.commission || 0), 0).toFixed(2) || '0.00'}
+                        </div>
+                        <div>
+                          ${((conversions?.reduce((sum, c) => sum + (c.commission || 0), 0) || 0) / dateRange).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Conversions</CardTitle>
+              <CardDescription>Latest affiliate conversions for your offers</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {conversions && conversions.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2">Date</th>
+                        <th className="text-left p-2">Type</th>
+                        <th className="text-left p-2">Revenue</th>
+                        <th className="text-left p-2">Commission</th>
+                        <th className="text-left p-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {conversions.slice(0, 5).map((conversion) => (
+                        <tr key={conversion.id} className="border-b">
+                          <td className="p-2">{format(new Date(conversion.created_at), 'MMM dd, HH:mm')}</td>
+                          <td className="p-2 capitalize">{conversion.event_type}</td>
+                          <td className="p-2">${conversion.revenue?.toFixed(2) || '0.00'}</td>
+                          <td className="p-2">${conversion.commission?.toFixed(2) || '0.00'}</td>
+                          <td className="p-2 capitalize">{conversion.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-muted-foreground">No conversions recorded yet</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="offers">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Offers</CardTitle>
+              <CardDescription>Manage and track your affiliate offers</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {offers && offers.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-2">Name</th>
+                        <th className="text-left p-2">Commission</th>
+                        <th className="text-left p-2">Status</th>
+                        <th className="text-left p-2">Affiliates</th>
+                        <th className="text-left p-2">Clicks (7d)</th>
+                        <th className="text-left p-2">Conv.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {offers.map((offer) => {
+                        const offerAffiliates = affiliateOffers?.filter(
+                          ao => ao.offer_id === offer.id && ao.status === 'approved'
+                        ).length || 0;
+                        
+                        const offerClicks = clicks?.filter(c => c.offer_id === offer.id).length || 0;
+                        
+                        const offerConversions = conversions?.filter(
+                          conv => {
+                            const click = clicks?.find(c => c.click_id === conv.click_id);
+                            return click?.offer_id === offer.id;
+                          }
+                        ).length || 0;
+                        
+                        return (
+                          <tr key={offer.id} className="border-b hover:bg-muted/50">
+                            <td className="p-2">
+                              <a href={`/offers/${offer.id}`} className="text-primary hover:underline">
+                                {offer.name}
+                              </a>
+                            </td>
+                            <td className="p-2">
+                              {offer.commission_type === 'RevShare' 
+                                ? `${offer.commission_percent}%` 
+                                : `$${offer.commission_amount}`}
+                            </td>
+                            <td className="p-2 capitalize">{offer.status}</td>
+                            <td className="p-2">{offerAffiliates}</td>
+                            <td className="p-2">{offerClicks}</td>
+                            <td className="p-2">{offerConversions}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-muted-foreground mb-4">You haven't created any offers yet</p>
+                  <Button asChild>
+                    <a href="/offers/create">
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Create Your First Offer
+                    </a>
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="affiliates">
+          <AffiliateApprovals />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -719,13 +719,16 @@ export default function OfferBrowser() {
         </div>
       )}
 
-      <style jsx>{`
+      {/* Fixed the style tag here - removing the jsx property */}
+      <style>
+        {`
         @media (max-width: 768px) {
           .hide-on-mobile {
             display: none;
           }
         }
-      `}</style>
+        `}
+      </style>
     </div>
   );
 }

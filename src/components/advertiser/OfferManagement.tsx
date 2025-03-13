@@ -17,7 +17,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { Search, Filter, PlusCircle, MoreVertical, Edit, Trash2, Users, Pause, Play } from 'lucide-react';
+import { Search, Filter, PlusCircle, MoreVertical, Edit, Trash2, Users, Pause, Play, Grid, List } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function OfferManagement() {
   const { user } = useAuth();
@@ -25,6 +26,7 @@ export default function OfferManagement() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
   // Get advertiser's offers
   const { data: offers, isLoading: offersLoading } = useQuery({
@@ -38,6 +40,7 @@ export default function OfferManagement() {
         .eq('advertiser_id', user.id);
       
       if (error) throw error;
+      console.log("Advertiser offers:", data);
       return data as Offer[];
     },
     enabled: !!user && user.role === 'advertiser',
@@ -47,7 +50,9 @@ export default function OfferManagement() {
   const { data: applications, isLoading: applicationsLoading } = useQuery({
     queryKey: ['affiliate-applications', user?.id],
     queryFn: async () => {
-      if (!user) return [];
+      if (!user || !offers || offers.length === 0) return [];
+      
+      console.log("Fetching applications for offer IDs:", offers.map(o => o.id));
       
       const { data, error } = await supabase
         .from('affiliate_offers')
@@ -57,12 +62,17 @@ export default function OfferManagement() {
           affiliate:users!affiliate_id(*)
         `)
         .eq('status', 'pending')
-        .in('offer_id', offers?.map(o => o.id) || []);
+        .in('offer_id', offers.map(o => o.id));
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching applications:", error);
+        throw error;
+      }
+      
+      console.log("Fetched applications:", data);
       return data;
     },
-    enabled: !!offers && offers.length > 0,
+    enabled: !!offers && offers.length > 0 && !!user && user.role === 'advertiser',
   });
   
   // Filter offers based on search query
@@ -107,6 +117,8 @@ export default function OfferManagement() {
   // Handle application approval/rejection
   const handleApplicationAction = async (applicationId: string, action: 'approved' | 'rejected') => {
     try {
+      console.log(`Processing application ${applicationId} with action: ${action}`);
+      
       const { error } = await supabase
         .from('affiliate_offers')
         .update({
@@ -115,7 +127,10 @@ export default function OfferManagement() {
         })
         .eq('id', applicationId);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error updating application:", error);
+        throw error;
+      }
       
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications', user?.id] });
       
@@ -127,6 +142,7 @@ export default function OfferManagement() {
       });
       
     } catch (error: any) {
+      console.error("Error in handleApplicationAction:", error);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -138,6 +154,94 @@ export default function OfferManagement() {
   const handleViewOffer = (offerId: string) => {
     navigate(`/offers/${offerId}`);
   };
+  
+  const renderOffersTable = (offers: Offer[]) => (
+    <div className="rounded-md border overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Niche</TableHead>
+            <TableHead>Commission</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {offers.map((offer) => (
+            <TableRow key={offer.id}>
+              <TableCell className="font-medium">
+                <button 
+                  className="hover:underline text-left font-medium"
+                  onClick={() => handleViewOffer(offer.id)}
+                >
+                  {offer.name}
+                </button>
+                {offer.is_featured && (
+                  <Badge variant="outline" className="ml-2 bg-yellow-100 dark:bg-yellow-900">
+                    Featured
+                  </Badge>
+                )}
+              </TableCell>
+              <TableCell>{offer.niche || '-'}</TableCell>
+              <TableCell>
+                {offer.commission_type === 'RevShare' 
+                  ? `${offer.commission_percent}% RevShare` 
+                  : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
+              </TableCell>
+              <TableCell>
+                <Badge variant={offer.status === 'active' ? 'default' : 'secondary'}>
+                  {offer.status}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center space-x-2">
+                  <Button variant="outline" size="sm" onClick={() => handleViewOffer(offer.id)}>
+                    Manage
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleViewOffer(offer.id)}>
+                        <Users className="h-4 w-4 mr-2" />
+                        View Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate(`/offers/${offer.id}/edit`)}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit Offer
+                      </DropdownMenuItem>
+                      {offer.status === 'active' ? (
+                        <DropdownMenuItem onClick={() => handleStatusUpdate(offer.id, 'paused')}>
+                          <Pause className="h-4 w-4 mr-2" />
+                          Pause Offer
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem onClick={() => handleStatusUpdate(offer.id, 'active')}>
+                          <Play className="h-4 w-4 mr-2" />
+                          Activate Offer
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem 
+                        className="text-destructive"
+                        onClick={() => handleStatusUpdate(offer.id, 'stopped')}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Stop Offer
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
   
   return (
     <div className="space-y-6">
@@ -157,7 +261,7 @@ export default function OfferManagement() {
         </Button>
       </div>
       
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center justify-between">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -168,15 +272,42 @@ export default function OfferManagement() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button variant="outline" size="icon">
-          <Filter className="h-4 w-4" />
-        </Button>
+        
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="icon">
+            <Filter className="h-4 w-4" />
+          </Button>
+          
+          <div className="flex items-center border rounded-md">
+            <Button 
+              variant={viewMode === 'grid' ? 'default' : 'ghost'} 
+              size="sm" 
+              className="rounded-r-none" 
+              onClick={() => setViewMode('grid')}
+            >
+              <Grid className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant={viewMode === 'list' ? 'default' : 'ghost'} 
+              size="sm" 
+              className="rounded-l-none" 
+              onClick={() => setViewMode('list')}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
       
       <Tabs defaultValue="offers">
         <TabsList>
           <TabsTrigger value="offers">My Offers</TabsTrigger>
-          <TabsTrigger value="applications">Pending Applications</TabsTrigger>
+          <TabsTrigger value="applications">
+            Pending Applications
+            {applications?.length ? (
+              <Badge variant="secondary" className="ml-2">{applications.length}</Badge>
+            ) : null}
+          </TabsTrigger>
         </TabsList>
         
         <TabsContent value="offers">
@@ -185,84 +316,88 @@ export default function OfferManagement() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
           ) : filteredOffers?.length ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredOffers.map((offer) => (
-                <Card key={offer.id} className="overflow-hidden">
-                  <CardHeader className="p-4">
-                    <div className="flex justify-between">
-                      <CardTitle className="text-lg">
-                        <button 
-                          className="hover:underline text-left"
-                          onClick={() => handleViewOffer(offer.id)}
-                        >
-                          {offer.name}
-                        </button>
-                      </CardTitle>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleViewOffer(offer.id)}>
-                            <Users className="h-4 w-4 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => navigate(`/offers/${offer.id}/edit`)}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit Offer
-                          </DropdownMenuItem>
-                          {offer.status === 'active' ? (
-                            <DropdownMenuItem onClick={() => handleStatusUpdate(offer.id, 'paused')}>
-                              <Pause className="h-4 w-4 mr-2" />
-                              Pause Offer
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem onClick={() => handleStatusUpdate(offer.id, 'active')}>
-                              <Play className="h-4 w-4 mr-2" />
-                              Activate Offer
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem 
-                            className="text-destructive"
-                            onClick={() => handleStatusUpdate(offer.id, 'stopped')}
+            viewMode === 'grid' ? (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {filteredOffers.map((offer) => (
+                  <Card key={offer.id} className="overflow-hidden">
+                    <CardHeader className="p-4">
+                      <div className="flex justify-between">
+                        <CardTitle className="text-lg">
+                          <button 
+                            className="hover:underline text-left"
+                            onClick={() => handleViewOffer(offer.id)}
                           >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Stop Offer
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                    <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0 grid gap-2">
-                    <div className="text-sm">
-                      <span className="font-medium">Commission: </span>
-                      {offer.commission_type === 'RevShare' 
-                        ? `${offer.commission_percent}% RevShare` 
-                        : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
-                    </div>
-                    {offer.niche && (
-                      <div className="text-sm">
-                        <span className="font-medium">Niche: </span>{offer.niche}
+                            {offer.name}
+                          </button>
+                        </CardTitle>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleViewOffer(offer.id)}>
+                              <Users className="h-4 w-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`/offers/${offer.id}/edit`)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit Offer
+                            </DropdownMenuItem>
+                            {offer.status === 'active' ? (
+                              <DropdownMenuItem onClick={() => handleStatusUpdate(offer.id, 'paused')}>
+                                <Pause className="h-4 w-4 mr-2" />
+                                Pause Offer
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem onClick={() => handleStatusUpdate(offer.id, 'active')}>
+                                <Play className="h-4 w-4 mr-2" />
+                                Activate Offer
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={() => handleStatusUpdate(offer.id, 'stopped')}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Stop Offer
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
-                    )}
-                    <div className="text-sm">
-                      <span className="font-medium">Status: </span>
-                      <Badge variant={offer.status === 'active' ? 'default' : 'secondary'}>
-                        {offer.status}
-                      </Badge>
-                    </div>
-                    <div className="mt-2 flex justify-end">
-                      <Button variant="outline" size="sm" onClick={() => handleViewOffer(offer.id)}>
-                        Manage
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0 grid gap-2">
+                      <div className="text-sm">
+                        <span className="font-medium">Commission: </span>
+                        {offer.commission_type === 'RevShare' 
+                          ? `${offer.commission_percent}% RevShare` 
+                          : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
+                      </div>
+                      {offer.niche && (
+                        <div className="text-sm">
+                          <span className="font-medium">Niche: </span>{offer.niche}
+                        </div>
+                      )}
+                      <div className="text-sm">
+                        <span className="font-medium">Status: </span>
+                        <Badge variant={offer.status === 'active' ? 'default' : 'secondary'}>
+                          {offer.status}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 flex justify-end">
+                        <Button variant="outline" size="sm" onClick={() => handleViewOffer(offer.id)}>
+                          Manage
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              renderOffersTable(filteredOffers)
+            )
           ) : (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground mb-4">You don't have any offers yet</p>

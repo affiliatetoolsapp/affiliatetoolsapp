@@ -1,6 +1,5 @@
-
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Offer } from '@/types';
@@ -12,17 +11,19 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Check, ChevronsUpDown, Search, Star, TrendingUp, Tag, ExternalLink } from 'lucide-react';
+import { Check, ChevronsUpDown, Search, Star, TrendingUp, Tag, ExternalLink, List, Grid } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { LoadingState } from '@/components/LoadingState';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function OfferBrowser() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [trafficSource, setTrafficSource] = useState('');
@@ -31,6 +32,7 @@ export default function OfferBrowser() {
   const [nicheFilter, setNicheFilter] = useState('');
   const [commissionTypeFilter, setCommissionTypeFilter] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'highest_payout' | 'trending'>('newest');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
   // Get all offers available for applications
   const { data: availableOffers, isLoading: offersLoading } = useQuery({
@@ -69,6 +71,19 @@ export default function OfferBrowser() {
     mutationFn: async (offerId: string) => {
       if (!user) throw new Error("User not authenticated");
       
+      // Get the advertiser ID from the offer
+      const { data: offerData, error: offerError } = await supabase
+        .from('offers')
+        .select('advertiser_id')
+        .eq('id', offerId)
+        .single();
+      
+      if (offerError) throw offerError;
+      
+      if (!offerData.advertiser_id) {
+        throw new Error("Offer has no advertiser assigned");
+      }
+      
       const { data, error } = await supabase
         .from('affiliate_offers')
         .insert({
@@ -82,9 +97,12 @@ export default function OfferBrowser() {
         .select();
       
       if (error) throw error;
+      
+      console.log("Application submitted:", data);
       return data;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['affiliate-applications', user?.id] });
       toast({
         title: "Application Submitted",
         description: "Your application has been submitted successfully",
@@ -94,6 +112,7 @@ export default function OfferBrowser() {
       setNotes('');
     },
     onError: (error: any) => {
+      console.error("Error submitting application:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -267,6 +286,134 @@ export default function OfferBrowser() {
     </Card>
   );
   
+  const renderOffersTable = (offers: Offer[]) => (
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Niche</TableHead>
+            <TableHead>Commission</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {offers.map((offer) => (
+            <TableRow key={offer.id}>
+              <TableCell className="font-medium">
+                {offer.name}
+                {offer.is_featured && (
+                  <Badge variant="outline" className="ml-2 bg-yellow-100 dark:bg-yellow-900">
+                    <Star className="h-3 w-3 mr-1 text-yellow-500" />
+                    Featured
+                  </Badge>
+                )}
+              </TableCell>
+              <TableCell>{offer.niche || '-'}</TableCell>
+              <TableCell>
+                {offer.commission_type === 'RevShare' 
+                  ? `${offer.commission_percent}% Revenue Share` 
+                  : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
+              </TableCell>
+              <TableCell>
+                {hasApplied(offer.id) ? (
+                  <Badge variant={
+                    getApplicationStatus(offer.id) === 'approved' ? 'default' : 
+                    getApplicationStatus(offer.id) === 'rejected' ? 'destructive' : 
+                    'secondary'
+                  }>
+                    {getApplicationStatus(offer.id) === 'approved' ? 'Approved' :
+                     getApplicationStatus(offer.id) === 'rejected' ? 'Rejected' :
+                     'Pending'}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline">Not Applied</Badge>
+                )}
+              </TableCell>
+              <TableCell>
+                <div className="flex space-x-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => window.open(offer.url, '_blank')}
+                  >
+                    Preview
+                  </Button>
+                  
+                  {!hasApplied(offer.id) && (
+                    <Dialog open={open && selectedOffer?.id === offer.id} onOpenChange={(value) => {
+                      setOpen(value);
+                      if (!value) setSelectedOffer(null);
+                    }}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" onClick={() => setSelectedOffer(offer)}>
+                          Apply
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        {/* Same dialog content as in the card view */}
+                        <DialogHeader>
+                          <DialogTitle>Apply for {selectedOffer?.name}</DialogTitle>
+                          <DialogDescription>
+                            Enter your traffic sources and any notes for the advertiser
+                          </DialogDescription>
+                        </DialogHeader>
+                        
+                        <div className="grid gap-4 py-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="traffic-list">Traffic Source</Label>
+                            <Input 
+                              id="traffic-list" 
+                              value={trafficSource} 
+                              onChange={(e) => setTrafficSource(e.target.value)} 
+                              placeholder="e.g., Social Media, Email Marketing" 
+                            />
+                          </div>
+                          
+                          <div className="grid gap-2">
+                            <Label htmlFor="notes-list">Additional Notes</Label>
+                            <Textarea 
+                              id="notes-list" 
+                              placeholder="Any additional information you want to share with the advertiser" 
+                              rows={3}
+                              value={notes}
+                              onChange={(e) => setNotes(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        
+                        <DialogFooter>
+                          <Button 
+                            type="button" 
+                            variant="secondary"
+                            onClick={() => setOpen(false)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button 
+                            type="submit"
+                            onClick={() => {
+                              if (selectedOffer) {
+                                applyForOfferMutation.mutate(selectedOffer.id);
+                              }
+                            }}
+                          >
+                            Submit Application
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  )}
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+  
   return (
     <div className="space-y-6">
       <div>
@@ -402,15 +549,38 @@ export default function OfferBrowser() {
                   </Command>
                 </PopoverContent>
               </Popover>
+              
+              <div className="flex items-center border rounded-md">
+                <Button 
+                  variant={viewMode === 'grid' ? 'default' : 'ghost'} 
+                  size="sm" 
+                  className="rounded-r-none" 
+                  onClick={() => setViewMode('grid')}
+                >
+                  <Grid className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant={viewMode === 'list' ? 'default' : 'ghost'} 
+                  size="sm" 
+                  className="rounded-l-none" 
+                  onClick={() => setViewMode('list')}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
           
           {offersLoading ? (
             <LoadingState />
           ) : filteredOffers?.length ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredOffers.map((offer) => renderOfferCard(offer))}
-            </div>
+            viewMode === 'grid' ? (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {filteredOffers.map((offer) => renderOfferCard(offer))}
+              </div>
+            ) : (
+              renderOffersTable(filteredOffers)
+            )
           ) : (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">No offers found</p>
@@ -421,10 +591,14 @@ export default function OfferBrowser() {
         <TabsContent value="featured">
           {offersLoading ? (
             <LoadingState />
-          ) : featuredOffers.length > 0 ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {featuredOffers.map((offer) => renderOfferCard(offer))}
-            </div>
+          ) : featuredOffers?.length > 0 ? (
+            viewMode === 'grid' ? (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {featuredOffers.map((offer) => renderOfferCard(offer))}
+              </div>
+            ) : (
+              renderOffersTable(featuredOffers)
+            )
           ) : (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">No featured offers available</p>
@@ -444,11 +618,16 @@ export default function OfferBrowser() {
           {offersLoading || !existingApplications ? (
             <LoadingState />
           ) : existingApplications.length > 0 ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {availableOffers
-                ?.filter(offer => existingApplications.some(app => app.offer_id === offer.id))
-                .map((offer) => renderOfferCard(offer))}
-            </div>
+            viewMode === 'grid' ? (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {availableOffers
+                  ?.filter(offer => existingApplications.some(app => app.offer_id === offer.id))
+                  .map((offer) => renderOfferCard(offer))}
+              </div>
+            ) : (
+              renderOffersTable(availableOffers?.filter(offer => 
+                existingApplications.some(app => app.offer_id === offer.id)) || [])
+            )
           ) : (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground">You haven't applied to any offers yet</p>

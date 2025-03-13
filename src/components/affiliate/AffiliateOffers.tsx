@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
@@ -21,11 +22,13 @@ export default function AffiliateOffers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Get approved offers for this affiliate
+  // Get approved offers for this affiliate with improved query
   const { data: approvedOffers, isLoading: approvedLoading } = useQuery({
     queryKey: ['affiliate-approved-offers', user?.id],
     queryFn: async () => {
       if (!user) return [];
+      
+      console.log("Fetching approved offers for affiliate:", user.id);
       
       const { data, error } = await supabase
         .from('affiliate_offers')
@@ -33,17 +36,24 @@ export default function AffiliateOffers() {
         .eq('affiliate_id', user.id)
         .eq('status', 'approved');
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching approved offers:", error);
+        throw error;
+      }
+      
+      console.log("Approved offers fetched:", data?.length);
       return data as (AffiliateOffer & { offer: Offer })[];
     },
     enabled: !!user && user.role === 'affiliate',
   });
   
-  // Get pending applications for this affiliate
+  // Get pending applications for this affiliate with improved query
   const { data: pendingApplications, isLoading: pendingLoading } = useQuery({
     queryKey: ['affiliate-pending-offers', user?.id],
     queryFn: async () => {
       if (!user) return [];
+      
+      console.log("Fetching pending applications for affiliate:", user.id);
       
       const { data, error } = await supabase
         .from('affiliate_offers')
@@ -51,17 +61,25 @@ export default function AffiliateOffers() {
         .eq('affiliate_id', user.id)
         .eq('status', 'pending');
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching pending applications:", error);
+        throw error;
+      }
+      
+      console.log("Pending applications fetched:", data?.length, data);
       return data as (AffiliateOffer & { offer: Offer })[];
     },
     enabled: !!user && user.role === 'affiliate',
+    refetchInterval: 5000, // More frequent updates
   });
   
-  // Get rejected applications for this affiliate
+  // Get rejected applications for this affiliate with improved query
   const { data: rejectedApplications, isLoading: rejectedLoading } = useQuery({
     queryKey: ['affiliate-rejected-offers', user?.id],
     queryFn: async () => {
       if (!user) return [];
+      
+      console.log("Fetching rejected applications for affiliate:", user.id);
       
       const { data, error } = await supabase
         .from('affiliate_offers')
@@ -69,22 +87,33 @@ export default function AffiliateOffers() {
         .eq('affiliate_id', user.id)
         .eq('status', 'rejected');
       
-      if (error) throw error;
-      console.log("Rejected applications:", data);
+      if (error) {
+        console.error("Error fetching rejected applications:", error);
+        throw error;
+      }
+      
+      console.log("Rejected applications fetched:", data?.length);
       return data as (AffiliateOffer & { offer: Offer })[];
     },
     enabled: !!user && user.role === 'affiliate',
   });
   
-  // Cancel application mutation
+  // Cancel application mutation with improved error handling
   const cancelApplication = useMutation({
     mutationFn: async (applicationId: string) => {
+      console.log("Cancelling application:", applicationId);
+      
       const { error } = await supabase
         .from('affiliate_offers')
         .delete()
         .eq('id', applicationId);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error cancelling application:", error);
+        throw error;
+      }
+      
+      console.log("Application cancelled successfully");
       return applicationId;
     },
     onSuccess: () => {
@@ -391,14 +420,14 @@ export default function AffiliateOffers() {
                   <Card key={application.id} className="overflow-hidden">
                     <CardHeader className="p-4">
                       <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{application.offer.name}</CardTitle>
+                        <CardTitle className="text-lg">{application.offer?.name}</CardTitle>
                         <Badge variant="outline" className="ml-2">
                           <Clock className="h-3 w-3 mr-1" />
                           Pending
                         </Badge>
                       </div>
                       <CardDescription className="line-clamp-2">
-                        {application.offer.description}
+                        {application.offer?.description}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="p-4 pt-0 grid gap-2">
@@ -427,7 +456,7 @@ export default function AffiliateOffers() {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Cancel Application</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Are you sure you want to cancel your application for "{application.offer.name}"? This action cannot be undone.
+                              Are you sure you want to cancel your application for "{application.offer?.name}"? This action cannot be undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -443,7 +472,58 @@ export default function AffiliateOffers() {
                 ))}
               </div>
             ) : (
-              renderPendingTable(pendingApplications)
+              <div className="rounded-md border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Offer</TableHead>
+                      <TableHead>Applied On</TableHead>
+                      <TableHead>Traffic Source</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pendingApplications.map((application) => (
+                      <TableRow key={application.id}>
+                        <TableCell className="font-medium">{application.offer?.name}</TableCell>
+                        <TableCell>{new Date(application.applied_at || '').toLocaleDateString()}</TableCell>
+                        <TableCell>{application.traffic_source || '-'}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Pending
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm" className="text-destructive">
+                                <Trash className="h-3 w-3 mr-1" />
+                                Cancel
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Cancel Application</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to cancel your application for "{application.offer?.name}"? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>No, keep it</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleCancelApplication(application.id)}>
+                                  Yes, cancel application
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )
           ) : (
             <Card className="p-8 text-center">

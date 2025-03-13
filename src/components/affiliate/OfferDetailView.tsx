@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Offer } from '@/types';
@@ -33,44 +32,42 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
   const [trafficSource, setTrafficSource] = React.useState('');
   const [notes, setNotes] = React.useState('');
 
-  // Apply for offer mutation
+  // Apply for offer mutation - simplified and improved
   const applyForOfferMutation = useMutation({
     mutationFn: async (offerId: string) => {
       if (!user) throw new Error("User not authenticated");
       
-      // Get the advertiser ID from the offer
-      const { data: offerData, error: offerError } = await supabase
-        .from('offers')
-        .select('advertiser_id')
-        .eq('id', offerId)
-        .single();
+      console.log(`Applying for offer ${offerId} as affiliate ${user.id}`);
       
-      if (offerError) throw offerError;
+      const application = {
+        affiliate_id: user.id,
+        offer_id: offerId,
+        traffic_source: trafficSource,
+        notes: notes,
+        applied_at: new Date().toISOString(),
+        status: 'pending'
+      };
       
-      if (!offerData.advertiser_id) {
-        throw new Error("Offer has no advertiser assigned");
-      }
+      console.log("Creating application with data:", application);
       
       const { data, error } = await supabase
         .from('affiliate_offers')
-        .insert({
-          affiliate_id: user.id,
-          offer_id: offerId,
-          traffic_source: trafficSource,
-          notes: notes,
-          applied_at: new Date().toISOString(),
-          status: 'pending'
-        })
+        .insert(application)
         .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error creating application:", error);
+        throw error;
+      }
       
+      console.log("Application created successfully:", data);
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-offers', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['available-offers'] });
+      queryClient.invalidateQueries({ queryKey: ['affiliate-pending-offers', user?.id] });
       
       toast({
         title: "Application Submitted",
@@ -95,6 +92,8 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
     mutationFn: async () => {
       if (!user) throw new Error("User not authenticated");
       
+      console.log(`Cancelling application for offer ${offer.id} by affiliate ${user.id}`);
+      
       // Find the application record
       const { data: applicationData, error: findError } = await supabase
         .from('affiliate_offers')
@@ -104,11 +103,16 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
         .eq('status', 'pending')
         .single();
       
-      if (findError) throw findError;
+      if (findError) {
+        console.error("Error finding application:", findError);
+        throw findError;
+      }
       
       if (!applicationData) {
         throw new Error("Application not found");
       }
+      
+      console.log("Found application to cancel:", applicationData);
       
       // Delete the application
       const { error: deleteError } = await supabase
@@ -116,14 +120,19 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
         .delete()
         .eq('id', applicationData.id);
       
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error("Error deleting application:", deleteError);
+        throw deleteError;
+      }
       
+      console.log("Application cancelled successfully");
       return { success: true };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-offers', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['available-offers'] });
+      queryClient.invalidateQueries({ queryKey: ['affiliate-pending-offers', user?.id] });
       
       toast({
         title: "Application Cancelled",
@@ -142,12 +151,17 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
 
   const handleApplyClick = () => setOpen(true);
   
+  const handleApplySubmit = () => {
+    console.log("Submitting application for offer:", offer.id);
+    applyForOfferMutation.mutate(offer.id);
+  };
+  
   const handleCancelClick = () => {
     if (confirm("Are you sure you want to cancel your application?")) {
       cancelApplicationMutation.mutate();
     }
   };
-
+  
   // Format geo targets for display
   const formatGeoTargets = () => {
     if (!offer.geo_targets) return ["Worldwide"];
@@ -475,7 +489,7 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
                   </Button>
                   <Button 
                     type="submit"
-                    onClick={() => applyForOfferMutation.mutate(offer.id)}
+                    onClick={handleApplySubmit}
                     disabled={applyForOfferMutation.isPending}
                   >
                     {applyForOfferMutation.isPending ? 'Submitting...' : 'Submit Application'}

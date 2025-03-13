@@ -23,6 +23,12 @@ export default function OffersPage() {
     }
   }, [id, user, navigate]);
   
+  // Log current page and parameters
+  useEffect(() => {
+    console.log("OffersPage loaded with id:", id);
+    console.log("Current user:", user);
+  }, [id, user]);
+  
   if (!user) return null;
   
   // If we have an ID with "create", we show the creation form (only for advertisers and admins)
@@ -32,6 +38,7 @@ export default function OffersPage() {
   
   // If we have "approve" in the URL, show the approval interface (only for advertisers)
   if (id === 'approve' && user.role === 'advertiser') {
+    console.log("Loading approval interface for advertiser");
     return <AffiliateApprovals />;
   }
   
@@ -41,25 +48,31 @@ export default function OffersPage() {
   }
   
   // For the main offers page, we show different views based on the user role
-  return (
-    <>
-      {user.role === 'affiliate' && (
-        <ProtectedRoute allowedRoles={['affiliate']}>
-          <AffiliateOffers />
-        </ProtectedRoute>
-      )}
-      
-      {user.role === 'advertiser' && (
-        <ProtectedRoute allowedRoles={['advertiser']}>
-          <OfferManagement />
-        </ProtectedRoute>
-      )}
-      
-      {user.role === 'admin' && (
-        <ProtectedRoute allowedRoles={['admin']}>
-          <OffersList />
-        </ProtectedRoute>
-      )}
-    </>
-  );
+  if (user.role === 'affiliate') {
+    console.log("Loading affiliate offers view");
+    return (
+      <ProtectedRoute allowedRoles={['affiliate']}>
+        <AffiliateOffers />
+      </ProtectedRoute>
+    );
+  }
+  
+  if (user.role === 'advertiser') {
+    console.log("Loading advertiser offer management");
+    return (
+      <ProtectedRoute allowedRoles={['advertiser']}>
+        <OfferManagement />
+      </ProtectedRoute>
+    );
+  }
+  
+  if (user.role === 'admin') {
+    return (
+      <ProtectedRoute allowedRoles={['admin']}>
+        <OffersList />
+      </ProtectedRoute>
+    );
+  }
+  
+  return null;
 }

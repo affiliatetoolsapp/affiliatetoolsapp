@@ -13,9 +13,9 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Get affiliate applications for my offers with more direct query approach
+  // Simplified direct query for pending applications
   const { data: applications, isLoading, error } = useQuery({
-    queryKey: ['affiliate-applications', user?.id],
+    queryKey: ['affiliate-pending-applications', user?.id],
     queryFn: async () => {
       if (!user || user.role !== 'advertiser') {
         console.log('User is not an advertiser or not logged in');
@@ -46,10 +46,18 @@ export default function AffiliateApprovals() {
         const offerIds = myOffers.map(offer => offer.id);
         console.log('Checking for applications with these offer IDs:', offerIds);
         
-        // Direct query for pending applications
+        // Direct query for pending applications - simplified
         const { data: pendingApplications, error: applicationsError } = await supabase
           .from('affiliate_offers')
-          .select('*')
+          .select(`
+            id, 
+            offer_id, 
+            affiliate_id,
+            applied_at,
+            traffic_source,
+            notes,
+            status
+          `)
           .in('offer_id', offerIds)
           .eq('status', 'pending');
         
@@ -65,39 +73,28 @@ export default function AffiliateApprovals() {
           return [];
         }
         
-        // Enrich with affiliate and offer details in parallel
+        // Enrich with affiliate and offer details
         const enrichedApplications = await Promise.all(
           pendingApplications.map(async (app) => {
             // Get offer details
-            const { data: offerData, error: offerError } = await supabase
+            const { data: offerData } = await supabase
               .from('offers')
               .select('id, name, description, niche')
               .eq('id', app.offer_id)
               .single();
             
-            if (offerError) {
-              console.error(`Error fetching offer details for ${app.offer_id}:`, offerError);
-            }
-            
             // Get affiliate details
-            const { data: affiliateData, error: affiliateError } = await supabase
+            const { data: affiliateData } = await supabase
               .from('users')
               .select('id, email, contact_name, company_name, website')
               .eq('id', app.affiliate_id)
               .single();
             
-            if (affiliateError) {
-              console.error(`Error fetching affiliate details for ${app.affiliate_id}:`, affiliateError);
-            }
-            
-            const enrichedApp = {
+            return {
               ...app,
-              offers: offerData || null,
-              affiliates: affiliateData || null
+              offers: offerData || { name: 'Unknown Offer' },
+              affiliates: affiliateData || { email: 'Unknown Affiliate' }
             };
-            
-            console.log('Enriched application:', enrichedApp);
-            return enrichedApp;
           })
         );
         
@@ -109,7 +106,7 @@ export default function AffiliateApprovals() {
       }
     },
     enabled: !!user && user.role === 'advertiser',
-    refetchInterval: 3000, // Check every 3 seconds for faster updates
+    refetchInterval: 5000, // Check more frequently for updates
     refetchOnWindowFocus: true,
     staleTime: 0, // Consider data stale immediately
   });
@@ -147,6 +144,7 @@ export default function AffiliateApprovals() {
     },
     onSuccess: (data) => {
       // Invalidate multiple related queries to update all views
+      queryClient.invalidateQueries({ queryKey: ['affiliate-pending-applications'] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications'] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-offers'] });
       queryClient.invalidateQueries({ queryKey: ['available-offers'] });

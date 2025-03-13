@@ -169,8 +169,10 @@ export type Database = {
           commission_type: string
           created_at: string | null
           description: string | null
+          featured_until: string | null
           geo_targets: Json | null
           id: string
+          is_featured: boolean
           name: string
           niche: string | null
           status: string | null
@@ -184,8 +186,10 @@ export type Database = {
           commission_type: string
           created_at?: string | null
           description?: string | null
+          featured_until?: string | null
           geo_targets?: Json | null
           id?: string
+          is_featured?: boolean
           name: string
           niche?: string | null
           status?: string | null
@@ -199,8 +203,10 @@ export type Database = {
           commission_type?: string
           created_at?: string | null
           description?: string | null
+          featured_until?: string | null
           geo_targets?: Json | null
           id?: string
+          is_featured?: boolean
           name?: string
           niche?: string | null
           status?: string | null

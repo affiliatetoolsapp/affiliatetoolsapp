@@ -45,12 +45,9 @@ export default function SignInForm() {
     
     setIsLoading(true);
     try {
-      console.log("Starting sign in process...");
       await signIn(data.email, data.password);
-      console.log("Sign in successful");
-      // The auth context will handle navigation after successful login
+      // No need to navigate here as the auth state change will trigger navigation
     } catch (error: any) {
-      console.error("Sign in error:", error);
       toast({
         title: "Error",
         description: error.message || 'An error occurred during sign in',

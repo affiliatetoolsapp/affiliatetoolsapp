@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
@@ -16,6 +15,7 @@ import { Check, ChevronsUpDown, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { LoadingState } from '@/components/LoadingState';
 
 export default function OfferBrowser() {
   const { user } = useAuth();
@@ -38,11 +38,13 @@ export default function OfferBrowser() {
       
       if (error) throw error;
       
-      // Transform the data to ensure is_featured property exists
-      return data.map(offer => ({
+      // Since is_featured doesn't exist in the database, we add it to each offer object
+      const offersWithFeatured = data.map(offer => ({
         ...offer,
-        is_featured: false // Set default value
-      })) as Offer[];
+        is_featured: false // Set default value since it's not in the database
+      }));
+      
+      return offersWithFeatured as Offer[];
     },
     enabled: !!user && user.role === 'affiliate',
   });
@@ -184,9 +186,7 @@ export default function OfferBrowser() {
       </div>
       
       {offersLoading ? (
-        <div className="flex justify-center p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
+        <LoadingState />
       ) : filteredOffers?.length ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredOffers.map((offer) => (

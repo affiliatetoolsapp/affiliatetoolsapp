@@ -73,7 +73,8 @@ export default function AffiliateWallet() {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data as PayoutRequest[];
+      // Type assertion to match PayoutRequest type
+      return data as unknown as PayoutRequest[];
     },
     enabled: !!user && user.role === 'affiliate',
   });

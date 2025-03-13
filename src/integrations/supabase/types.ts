@@ -274,6 +274,36 @@ export type Database = {
           },
         ]
       }
+      payout_requests: {
+        Row: {
+          affiliate_id: string
+          amount: number
+          created_at: string
+          id: string
+          method: string
+          processed_at: string | null
+          status: string
+        }
+        Insert: {
+          affiliate_id: string
+          amount: number
+          created_at?: string
+          id?: string
+          method: string
+          processed_at?: string | null
+          status?: string
+        }
+        Update: {
+          affiliate_id?: string
+          amount?: number
+          created_at?: string
+          id?: string
+          method?: string
+          processed_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       tracking_links: {
         Row: {
           affiliate_id: string | null

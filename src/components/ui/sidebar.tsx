@@ -16,7 +16,8 @@ import {
   Store,
   FileText,
   LayoutDashboard,
-  TrendingUp
+  TrendingUp,
+  Tag
 } from 'lucide-react';
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
@@ -39,6 +40,7 @@ export function Sidebar({ className, ...props }: SidebarProps) {
   const adminLinks = [
     { name: 'Users', href: '/users', icon: Users },
     { name: 'Offers', href: '/offers', icon: Box },
+    { name: 'Marketplace', href: '/marketplace', icon: Store },
     { name: 'Payments', href: '/payments', icon: DollarSign },
     { name: 'Reports', href: '/reports', icon: FileText },
     { name: 'Settings', href: '/settings', icon: Settings },
@@ -46,6 +48,7 @@ export function Sidebar({ className, ...props }: SidebarProps) {
   
   const advertiserLinks = [
     { name: 'My Offers', href: '/offers', icon: Box },
+    { name: 'Marketplace', href: '/marketplace', icon: Store },
     { name: 'Affiliates', href: '/partners', icon: Users },
     { name: 'Reports', href: '/reports', icon: FileText },
     { name: 'Payments', href: '/payments', icon: DollarSign },
@@ -55,7 +58,7 @@ export function Sidebar({ className, ...props }: SidebarProps) {
   
   const affiliateLinks = [
     { name: 'Marketplace', href: '/marketplace', icon: Store },
-    { name: 'My Offers', href: '/offers', icon: Box },
+    { name: 'My Offers', href: '/offers', icon: Tag },
     { name: 'Tracking Links', href: '/links', icon: LinkIcon },
     { name: 'Performance', href: '/performance', icon: TrendingUp },
     { name: 'Reports', href: '/reports', icon: FileText },

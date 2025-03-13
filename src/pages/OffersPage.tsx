@@ -7,6 +7,7 @@ import OfferDetails from '@/components/offers/OfferDetails';
 import CreateOffer from '@/components/offers/CreateOffer';
 import OfferBrowser from '@/components/affiliate/OfferBrowser';
 import OfferManagement from '@/components/advertiser/OfferManagement';
+import AffiliateOffers from '@/components/affiliate/AffiliateOffers';
 import { useEffect } from 'react';
 
 export default function OffersPage() {
@@ -38,7 +39,7 @@ export default function OffersPage() {
     <>
       {user.role === 'affiliate' && (
         <ProtectedRoute allowedRoles={['affiliate']}>
-          <OfferBrowser />
+          <AffiliateOffers />
         </ProtectedRoute>
       )}
       

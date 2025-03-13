@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -17,12 +17,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { Search, Filter, PlusCircle, MoreVertical, Edit, Trash2, Users } from 'lucide-react';
+import { Search, Filter, PlusCircle, MoreVertical, Edit, Trash2, Users, Pause, Play } from 'lucide-react';
 
 export default function OfferManagement() {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   
   // Get advertiser's offers
@@ -71,6 +72,38 @@ export default function OfferManagement() {
     (offer.niche?.toLowerCase().includes(searchQuery.toLowerCase()) || false)
   );
   
+  // Mutation to update offer status
+  const updateOfferStatus = useMutation({
+    mutationFn: async ({ offerId, status }: { offerId: string, status: string }) => {
+      const { error } = await supabase
+        .from('offers')
+        .update({ status })
+        .eq('id', offerId);
+      
+      if (error) throw error;
+      return { offerId, status };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['advertiser-offers', user?.id] });
+      toast({
+        title: 'Offer updated',
+        description: `Offer status changed to ${data.status}`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update offer status',
+      });
+    }
+  });
+  
+  // Handle offer status toggle
+  const handleStatusUpdate = (offerId: string, newStatus: string) => {
+    updateOfferStatus.mutate({ offerId, status: newStatus });
+  };
+  
   // Handle application approval/rejection
   const handleApplicationAction = async (applicationId: string, action: 'approved' | 'rejected') => {
     try {
@@ -83,6 +116,8 @@ export default function OfferManagement() {
         .eq('id', applicationId);
       
       if (error) throw error;
+      
+      queryClient.invalidateQueries({ queryKey: ['affiliate-applications', user?.id] });
       
       toast({
         title: action === 'approved' ? 'Affiliate Approved' : 'Affiliate Rejected',
@@ -98,6 +133,10 @@ export default function OfferManagement() {
         description: error.message || 'Failed to update application status',
       });
     }
+  };
+  
+  const handleViewOffer = (offerId: string) => {
+    navigate(`/offers/${offerId}`);
   };
   
   return (
@@ -152,9 +191,12 @@ export default function OfferManagement() {
                   <CardHeader className="p-4">
                     <div className="flex justify-between">
                       <CardTitle className="text-lg">
-                        <a href={`/offers/${offer.id}`} className="hover:underline">
+                        <button 
+                          className="hover:underline text-left"
+                          onClick={() => handleViewOffer(offer.id)}
+                        >
                           {offer.name}
-                        </a>
+                        </button>
                       </CardTitle>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -163,13 +205,31 @@ export default function OfferManagement() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewOffer(offer.id)}>
+                            <Users className="h-4 w-4 mr-2" />
+                            View Details
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => navigate(`/offers/${offer.id}/edit`)}>
                             <Edit className="h-4 w-4 mr-2" />
                             Edit Offer
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
+                          {offer.status === 'active' ? (
+                            <DropdownMenuItem onClick={() => handleStatusUpdate(offer.id, 'paused')}>
+                              <Pause className="h-4 w-4 mr-2" />
+                              Pause Offer
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem onClick={() => handleStatusUpdate(offer.id, 'active')}>
+                              <Play className="h-4 w-4 mr-2" />
+                              Activate Offer
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem 
+                            className="text-destructive"
+                            onClick={() => handleStatusUpdate(offer.id, 'stopped')}
+                          >
                             <Trash2 className="h-4 w-4 mr-2" />
-                            Delete Offer
+                            Stop Offer
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -195,8 +255,8 @@ export default function OfferManagement() {
                       </Badge>
                     </div>
                     <div className="mt-2 flex justify-end">
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={`/offers/${offer.id}`}>Manage</a>
+                      <Button variant="outline" size="sm" onClick={() => handleViewOffer(offer.id)}>
+                        Manage
                       </Button>
                     </div>
                   </CardContent>

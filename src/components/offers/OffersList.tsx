@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Offer } from '@/types';
@@ -14,6 +15,7 @@ import AffiliateApprovals from './AffiliateApprovals';
 export default function OffersList() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const navigate = useNavigate();
   
   const isAdvertiser = user?.role === 'advertiser';
   
@@ -41,6 +43,10 @@ export default function OffersList() {
     offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     offer.niche?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleOfferClick = (offerId: string) => {
+    navigate(`/offers/${offerId}`);
+  };
   
   return (
     <div className="space-y-6">
@@ -100,9 +106,12 @@ export default function OffersList() {
                   <Card key={offer.id} className="overflow-hidden">
                     <CardHeader className="p-4">
                       <CardTitle className="text-lg">
-                        <a href={`/offers/${offer.id}`} className="hover:underline">
+                        <button 
+                          onClick={() => handleOfferClick(offer.id)} 
+                          className="hover:underline text-left"
+                        >
                           {offer.name}
-                        </a>
+                        </button>
                       </CardTitle>
                       <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
                     </CardHeader>
@@ -123,8 +132,8 @@ export default function OffersList() {
                         <span className="capitalize">{offer.status}</span>
                       </div>
                       <div className="mt-2 flex justify-end">
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={`/offers/${offer.id}`}>Manage</a>
+                        <Button variant="outline" size="sm" onClick={() => handleOfferClick(offer.id)}>
+                          Manage
                         </Button>
                       </div>
                     </CardContent>

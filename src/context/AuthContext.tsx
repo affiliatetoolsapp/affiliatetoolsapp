@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@/types';
@@ -26,10 +25,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Function to fetch user profile
+  // Function to fetch user profile with improved error handling
   async function fetchUserProfile(userId: string) {
     try {
-      console.log('Fetching user profile for ID:', userId);
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -41,7 +39,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      console.log('User profile fetched:', data);
       setUser(data as User);
       return data;
     } catch (error) {
@@ -51,52 +48,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    console.log('AuthContext: Initializing auth state');
     let isMounted = true;
     
-    // Use a timeout to prevent getting stuck in loading state
+    // Shorter timeout for better user experience
     const loadingTimeout = setTimeout(() => {
       if (isMounted && isLoading) {
-        console.warn('Auth loading timed out after 10 seconds, forcing isLoading to false');
         setIsLoading(false);
       }
-    }, 10000);
+    }, 3000); // Reduced from 10 seconds to 3 seconds
 
-    // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!isMounted) return;
-      
-      console.log('Initial session retrieved:', session?.user?.id);
-      setSession(session);
-      
-      if (session?.user) {
-        const profile = await fetchUserProfile(session.user.id);
-        if (!profile && isMounted) {
-          console.warn('No user profile found, signing out');
-          // Handle case where auth session exists but no user profile
-          await supabase.auth.signOut();
-          setSession(null);
+    // Get initial session - use async IIFE for cleaner code
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        
+        if (!isMounted) return;
+        
+        if (data.session) {
+          setSession(data.session);
+          const profile = await fetchUserProfile(data.session.user.id);
+          
+          // If profile fetch failed but we have a session, still allow access
+          // This prevents login issues when user table might have issues
+          if (!profile && isMounted) {
+            console.warn('Profile fetch failed but session exists - continuing anyway');
+          }
+        } else {
+          setUser(null);
         }
-      } else {
-        setUser(null);
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
-      
-      if (isMounted) setIsLoading(false);
-    }).catch(error => {
-      console.error('Error getting initial session:', error);
-      if (isMounted) setIsLoading(false);
-    });
+    })();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.id);
-      
       if (!isMounted) return;
       
       setSession(session);
       
       if (session?.user) {
-        await fetchUserProfile(session.user.id);
+        // Don't wait for profile fetch to complete before setting isLoading to false
+        fetchUserProfile(session.user.id).catch(err => {
+          console.error('Error in profile fetch during auth change:', err);
+        });
       } else {
         setUser(null);
       }
@@ -111,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Rest of the auth functions
   async function signIn(email: string, password: string) {
     setIsLoading(true);
     try {
@@ -118,7 +116,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (error) throw error;
       
+      // Immediately set loading to false after successful sign-in
       // Auth state change will handle session and user update
+      setIsLoading(false);
+      
       toast({
         title: "Success",
         description: "You have successfully signed in!",
@@ -130,9 +131,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: error.message || "An error occurred during sign in",
         variant: "destructive",
       });
-      throw error;
-    } finally {
       setIsLoading(false);
+      throw error;
     }
   }
 
@@ -257,7 +257,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: error.message || "Failed to send reset email",
         variant: "destructive",
       });
-      throw error;
     } finally {
       setIsLoading(false);
     }

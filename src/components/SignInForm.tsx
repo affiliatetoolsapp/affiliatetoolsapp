@@ -42,19 +42,13 @@ export default function SignInForm() {
   const onSubmit = async (data: FormValues) => {
     if (isLoading) return; // Prevent multiple submissions
     
-    console.log('SignInForm: Attempting to sign in with:', data.email);
     setIsLoading(true);
     try {
       await signIn(data.email, data.password);
-      console.log('SignInForm: Sign in successful');
-      // Auth state change will trigger navigation
+      // The auth change will trigger navigation automatically
     } catch (error: any) {
       console.error('SignInForm: Sign in error:', error);
-      toast({
-        title: "Error",
-        description: error.message || 'An error occurred during sign in',
-        variant: "destructive",
-      });
+      // Error is already displayed via toast in the signIn function
     } finally {
       setIsLoading(false);
     }

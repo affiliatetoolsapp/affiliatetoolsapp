@@ -52,6 +52,8 @@ export default function OfferManagement() {
     queryFn: async () => {
       if (!user) return [];
       
+      console.log('Fetching affiliate applications count for advertiser:', user.id);
+      
       // First get all offers from this advertiser
       const { data: myOffers, error: offersError } = await supabase
         .from('offers')
@@ -71,13 +73,10 @@ export default function OfferManagement() {
       const offerIds = myOffers.map(o => o.id);
       console.log("Fetching applications for offer IDs:", offerIds);
       
+      // Simplified query to just get the count and basic info
       const { data, error } = await supabase
         .from('affiliate_offers')
-        .select(`
-          *,
-          offer:offers(*),
-          affiliate:users!affiliate_id(*)
-        `)
+        .select('id, offer_id, affiliate_id, status')
         .eq('status', 'pending')
         .in('offer_id', offerIds);
       
@@ -86,12 +85,12 @@ export default function OfferManagement() {
         throw error;
       }
       
-      console.log("Fetched applications:", data);
+      console.log("Fetched applications count:", data?.length);
       return data || [];
     },
     enabled: !!user && user.role === 'advertiser',
     // Add refetch interval to periodically check for new applications
-    refetchInterval: 15000,
+    refetchInterval: 10000,
     refetchOnWindowFocus: true,
   });
   

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
@@ -40,7 +41,7 @@ export default function OfferBrowser() {
       // Add is_featured if it doesn't exist in the database yet
       return data.map(offer => ({
         ...offer,
-        is_featured: offer.is_featured || false
+        is_featured: offer.is_featured === undefined ? false : offer.is_featured
       })) as Offer[];
     },
     enabled: !!user && user.role === 'affiliate',

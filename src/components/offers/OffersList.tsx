@@ -45,6 +45,7 @@ export default function OffersList() {
   );
 
   const handleOfferClick = (offerId: string) => {
+    console.log("Navigating to offer:", offerId);
     navigate(`/offers/${offerId}`);
   };
   

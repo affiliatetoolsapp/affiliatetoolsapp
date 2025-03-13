@@ -41,15 +41,17 @@ export default function SignInForm() {
   });
 
   const onSubmit = async (data: FormValues) => {
+    if (isLoading) return; // Prevent multiple submissions
+    
     setIsLoading(true);
     try {
       await signIn(data.email, data.password);
-      navigate('/dashboard');
+      // No need to navigate here as the auth state change will trigger navigation
     } catch (error: any) {
       toast({
-        title: 'Error',
+        title: "Error",
         description: error.message || 'An error occurred during sign in',
-        variant: 'destructive',
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);

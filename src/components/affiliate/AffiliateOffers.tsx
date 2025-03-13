@@ -10,14 +10,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, ExternalLink, Link as LinkIcon } from 'lucide-react';
+import { Search, ExternalLink, Link as LinkIcon, Clock, Check, X } from 'lucide-react';
 
 export default function AffiliateOffers() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   
   // Get approved offers for this affiliate
-  const { data: approvedOffers, isLoading } = useQuery({
+  const { data: approvedOffers, isLoading: approvedLoading } = useQuery({
     queryKey: ['affiliate-approved-offers', user?.id],
     queryFn: async () => {
       if (!user) return [];
@@ -34,12 +34,50 @@ export default function AffiliateOffers() {
     enabled: !!user && user.role === 'affiliate',
   });
   
+  // Get pending applications for this affiliate
+  const { data: pendingApplications, isLoading: pendingLoading } = useQuery({
+    queryKey: ['affiliate-pending-offers', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from('affiliate_offers')
+        .select('*, offer:offers(*)')
+        .eq('affiliate_id', user.id)
+        .eq('status', 'pending');
+      
+      if (error) throw error;
+      return data as (AffiliateOffer & { offer: Offer })[];
+    },
+    enabled: !!user && user.role === 'affiliate',
+  });
+  
+  // Get rejected applications for this affiliate
+  const { data: rejectedApplications, isLoading: rejectedLoading } = useQuery({
+    queryKey: ['affiliate-rejected-offers', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from('affiliate_offers')
+        .select('*, offer:offers(*)')
+        .eq('affiliate_id', user.id)
+        .eq('status', 'rejected');
+      
+      if (error) throw error;
+      return data as (AffiliateOffer & { offer: Offer })[];
+    },
+    enabled: !!user && user.role === 'affiliate',
+  });
+  
   // Filter offers based on search query
-  const filteredOffers = approvedOffers?.filter(item => 
+  const filteredApprovedOffers = approvedOffers?.filter(item => 
     item.offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.offer.niche?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  
+  const isLoading = approvedLoading || pendingLoading || rejectedLoading;
   
   return (
     <div className="space-y-6">
@@ -66,6 +104,13 @@ export default function AffiliateOffers() {
       <Tabs defaultValue="active">
         <TabsList>
           <TabsTrigger value="active">Active Offers</TabsTrigger>
+          <TabsTrigger value="pending">
+            Pending Applications
+            {pendingApplications?.length ? (
+              <Badge variant="secondary" className="ml-2">{pendingApplications.length}</Badge>
+            ) : null}
+          </TabsTrigger>
+          <TabsTrigger value="rejected">Rejected</TabsTrigger>
           <TabsTrigger value="links">My Tracking Links</TabsTrigger>
         </TabsList>
         
@@ -74,9 +119,9 @@ export default function AffiliateOffers() {
             <div className="flex justify-center p-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
-          ) : filteredOffers?.length ? (
+          ) : filteredApprovedOffers?.length ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredOffers.map((affiliateOffer) => (
+              {filteredApprovedOffers.map((affiliateOffer) => (
                 <Card key={affiliateOffer.id} className="overflow-hidden">
                   <CardHeader className="p-4">
                     <CardTitle className="text-lg">{affiliateOffer.offer.name}</CardTitle>
@@ -138,6 +183,112 @@ export default function AffiliateOffers() {
               >
                 Browse Marketplace
               </Button>
+            </Card>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="pending">
+          {isLoading ? (
+            <div className="flex justify-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : pendingApplications?.length ? (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {pendingApplications.map((application) => (
+                <Card key={application.id} className="overflow-hidden">
+                  <CardHeader className="p-4">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{application.offer.name}</CardTitle>
+                      <Badge variant="outline" className="ml-2">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Pending
+                      </Badge>
+                    </div>
+                    <CardDescription className="line-clamp-2">
+                      {application.offer.description}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0 grid gap-2">
+                    <div className="text-sm">
+                      <span className="font-medium">Applied on: </span>
+                      {new Date(application.applied_at || '').toLocaleDateString()}
+                    </div>
+                    <div className="text-sm">
+                      <span className="font-medium">Traffic Source: </span>
+                      {application.traffic_source}
+                    </div>
+                    {application.notes && (
+                      <div className="text-sm">
+                        <span className="font-medium">Your Notes: </span>
+                        {application.notes}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card className="p-8 text-center">
+              <p className="text-muted-foreground">You don't have any pending applications</p>
+              <Button 
+                onClick={() => {
+                  window.location.href = '/marketplace';
+                }}
+                className="mt-4"
+              >
+                Browse Marketplace
+              </Button>
+            </Card>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="rejected">
+          {isLoading ? (
+            <div className="flex justify-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : rejectedApplications?.length ? (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {rejectedApplications.map((application) => (
+                <Card key={application.id} className="overflow-hidden">
+                  <CardHeader className="p-4">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{application.offer.name}</CardTitle>
+                      <Badge variant="destructive" className="ml-2">
+                        <X className="h-3 w-3 mr-1" />
+                        Rejected
+                      </Badge>
+                    </div>
+                    <CardDescription className="line-clamp-2">
+                      {application.offer.description}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0 grid gap-2">
+                    <div className="text-sm">
+                      <span className="font-medium">Applied on: </span>
+                      {new Date(application.applied_at || '').toLocaleDateString()}
+                    </div>
+                    <div className="text-sm">
+                      <span className="font-medium">Reviewed on: </span>
+                      {application.reviewed_at ? 
+                        new Date(application.reviewed_at).toLocaleDateString() : 
+                        'Not yet reviewed'}
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2"
+                      onClick={() => window.location.href = '/marketplace'}
+                    >
+                      Find Similar Offers
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card className="p-8 text-center">
+              <p className="text-muted-foreground">You don't have any rejected applications</p>
             </Card>
           )}
         </TabsContent>

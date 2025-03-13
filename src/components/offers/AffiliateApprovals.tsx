@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -13,18 +13,21 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Get affiliate applications for my offers - fixed query
-  const { data: applications, isLoading, refetch } = useQuery({
+  // Get affiliate applications for my offers with improved query
+  const { data: applications, isLoading, error } = useQuery({
     queryKey: ['affiliate-applications', user?.id],
     queryFn: async () => {
-      if (!user) return [];
+      if (!user || user.role !== 'advertiser') {
+        console.log('User is not an advertiser or not logged in');
+        return [];
+      }
       
       console.log('Fetching affiliate applications for advertiser:', user.id);
       
       // First get all offers from this advertiser
       const { data: myOffers, error: offersError } = await supabase
         .from('offers')
-        .select('id')
+        .select('id, name')
         .eq('advertiser_id', user.id);
       
       if (offersError) {
@@ -52,8 +55,8 @@ export default function AffiliateApprovals() {
           notes,
           applied_at,
           reviewed_at,
-          offers(*),
-          affiliates:users!affiliate_id(*)
+          offers:offer_id (id, name, description),
+          affiliates:affiliate_id (id, email, contact_name)
         `)
         .in('offer_id', offerIds)
         .eq('status', 'pending');
@@ -63,15 +66,25 @@ export default function AffiliateApprovals() {
         throw error;
       }
       
-      console.log('Found applications:', data);
+      console.log('Fetched pending applications:', data);
       return data || [];
     },
     enabled: !!user && user.role === 'advertiser',
-    // Add refetch interval to periodically check for new applications
-    refetchInterval: 15000,
+    refetchInterval: 10000, // Check every 10 seconds
     refetchOnWindowFocus: true,
     staleTime: 0, // Consider data stale immediately
   });
+  
+  useEffect(() => {
+    if (error) {
+      console.error('Error in applications query:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error loading applications',
+        description: 'There was a problem loading your affiliate applications.',
+      });
+    }
+  }, [error, toast]);
   
   // Mutation to update application status
   const updateApplication = useMutation({
@@ -104,9 +117,6 @@ export default function AffiliateApprovals() {
         title: `Application ${data.status}`,
         description: `The affiliate application has been ${data.status}`,
       });
-      
-      // Immediately refetch the current list to update the UI
-      refetch();
     },
     onError: (error) => {
       toast({
@@ -134,6 +144,15 @@ export default function AffiliateApprovals() {
     );
   }
   
+  if (error) {
+    return (
+      <Card className="p-8 text-center">
+        <p className="text-red-500 font-medium mb-2">Error loading applications</p>
+        <p className="text-muted-foreground">Please try refreshing the page</p>
+      </Card>
+    );
+  }
+  
   if (!applications || applications.length === 0) {
     return (
       <Card className="p-8 text-center">
@@ -149,13 +168,13 @@ export default function AffiliateApprovals() {
           <h3 className="text-lg font-semibold">Pending Affiliate Applications</h3>
         </div>
         <div className="divide-y">
-          {applications.map((app: any) => (
+          {applications.map((app) => (
             <div key={app.id} className="p-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <h4 className="font-medium">{app.affiliates.contact_name || app.affiliates.email}</h4>
-                  <p className="text-sm text-muted-foreground">{app.affiliates.email}</p>
-                  <p className="text-sm mt-1">Applied for: <span className="font-medium">{app.offers.name}</span></p>
+                  <h4 className="font-medium">{app.affiliates?.contact_name || app.affiliates?.email}</h4>
+                  <p className="text-sm text-muted-foreground">{app.affiliates?.email}</p>
+                  <p className="text-sm mt-1">Applied for: <span className="font-medium">{app.offers?.name}</span></p>
                   {app.traffic_source && (
                     <p className="text-sm mt-1">Traffic Source: {app.traffic_source}</p>
                   )}

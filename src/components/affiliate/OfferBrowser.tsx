@@ -38,10 +38,10 @@ export default function OfferBrowser() {
       
       if (error) throw error;
       
-      // Add is_featured if it doesn't exist in the database yet
+      // Transform the data to ensure is_featured property exists
       return data.map(offer => ({
         ...offer,
-        is_featured: offer.is_featured === undefined ? false : offer.is_featured
+        is_featured: false // Set default value
       })) as Offer[];
     },
     enabled: !!user && user.role === 'affiliate',

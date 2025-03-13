@@ -9,13 +9,405 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      affiliate_offers: {
+        Row: {
+          affiliate_id: string | null
+          applied_at: string | null
+          id: string
+          notes: string | null
+          offer_id: string | null
+          reviewed_at: string | null
+          status: string | null
+          traffic_source: string | null
+        }
+        Insert: {
+          affiliate_id?: string | null
+          applied_at?: string | null
+          id?: string
+          notes?: string | null
+          offer_id?: string | null
+          reviewed_at?: string | null
+          status?: string | null
+          traffic_source?: string | null
+        }
+        Update: {
+          affiliate_id?: string | null
+          applied_at?: string | null
+          id?: string
+          notes?: string | null
+          offer_id?: string | null
+          reviewed_at?: string | null
+          status?: string | null
+          traffic_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_offers_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_offers_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clicks: {
+        Row: {
+          affiliate_id: string | null
+          click_id: string
+          created_at: string | null
+          custom_params: Json | null
+          device: string | null
+          geo: string | null
+          id: string
+          ip_address: string | null
+          offer_id: string | null
+          referrer: string | null
+          tracking_code: string
+          user_agent: string | null
+        }
+        Insert: {
+          affiliate_id?: string | null
+          click_id: string
+          created_at?: string | null
+          custom_params?: Json | null
+          device?: string | null
+          geo?: string | null
+          id?: string
+          ip_address?: string | null
+          offer_id?: string | null
+          referrer?: string | null
+          tracking_code: string
+          user_agent?: string | null
+        }
+        Update: {
+          affiliate_id?: string | null
+          click_id?: string
+          created_at?: string | null
+          custom_params?: Json | null
+          device?: string | null
+          geo?: string | null
+          id?: string
+          ip_address?: string | null
+          offer_id?: string | null
+          referrer?: string | null
+          tracking_code?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clicks_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clicks_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversions: {
+        Row: {
+          click_id: string | null
+          commission: number | null
+          created_at: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          revenue: number | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          click_id?: string | null
+          commission?: number | null
+          created_at?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          revenue?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          click_id?: string | null
+          commission?: number | null
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          revenue?: number | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversions_click_id_fkey"
+            columns: ["click_id"]
+            isOneToOne: false
+            referencedRelation: "clicks"
+            referencedColumns: ["click_id"]
+          },
+        ]
+      }
+      offers: {
+        Row: {
+          advertiser_id: string | null
+          commission_amount: number | null
+          commission_percent: number | null
+          commission_type: string
+          created_at: string | null
+          description: string | null
+          geo_targets: Json | null
+          id: string
+          name: string
+          niche: string | null
+          status: string | null
+          updated_at: string | null
+          url: string
+        }
+        Insert: {
+          advertiser_id?: string | null
+          commission_amount?: number | null
+          commission_percent?: number | null
+          commission_type: string
+          created_at?: string | null
+          description?: string | null
+          geo_targets?: Json | null
+          id?: string
+          name: string
+          niche?: string | null
+          status?: string | null
+          updated_at?: string | null
+          url: string
+        }
+        Update: {
+          advertiser_id?: string | null
+          commission_amount?: number | null
+          commission_percent?: number | null
+          commission_type?: string
+          created_at?: string | null
+          description?: string | null
+          geo_targets?: Json | null
+          id?: string
+          name?: string
+          niche?: string | null
+          status?: string | null
+          updated_at?: string | null
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offers_advertiser_id_fkey"
+            columns: ["advertiser_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          advertiser_id: string | null
+          affiliate_id: string | null
+          amount: number
+          created_at: string | null
+          fee: number
+          id: string
+          payment_details: Json | null
+          payment_method: string | null
+          status: string | null
+          total: number
+          updated_at: string | null
+        }
+        Insert: {
+          advertiser_id?: string | null
+          affiliate_id?: string | null
+          amount: number
+          created_at?: string | null
+          fee: number
+          id?: string
+          payment_details?: Json | null
+          payment_method?: string | null
+          status?: string | null
+          total: number
+          updated_at?: string | null
+        }
+        Update: {
+          advertiser_id?: string | null
+          affiliate_id?: string | null
+          amount?: number
+          created_at?: string | null
+          fee?: number
+          id?: string
+          payment_details?: Json | null
+          payment_method?: string | null
+          status?: string | null
+          total?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_advertiser_id_fkey"
+            columns: ["advertiser_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tracking_links: {
+        Row: {
+          affiliate_id: string | null
+          created_at: string | null
+          custom_params: Json | null
+          id: string
+          offer_id: string | null
+          tracking_code: string
+        }
+        Insert: {
+          affiliate_id?: string | null
+          created_at?: string | null
+          custom_params?: Json | null
+          id?: string
+          offer_id?: string | null
+          tracking_code: string
+        }
+        Update: {
+          affiliate_id?: string | null
+          created_at?: string | null
+          custom_params?: Json | null
+          id?: string
+          offer_id?: string | null
+          tracking_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracking_links_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracking_links_affiliate_id_offer_id_fkey"
+            columns: ["affiliate_id", "offer_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_offers"
+            referencedColumns: ["affiliate_id", "offer_id"]
+          },
+          {
+            foreignKeyName: "tracking_links_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          company_name: string | null
+          contact_name: string | null
+          created_at: string | null
+          email: string
+          id: string
+          role: string
+          updated_at: string | null
+        }
+        Insert: {
+          company_name?: string | null
+          contact_name?: string | null
+          created_at?: string | null
+          email: string
+          id: string
+          role: string
+          updated_at?: string | null
+        }
+        Update: {
+          company_name?: string | null
+          contact_name?: string | null
+          created_at?: string | null
+          email?: string
+          id?: string
+          role?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      wallets: {
+        Row: {
+          balance: number | null
+          created_at: string | null
+          id: string
+          pending: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          balance?: number | null
+          created_at?: string | null
+          id?: string
+          pending?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          balance?: number | null
+          created_at?: string | null
+          id?: string
+          pending?: number | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: {
+          user_id: string
+        }
+        Returns: string
+      }
+      log_conversion: {
+        Args: {
+          p_click_id: string
+          p_event_type: string
+          p_revenue: number
+          p_metadata: Json
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

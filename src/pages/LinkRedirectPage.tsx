@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { TrackingLinkWithOffer } from '@/types';
 
 export default function LinkRedirectPage() {
   const { trackingCode } = useParams();
@@ -35,13 +36,16 @@ export default function LinkRedirectPage() {
           setIsLoading(false);
           return;
         }
+
+        // Cast linkData to TrackingLinkWithOffer to include link_type
+        const typedLinkData = linkData as TrackingLinkWithOffer;
         
         // Check if the affiliate is approved for this offer
         const { data: approvalData, error: approvalError } = await supabase
           .from('affiliate_offers')
           .select('status')
-          .eq('affiliate_id', linkData.affiliate_id)
-          .eq('offer_id', linkData.offer_id)
+          .eq('affiliate_id', typedLinkData.affiliate_id)
+          .eq('offer_id', typedLinkData.offer_id)
           .single();
         
         if (approvalError) throw approvalError;
@@ -75,8 +79,8 @@ export default function LinkRedirectPage() {
         const customParams: Record<string, string> = {};
         
         // Add custom params from tracking_links table
-        if (linkData.custom_params) {
-          Object.assign(customParams, linkData.custom_params);
+        if (typedLinkData.custom_params) {
+          Object.assign(customParams, typedLinkData.custom_params);
         }
         
         // Add any additional URL parameters
@@ -92,8 +96,8 @@ export default function LinkRedirectPage() {
           .insert({
             click_id: clickId,
             tracking_code: trackingCode,
-            affiliate_id: linkData.affiliate_id,
-            offer_id: linkData.offer_id,
+            affiliate_id: typedLinkData.affiliate_id,
+            offer_id: typedLinkData.offer_id,
             ip_address: ipInfo?.ip || null,
             user_agent: userAgent,
             device,
@@ -104,11 +108,11 @@ export default function LinkRedirectPage() {
           });
         
         // Check if this is a CPC offer and credit the affiliate immediately
-        if (linkData.offer.commission_type === 'CPC' && linkData.offer.commission_amount) {
+        if (typedLinkData.offer.commission_type === 'CPC' && typedLinkData.offer.commission_amount) {
           const { data: walletData } = await supabase
             .from('wallets')
             .select('*')
-            .eq('user_id', linkData.affiliate_id)
+            .eq('user_id', typedLinkData.affiliate_id)
             .single();
           
           if (walletData) {
@@ -116,9 +120,9 @@ export default function LinkRedirectPage() {
             await supabase
               .from('wallets')
               .update({
-                pending: walletData.pending + linkData.offer.commission_amount
+                pending: walletData.pending + typedLinkData.offer.commission_amount
               })
-              .eq('user_id', linkData.affiliate_id);
+              .eq('user_id', typedLinkData.affiliate_id);
             
             // Create a conversion record for CPC
             await supabase
@@ -126,7 +130,7 @@ export default function LinkRedirectPage() {
               .insert({
                 click_id: clickId,
                 event_type: 'click',
-                commission: linkData.offer.commission_amount,
+                commission: typedLinkData.offer.commission_amount,
                 status: 'pending',
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
@@ -135,7 +139,7 @@ export default function LinkRedirectPage() {
         }
         
         // Build redirect URL with clickId and parameters
-        let redirectUrl = linkData.offer.url;
+        let redirectUrl = typedLinkData.offer.url;
         
         // Add parameters separator if needed
         redirectUrl += redirectUrl.includes('?') ? '&' : '?';
@@ -149,8 +153,8 @@ export default function LinkRedirectPage() {
         });
         
         // If this is a short link or QR code, log additional analytics
-        if (linkData.link_type === 'shortened' || linkData.link_type === 'qr') {
-          console.log(`Redirect from ${linkData.link_type} link: ${trackingCode}`);
+        if (typedLinkData.link_type === 'shortened' || typedLinkData.link_type === 'qr') {
+          console.log(`Redirect from ${typedLinkData.link_type} link: ${trackingCode}`);
         }
         
         // Redirect to the offer URL

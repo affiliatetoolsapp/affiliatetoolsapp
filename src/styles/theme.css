@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+ 
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+ 
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+ 
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+ 
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+ 
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+ 
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+ 
+    --radius: 0.5rem;
+  }
+ 
+  .dark {
+    /* Darker background to match dashboard */
+    --background: 225 6% 11%; /* Darker background for browser/outside area */
+    --foreground: 0 0% 86%;
+
+    /* Slightly adjust card and other elements to maintain proper layering */
+    --card: 224 6% 15%; /* Dashboard background */
+    --card-foreground: 0 0% 86%;
+ 
+    --popover: 224 6% 15%;
+    --popover-foreground: 0 0% 86%;
+ 
+    --primary: 212 100% 50%;
+    --primary-foreground: 0 0% 100%;
+ 
+    --secondary: 225 6% 16%;
+    --secondary-foreground: 0 0% 86%;
+ 
+    --muted: 225 6% 13%;
+    --muted-foreground: 225 6% 64%;
+ 
+    --accent: 213 50% 45%;
+    --accent-foreground: 0 0% 100%;
+ 
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+ 
+    --border: 225 6% 14%;
+    --input: 225 6% 13%;
+    --ring: 212 100% 50%;
+  }
+}
+
+/* Additional VS Code-inspired dark theme styles */
+.dark {
+  color-scheme: dark;
+}
+
+.dark ::selection {
+  background-color: rgba(0, 122, 204, 0.3);
+}
+
+.dark ::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+/* Update scrollbar track to match the browser background */
+.dark ::-webkit-scrollbar-track {
+  background-color: hsl(225 6% 11%);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background-color: hsl(225 6% 20%);
+  border: 3px solid hsl(225 6% 11%);
+  border-radius: 7px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(225 6% 23%);
+}
+
+/* Card and border styles */
+.dark .border,
+.dark .border-b,
+.dark .border-t,
+.dark .border-r,
+.dark .border-l {
+  border-color: hsl(225 6% 14%);
+}
+
+/* Subtle hover effects */
+.dark .hover\:bg-muted:hover {
+  background-color: hsl(225 6% 17%);
+}
+
+/* Active/selected state */
+.dark .bg-primary\/10 {
+  background-color: hsla(212, 100%, 50%, 0.1);
+}
+
+/* Dashboard card styles */
+.dark .card,
+.dark [class*="card"] {
+  background-color: hsl(225 6% 15%);
+  border-color: hsl(225 6% 14%);
+} 

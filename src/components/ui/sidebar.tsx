@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { Link, useLocation } from 'react-router-dom';
@@ -17,12 +16,19 @@ import {
   FileText,
   LayoutDashboard,
   TrendingUp,
-  Tag
+  Tag,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
+import { Button } from './button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip';
 
-interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {}
+interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> {
+  isCollapsed?: boolean;
+  onToggle?: () => void;
+}
 
-export function Sidebar({ className, ...props }: SidebarProps) {
+export function Sidebar({ className, isCollapsed = false, onToggle, ...props }: SidebarProps) {
   const { user } = useAuth();
   const location = useLocation();
   
@@ -34,7 +40,6 @@ export function Sidebar({ className, ...props }: SidebarProps) {
 
   const commonLinks = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Profile', href: '/profile', icon: User },
   ];
   
   const adminLinks = [
@@ -43,7 +48,6 @@ export function Sidebar({ className, ...props }: SidebarProps) {
     { name: 'Marketplace', href: '/marketplace', icon: Store },
     { name: 'Payments', href: '/payments', icon: DollarSign },
     { name: 'Reports', href: '/reports', icon: FileText },
-    { name: 'Settings', href: '/settings', icon: Settings },
   ];
   
   const advertiserLinks = [
@@ -53,7 +57,6 @@ export function Sidebar({ className, ...props }: SidebarProps) {
     { name: 'Reports', href: '/reports', icon: FileText },
     { name: 'Payments', href: '/payments', icon: DollarSign },
     { name: 'Wallet', href: '/wallet', icon: Wallet },
-    { name: 'Settings', href: '/settings', icon: Settings },
   ];
   
   const affiliateLinks = [
@@ -64,7 +67,6 @@ export function Sidebar({ className, ...props }: SidebarProps) {
     { name: 'Reports', href: '/reports', icon: FileText },
     { name: 'Earnings', href: '/earnings', icon: BarChart3 },
     { name: 'Wallet', href: '/wallet', icon: Wallet },
-    { name: 'Settings', href: '/settings', icon: Settings },
   ];
   
   let roleSpecificLinks = [];
@@ -80,28 +82,63 @@ export function Sidebar({ className, ...props }: SidebarProps) {
   const allLinks = [...commonLinks, ...roleSpecificLinks];
 
   return (
-    <div className={cn("bg-background flex flex-col h-full", className)} {...props}>
-      <div className="py-4 px-6 border-b">
-        <h2 className="text-lg font-bold">Affiliate Network</h2>
-        <p className="text-sm text-muted-foreground capitalize">{user.role} Portal</p>
+    <div className={cn(
+      "bg-background flex flex-col h-full transition-all duration-300",
+      isCollapsed ? "w-[80px]" : "w-64",
+      className
+    )} {...props}>
+      <div className={cn(
+        "sticky top-0 bg-background border-b z-20",
+        isCollapsed ? "px-2" : "px-4"
+      )}>
+        <div className="flex items-center h-16">
+          {!isCollapsed && (
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold truncate">Affiliate Network</h2>
+              <p className="text-sm text-muted-foreground capitalize truncate">{user.role} Portal</p>
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggle}
+            className={cn(
+              "h-6 w-6 shrink-0",
+              isCollapsed ? "mx-auto" : "ml-2"
+            )}
+          >
+            <ChevronLeft className={cn("h-4 w-4", isCollapsed && "rotate-180")} />
+          </Button>
+        </div>
       </div>
-      <div className="flex-1 overflow-auto py-2">
-        <nav className="flex flex-col gap-1 px-2">
-          {allLinks.map((link) => (
-            <Link
-              key={link.href}
-              to={link.href}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                isActive(link.href)
-                  ? "bg-primary/10 text-primary font-medium"
-                  : "text-muted-foreground hover:bg-muted"
-              )}
-            >
-              <link.icon className="h-4 w-4" />
-              <span>{link.name}</span>
-            </Link>
-          ))}
+      <div className="flex-1 py-2">
+        <nav className="flex flex-col gap-1 px-2 sticky top-[4.5rem]">
+          <TooltipProvider delayDuration={0}>
+            {allLinks.map((link) => (
+              <Tooltip key={link.href}>
+                <TooltipTrigger asChild>
+                  <Link
+                    to={link.href}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                      isActive(link.href)
+                        ? "bg-primary/10 text-primary font-medium"
+                        : "text-muted-foreground hover:bg-muted",
+                      isCollapsed && "justify-center"
+                    )}
+                  >
+                    <link.icon className="h-4 w-4 flex-shrink-0" />
+                    {!isCollapsed && <span>{link.name}</span>}
+                  </Link>
+                </TooltipTrigger>
+                {isCollapsed && (
+                  <TooltipContent side="right">
+                    {link.name}
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            ))}
+          </TooltipProvider>
         </nav>
       </div>
     </div>

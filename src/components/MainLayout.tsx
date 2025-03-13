@@ -1,12 +1,12 @@
-
-import React from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Sidebar } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Bell, LogOut, Menu, User } from 'lucide-react';
+import { Bell, LogOut, Menu, Settings } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -18,6 +18,8 @@ import {
 
 export default function MainLayout() {
   const { user, signOut } = useAuth();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const navigate = useNavigate();
   
   const userInitials = user?.contact_name 
     ? user.contact_name.split(' ').map(n => n[0]).join('')
@@ -26,26 +28,32 @@ export default function MainLayout() {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Desktop Sidebar */}
-      <div className="hidden md:block">
-        <Sidebar className="h-screen border-r w-64" />
+      <div className="hidden md:block sticky top-0 h-screen">
+        <Sidebar 
+          className="h-screen border-r" 
+          isCollapsed={isSidebarCollapsed}
+          onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        />
       </div>
       
       {/* Mobile Sidebar */}
       <Sheet>
         <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="md:hidden absolute top-4 left-4 z-10">
+          <Button variant="ghost" size="icon" className="md:hidden fixed top-4 left-4 z-50">
             <Menu />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="p-0">
+        <SheetContent side="left" className="p-0 w-64">
           <Sidebar />
         </SheetContent>
       </Sheet>
       
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        <header className="h-16 border-b flex items-center justify-end p-4 sticky top-0 bg-background z-10">
+      <div className="flex-1 flex flex-col min-h-screen">
+        {/* Fixed Header */}
+        <header className="h-16 border-b flex items-center justify-end px-6 sticky top-0 bg-background z-40">
           <div className="flex items-center space-x-4">
+            <ThemeToggle />
             <Button variant="ghost" size="icon">
               <Bell className="h-5 w-5" />
             </Button>
@@ -67,9 +75,9 @@ export default function MainLayout() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => window.location.href = "/profile"}>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
+                <DropdownMenuItem onSelect={() => navigate('/profile')}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Account Settings</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => signOut()}>
@@ -81,7 +89,7 @@ export default function MainLayout() {
           </div>
         </header>
         
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
+        <main className="flex-1 p-4 md:p-6">
           <Outlet />
         </main>
         

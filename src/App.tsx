@@ -1,8 +1,10 @@
-
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/context/AuthContext';
 import { Toaster } from '@/components/ui/toaster';
+import { Theme } from '@radix-ui/themes';
+import { ThemeProvider } from '@/components/providers/theme-provider';
+import { useTheme } from 'next-themes';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import MainLayout from '@/components/MainLayout';
 import LoginPage from '@/pages/LoginPage';
@@ -37,11 +39,11 @@ const queryClient = new QueryClient({
   },
 });
 
-function App() {
-  console.log('App component rendering');
+function AppContent() {
+  const { theme } = useTheme();
   
   return (
-    <QueryClientProvider client={queryClient}>
+    <Theme accentColor="iris" radius="large" appearance={theme as 'light' | 'dark'}>
       <AuthProvider>
         <Router>
           <Routes>
@@ -89,6 +91,18 @@ function App() {
         </Router>
         <Toaster />
       </AuthProvider>
+    </Theme>
+  );
+}
+
+function App() {
+  console.log('App component rendering');
+  
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

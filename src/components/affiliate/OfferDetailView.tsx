@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Offer } from '@/types';
@@ -69,6 +70,8 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-offers', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['available-offers'] });
+      
       toast({
         title: "Application Submitted",
         description: "Your application has been submitted successfully",
@@ -87,7 +90,63 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
     }
   });
 
+  // Cancel application mutation
+  const cancelApplicationMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("User not authenticated");
+      
+      // Find the application record
+      const { data: applicationData, error: findError } = await supabase
+        .from('affiliate_offers')
+        .select('id')
+        .eq('affiliate_id', user.id)
+        .eq('offer_id', offer.id)
+        .eq('status', 'pending')
+        .single();
+      
+      if (findError) throw findError;
+      
+      if (!applicationData) {
+        throw new Error("Application not found");
+      }
+      
+      // Delete the application
+      const { error: deleteError } = await supabase
+        .from('affiliate_offers')
+        .delete()
+        .eq('id', applicationData.id);
+      
+      if (deleteError) throw deleteError;
+      
+      return { success: true };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['affiliate-applications', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['affiliate-offers', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['available-offers'] });
+      
+      toast({
+        title: "Application Cancelled",
+        description: "Your application has been cancelled. You can reapply if needed.",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Error cancelling application:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to cancel application",
+      });
+    }
+  });
+
   const handleApplyClick = () => setOpen(true);
+  
+  const handleCancelClick = () => {
+    if (confirm("Are you sure you want to cancel your application?")) {
+      cancelApplicationMutation.mutate();
+    }
+  };
 
   // Format geo targets for display
   const formatGeoTargets = () => {
@@ -428,13 +487,20 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
             <Button size="sm" onClick={() => navigate(`/links?offer=${offer.id}`)}>
               Create Links
             </Button>
+          ) : applicationStatus === 'pending' ? (
+            <Button 
+              size="sm" 
+              variant="destructive" 
+              onClick={handleCancelClick}
+              disabled={cancelApplicationMutation.isPending}
+            >
+              {cancelApplicationMutation.isPending ? 'Cancelling...' : 'Cancel Application'}
+            </Button>
           ) : (
             <div className="flex items-center space-x-1 text-sm text-muted-foreground">
               <Info className="h-4 w-4" />
               <span>
-                {applicationStatus === 'pending' 
-                  ? 'Application under review' 
-                  : 'Application was rejected'}
+                Application was rejected
               </span>
             </div>
           )}

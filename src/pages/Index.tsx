@@ -9,11 +9,16 @@ export default function Index() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Log the current state for debugging
+    console.log('Index page state:', { user, isLoading });
+    
     // Immediate navigation if auth state is already loaded
     if (!isLoading) {
       if (user) {
+        console.log('User authenticated, redirecting to dashboard');
         navigate('/dashboard');
       } else {
+        console.log('No user found, redirecting to login');
         navigate('/login');
       }
     }

@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@/types';
@@ -87,6 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
       
+      console.log('Auth state change event:', event);
+      
       setSession(session);
       
       if (session?.user) {
@@ -168,18 +171,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
-    setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      console.log('Attempting to sign out...');
+      setIsLoading(true);
+      
+      // Clear local state first to ensure immediate UI update
       setUser(null);
+      setSession(null);
+      
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Sign out API error:', error);
+        toast({
+          title: "Error",
+          description: error.message || "An error occurred during sign out",
+          variant: "destructive",
+        });
+      } else {
+        console.log('Signed out successfully');
+        toast({
+          title: "Signed out",
+          description: "You have been signed out successfully",
+        });
+      }
     } catch (error: any) {
+      console.error('Sign out unexpected error:', error);
       toast({
         title: "Error",
         description: error.message || "An error occurred during sign out",
         variant: "destructive",
       });
     } finally {
+      // Ensure we always end the loading state
       setIsLoading(false);
     }
   }

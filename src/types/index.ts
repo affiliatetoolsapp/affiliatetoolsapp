@@ -4,10 +4,11 @@ import { Database } from '@/integrations/supabase/types';
 export type Offer = Database['public']['Tables']['offers']['Row'] & {
   is_featured?: boolean;
   advertiser_name?: string;
-  allowed_traffic_sources?: string;
+  allowed_traffic_sources?: string[];
+  restricted_geos?: string[];
   target_audience?: string;
   restrictions?: string;
-  marketing_materials?: string;
+  marketing_materials?: any;
   conversion_requirements?: string;
 };
 export type AffiliateOffer = Database['public']['Tables']['affiliate_offers']['Row'];

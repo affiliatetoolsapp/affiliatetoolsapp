@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { Search, Filter, PlusCircle, MoreVertical, Edit, Trash2, Users, Pause, Play, Grid, List } from 'lucide-react';
+import { Search, Filter, PlusCircle, MoreVertical, Edit, Trash2, Users, Pause, Play, Grid, List, Globe, Shield, Target } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function OfferManagement() {
@@ -163,6 +163,7 @@ export default function OfferManagement() {
             <TableHead>Name</TableHead>
             <TableHead>Niche</TableHead>
             <TableHead>Commission</TableHead>
+            <TableHead>Geo Targeting</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
@@ -188,6 +189,16 @@ export default function OfferManagement() {
                 {offer.commission_type === 'RevShare' 
                   ? `${offer.commission_percent}% RevShare` 
                   : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
+              </TableCell>
+              <TableCell>
+                {offer.geo_targets && Array.isArray(offer.geo_targets) && offer.geo_targets.length > 0 ? (
+                  <div className="flex items-center">
+                    <Globe className="h-4 w-4 mr-1" />
+                    {offer.geo_targets.length} {offer.geo_targets.length === 1 ? 'country' : 'countries'}
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground">No targeting</span>
+                )}
               </TableCell>
               <TableCell>
                 <Badge variant={offer.status === 'active' ? 'default' : 'secondary'}>
@@ -380,6 +391,40 @@ export default function OfferManagement() {
                           <span className="font-medium">Niche: </span>{offer.niche}
                         </div>
                       )}
+                      
+                      {/* Display geo targeting info */}
+                      {offer.geo_targets && Array.isArray(offer.geo_targets) && offer.geo_targets.length > 0 && (
+                        <div className="text-sm flex items-center">
+                          <Globe className="h-3.5 w-3.5 mr-1 text-blue-500" />
+                          <span className="font-medium mr-1">Targeting: </span>
+                          {offer.geo_targets.length <= 3 
+                            ? offer.geo_targets.join(', ') 
+                            : `${offer.geo_targets.length} countries`}
+                        </div>
+                      )}
+                      
+                      {/* Display geo restrictions */}
+                      {offer.restricted_geos && Array.isArray(offer.restricted_geos) && offer.restricted_geos.length > 0 && (
+                        <div className="text-sm flex items-center">
+                          <Shield className="h-3.5 w-3.5 mr-1 text-red-500" />
+                          <span className="font-medium mr-1">Restricted: </span>
+                          {offer.restricted_geos.length <= 3 
+                            ? offer.restricted_geos.join(', ') 
+                            : `${offer.restricted_geos.length} countries`}
+                        </div>
+                      )}
+                      
+                      {/* Display traffic sources */}
+                      {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
+                        <div className="text-sm flex items-center">
+                          <Target className="h-3.5 w-3.5 mr-1 text-green-500" />
+                          <span className="font-medium mr-1">Traffic: </span>
+                          {offer.allowed_traffic_sources.length <= 2 
+                            ? offer.allowed_traffic_sources.join(', ') 
+                            : `${offer.allowed_traffic_sources.length} sources`}
+                        </div>
+                      )}
+                      
                       <div className="text-sm">
                         <span className="font-medium">Status: </span>
                         <Badge variant={offer.status === 'active' ? 'default' : 'secondary'}>
@@ -423,6 +468,7 @@ export default function OfferManagement() {
                       <th className="p-3 text-left font-medium">Affiliate</th>
                       <th className="p-3 text-left font-medium">Offer</th>
                       <th className="p-3 text-left font-medium">Traffic Source</th>
+                      <th className="p-3 text-left font-medium">Notes</th>
                       <th className="p-3 text-left font-medium">Applied On</th>
                       <th className="p-3 text-left font-medium">Actions</th>
                     </tr>
@@ -432,9 +478,13 @@ export default function OfferManagement() {
                       <tr key={app.id} className="border-b hover:bg-muted/50">
                         <td className="p-3">
                           {app.affiliate.contact_name || app.affiliate.email}
+                          {app.affiliate.company_name && (
+                            <div className="text-xs text-muted-foreground">{app.affiliate.company_name}</div>
+                          )}
                         </td>
                         <td className="p-3">{app.offer.name}</td>
                         <td className="p-3">{app.traffic_source || 'Not specified'}</td>
+                        <td className="p-3">{app.notes || '-'}</td>
                         <td className="p-3">
                           {new Date(app.applied_at).toLocaleDateString()}
                         </td>

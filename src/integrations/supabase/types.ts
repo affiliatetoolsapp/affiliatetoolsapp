@@ -52,6 +52,13 @@ export type Database = {
             foreignKeyName: "affiliate_offers_offer_id_fkey"
             columns: ["offer_id"]
             isOneToOne: false
+            referencedRelation: "affiliate_offer_details"
+            referencedColumns: ["o_id"]
+          },
+          {
+            foreignKeyName: "affiliate_offers_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
             referencedRelation: "offers"
             referencedColumns: ["id"]
           },
@@ -112,6 +119,13 @@ export type Database = {
             foreignKeyName: "clicks_offer_id_fkey"
             columns: ["offer_id"]
             isOneToOne: false
+            referencedRelation: "affiliate_offer_details"
+            referencedColumns: ["o_id"]
+          },
+          {
+            foreignKeyName: "clicks_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
             referencedRelation: "offers"
             referencedColumns: ["id"]
           },
@@ -164,52 +178,70 @@ export type Database = {
       offers: {
         Row: {
           advertiser_id: string | null
+          allowed_traffic_sources: string[] | null
           commission_amount: number | null
           commission_percent: number | null
           commission_type: string
+          conversion_requirements: string | null
           created_at: string | null
           description: string | null
           featured_until: string | null
           geo_targets: Json | null
           id: string
           is_featured: boolean
+          marketing_materials: Json | null
           name: string
           niche: string | null
+          restricted_geos: string[] | null
+          restrictions: string | null
           status: string | null
+          target_audience: string | null
           updated_at: string | null
           url: string
         }
         Insert: {
           advertiser_id?: string | null
+          allowed_traffic_sources?: string[] | null
           commission_amount?: number | null
           commission_percent?: number | null
           commission_type: string
+          conversion_requirements?: string | null
           created_at?: string | null
           description?: string | null
           featured_until?: string | null
           geo_targets?: Json | null
           id?: string
           is_featured?: boolean
+          marketing_materials?: Json | null
           name: string
           niche?: string | null
+          restricted_geos?: string[] | null
+          restrictions?: string | null
           status?: string | null
+          target_audience?: string | null
           updated_at?: string | null
           url: string
         }
         Update: {
           advertiser_id?: string | null
+          allowed_traffic_sources?: string[] | null
           commission_amount?: number | null
           commission_percent?: number | null
           commission_type?: string
+          conversion_requirements?: string | null
           created_at?: string | null
           description?: string | null
           featured_until?: string | null
           geo_targets?: Json | null
           id?: string
           is_featured?: boolean
+          marketing_materials?: Json | null
           name?: string
           niche?: string | null
+          restricted_geos?: string[] | null
+          restrictions?: string | null
           status?: string | null
+          target_audience?: string | null
           updated_at?: string | null
           url?: string
         }
@@ -347,8 +379,22 @@ export type Database = {
             foreignKeyName: "tracking_links_affiliate_id_offer_id_fkey"
             columns: ["affiliate_id", "offer_id"]
             isOneToOne: false
+            referencedRelation: "affiliate_offer_details"
+            referencedColumns: ["affiliate_id", "ao_offer_id"]
+          },
+          {
+            foreignKeyName: "tracking_links_affiliate_id_offer_id_fkey"
+            columns: ["affiliate_id", "offer_id"]
+            isOneToOne: false
             referencedRelation: "affiliate_offers"
             referencedColumns: ["affiliate_id", "offer_id"]
+          },
+          {
+            foreignKeyName: "tracking_links_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_offer_details"
+            referencedColumns: ["o_id"]
           },
           {
             foreignKeyName: "tracking_links_offer_id_fkey"
@@ -435,7 +481,70 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      affiliate_offer_details: {
+        Row: {
+          advertiser_id: string | null
+          advertiser_name: string | null
+          affiliate_id: string | null
+          affiliate_offer_id: string | null
+          allowed_traffic_sources: string[] | null
+          ao_offer_id: string | null
+          application_status: string | null
+          applied_at: string | null
+          commission_amount: number | null
+          commission_percent: number | null
+          commission_type: string | null
+          conversion_requirements: string | null
+          description: string | null
+          featured_until: string | null
+          geo_targets: Json | null
+          is_featured: boolean | null
+          marketing_materials: Json | null
+          niche: string | null
+          notes: string | null
+          o_id: string | null
+          offer_created_at: string | null
+          offer_name: string | null
+          offer_status: string | null
+          offer_updated_at: string | null
+          restricted_geos: string[] | null
+          restrictions: string | null
+          reviewed_at: string | null
+          target_audience: string | null
+          traffic_source: string | null
+          url: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_offers_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_offers_offer_id_fkey"
+            columns: ["ao_offer_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_offer_details"
+            referencedColumns: ["o_id"]
+          },
+          {
+            foreignKeyName: "affiliate_offers_offer_id_fkey"
+            columns: ["ao_offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offers_advertiser_id_fkey"
+            columns: ["advertiser_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       get_user_role: {

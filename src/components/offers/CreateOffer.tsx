@@ -17,9 +17,9 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
+import { TagInput } from '@/components/ui/tag-input';
 import { GlobeIcon, DollarSignIcon, ShieldIcon, TagIcon, UsersIcon } from 'lucide-react';
 
 export default function CreateOffer() {
@@ -37,7 +37,11 @@ export default function CreateOffer() {
     niche: '',
     is_featured: false,
     geo_targets: [] as string[],
+    restricted_geos: [] as string[],
     allowed_traffic_sources: [] as string[],
+    target_audience: '',
+    restrictions: '',
+    conversion_requirements: '',
     conversion_cap_daily: '',
     click_cap_daily: '',
     budget_cap_daily: '',
@@ -85,6 +89,11 @@ export default function CreateOffer() {
         niche: formData.niche,
         is_featured: formData.is_featured,
         geo_targets: formData.geo_targets.length > 0 ? formData.geo_targets : null,
+        restricted_geos: formData.restricted_geos.length > 0 ? formData.restricted_geos : null,
+        allowed_traffic_sources: formData.allowed_traffic_sources.length > 0 ? formData.allowed_traffic_sources : null,
+        target_audience: formData.target_audience || null,
+        restrictions: formData.restrictions || null,
+        conversion_requirements: formData.conversion_requirements || null,
         status: 'active'
       };
       
@@ -130,14 +139,32 @@ export default function CreateOffer() {
     'Push Notifications',
     'Native Advertising',
     'Video Marketing',
-    'Display Advertising'
+    'Display Advertising',
+    'Contextual Advertising',
+    'Retargeting/Remarketing',
+    'Direct Mail',
+    'SMS Marketing',
+    'Outdoor Advertising',
+    'Television Advertising',
+    'Radio Advertising',
+    'Podcast Advertising',
+    'Webinars & Online Events',
+    'In-app Advertising',
+    'Forum Marketing',
+    'Review Sites',
+    'Comparison Sites',
+    'Coupon Sites',
+    'Loyalty Programs'
   ];
   
   // Common geos
   const popularGeos = [
     'United States', 'Canada', 'United Kingdom', 'Australia', 'Germany', 'France', 'Italy', 'Spain', 
     'Netherlands', 'Belgium', 'Sweden', 'Norway', 'Denmark', 'Finland', 'Japan', 'South Korea', 
-    'Singapore', 'Brazil', 'Mexico', 'India'
+    'Singapore', 'Brazil', 'Mexico', 'India', 'China', 'Russia', 'South Africa', 'United Arab Emirates',
+    'Saudi Arabia', 'Israel', 'New Zealand', 'Ireland', 'Poland', 'Austria', 'Switzerland', 'Portugal',
+    'Greece', 'Turkey', 'Argentina', 'Chile', 'Colombia', 'Peru', 'Thailand', 'Vietnam', 'Philippines',
+    'Malaysia', 'Indonesia', 'Taiwan', 'Hong Kong', 'Egypt', 'Nigeria', 'Kenya', 'Morocco', 'Qatar'
   ];
   
   return (
@@ -241,6 +268,42 @@ export default function CreateOffer() {
                   <p className="ml-2 text-sm text-muted-foreground">
                     Affiliates must be approved before they can promote this offer
                   </p>
+                </div>
+                
+                <div className="grid gap-3">
+                  <Label htmlFor="target_audience">Target Audience</Label>
+                  <Textarea
+                    id="target_audience"
+                    name="target_audience"
+                    value={formData.target_audience}
+                    onChange={handleInputChange}
+                    placeholder="Describe your ideal customer for this offer"
+                    rows={2}
+                  />
+                </div>
+                
+                <div className="grid gap-3">
+                  <Label htmlFor="restrictions">Restrictions & Rules</Label>
+                  <Textarea
+                    id="restrictions"
+                    name="restrictions"
+                    value={formData.restrictions}
+                    onChange={handleInputChange}
+                    placeholder="Any specific rules affiliates must follow"
+                    rows={2}
+                  />
+                </div>
+                
+                <div className="grid gap-3">
+                  <Label htmlFor="conversion_requirements">Conversion Requirements</Label>
+                  <Textarea
+                    id="conversion_requirements"
+                    name="conversion_requirements"
+                    value={formData.conversion_requirements}
+                    onChange={handleInputChange}
+                    placeholder="What constitutes a conversion for this offer"
+                    rows={2}
+                  />
                 </div>
               </CardContent>
               
@@ -486,72 +549,41 @@ export default function CreateOffer() {
               
               <CardContent className="space-y-6">
                 <div className="grid gap-4">
-                  <Label>Geographic Targeting</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {popularGeos.map((geo) => (
-                      <div key={geo} className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`geo-${geo}`} 
-                          checked={formData.geo_targets.includes(geo)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setFormData(prev => ({
-                                ...prev,
-                                geo_targets: [...prev.geo_targets, geo]
-                              }));
-                            } else {
-                              setFormData(prev => ({
-                                ...prev,
-                                geo_targets: prev.geo_targets.filter(g => g !== geo)
-                              }));
-                            }
-                          }}
-                        />
-                        <label
-                          htmlFor={`geo-${geo}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          {geo}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
+                  <Label>Geographic Targeting (Allowed)</Label>
+                  <TagInput
+                    placeholder="Add allowed locations"
+                    tags={formData.geo_targets}
+                    suggestions={popularGeos}
+                    onTagsChange={(newTags) => setFormData(prev => ({ ...prev, geo_targets: newTags }))}
+                    variant="default"
+                  />
                   <p className="text-sm text-muted-foreground">
                     Select the countries where this offer should be promoted
                   </p>
                 </div>
                 
                 <div className="grid gap-4">
+                  <Label>Geographic Restrictions (Blocked)</Label>
+                  <TagInput
+                    placeholder="Add restricted locations"
+                    tags={formData.restricted_geos}
+                    suggestions={popularGeos}
+                    onTagsChange={(newTags) => setFormData(prev => ({ ...prev, restricted_geos: newTags }))}
+                    variant="negative"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Select the countries where this offer should NOT be promoted
+                  </p>
+                </div>
+                
+                <div className="grid gap-4">
                   <Label>Allowed Traffic Sources</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {trafficSources.map((source) => (
-                      <div key={source} className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`source-${source}`} 
-                          checked={formData.allowed_traffic_sources.includes(source)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setFormData(prev => ({
-                                ...prev,
-                                allowed_traffic_sources: [...prev.allowed_traffic_sources, source]
-                              }));
-                            } else {
-                              setFormData(prev => ({
-                                ...prev,
-                                allowed_traffic_sources: prev.allowed_traffic_sources.filter(s => s !== source)
-                              }));
-                            }
-                          }}
-                        />
-                        <label
-                          htmlFor={`source-${source}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          {source}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
+                  <TagInput
+                    placeholder="Add traffic sources"
+                    tags={formData.allowed_traffic_sources}
+                    suggestions={trafficSources}
+                    onTagsChange={(newTags) => setFormData(prev => ({ ...prev, allowed_traffic_sources: newTags }))}
+                  />
                   <p className="text-sm text-muted-foreground">
                     Select the traffic sources that are allowed for this offer
                   </p>

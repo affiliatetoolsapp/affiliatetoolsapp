@@ -3,8 +3,10 @@ import { useAuth } from '@/context/AuthContext';
 import AdminDashboard from '@/components/dashboard/AdminDashboard';
 import AdvertiserDashboard from '@/components/dashboard/AdvertiserDashboard';
 import AffiliateDashboard from '@/components/dashboard/AffiliateDashboard';
+import DashboardOverview from '@/components/dashboard/DashboardOverview';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function DashboardPage() {
   const { user, isLoading } = useAuth();
@@ -33,14 +35,74 @@ export default function DashboardPage() {
 
   if (!user) return null;
 
-  switch (user.role) {
-    case 'admin':
-      return <AdminDashboard />;
-    case 'advertiser':
-      return <AdvertiserDashboard />;
-    case 'affiliate':
-      return <AffiliateDashboard />;
-    default:
-      return <div>Unknown role</div>;
-  }
+  const renderRoleDashboard = () => {
+    switch (user.role) {
+      case 'admin':
+        return (
+          <Tabs defaultValue="overview" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="advanced">Advanced Analytics</TabsTrigger>
+            </TabsList>
+            <TabsContent value="overview">
+              <DashboardOverview />
+            </TabsContent>
+            <TabsContent value="advanced">
+              <AdminDashboard />
+            </TabsContent>
+          </Tabs>
+        );
+      case 'advertiser':
+        return (
+          <Tabs defaultValue="overview" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="advanced">Campaign Analytics</TabsTrigger>
+            </TabsList>
+            <TabsContent value="overview">
+              <DashboardOverview />
+            </TabsContent>
+            <TabsContent value="advanced">
+              <AdvertiserDashboard />
+            </TabsContent>
+          </Tabs>
+        );
+      case 'affiliate':
+        return (
+          <Tabs defaultValue="overview" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="detailed">Detailed Analytics</TabsTrigger>
+            </TabsList>
+            <TabsContent value="overview">
+              <DashboardOverview />
+            </TabsContent>
+            <TabsContent value="detailed">
+              <AffiliateDashboard />
+            </TabsContent>
+          </Tabs>
+        );
+      default:
+        return <div>Unknown role</div>;
+    }
+  };
+
+  return (
+    <div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Welcome, {user.contact_name || user.email}</h1>
+        <p className="text-muted-foreground">
+          {user.role === 'admin' 
+            ? 'View and manage your affiliate network'
+            : user.role === 'advertiser'
+            ? 'Track your campaigns and manage affiliates'
+            : 'Find offers and monitor your performance'}
+        </p>
+      </div>
+      
+      <div className="mt-6">
+        {renderRoleDashboard()}
+      </div>
+    </div>
+  );
 }

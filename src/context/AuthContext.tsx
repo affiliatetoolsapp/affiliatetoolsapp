@@ -13,6 +13,8 @@ interface AuthContextType {
   signUp: (email: string, password: string, role: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -165,6 +167,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function updatePassword(newPassword: string) {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Password updated",
+        description: "Your password has been updated successfully",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update password",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function resetPassword(email: string) {
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/profile?tab=security`,
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Reset email sent",
+        description: "Check your email for a password reset link",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send reset email",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   const value = {
     session,
     user,
@@ -172,7 +224,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn,
     signUp,
     signOut,
-    updateProfile
+    updateProfile,
+    updatePassword,
+    resetPassword
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

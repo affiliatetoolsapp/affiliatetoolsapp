@@ -6,92 +6,42 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/hooks/use-toast';
+import ProfileInformation from '@/components/profile/ProfileInformation';
+import SecuritySettings from '@/components/profile/SecuritySettings';
+import NotificationSettings from '@/components/profile/NotificationSettings';
 
 export default function ProfilePage() {
-  const { user, updateProfile } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    company_name: user?.company_name || '',
-    contact_name: user?.contact_name || '',
-  });
-
+  const { user } = useAuth();
+  const { toast } = useToast();
+  
   if (!user) return null;
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    try {
-      await updateProfile({
-        company_name: formData.company_name,
-        contact_name: formData.contact_name,
-      });
-    } catch (error) {
-      console.error('Error updating profile:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6">Your Profile</h1>
+    <div className="max-w-4xl mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-6">Account Settings</h1>
       
-      <Card>
-        <CardHeader>
-          <CardTitle>Profile Information</CardTitle>
-          <CardDescription>
-            Update your personal and business information
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" value={user.email} disabled />
-              <p className="text-sm text-muted-foreground">
-                Your email address cannot be changed
-              </p>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Input id="role" value={user.role} disabled className="capitalize" />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="contact_name">Contact Name</Label>
-              <Input
-                id="contact_name"
-                name="contact_name"
-                value={formData.contact_name}
-                onChange={handleChange}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="company_name">Company Name</Label>
-              <Input
-                id="company_name"
-                name="company_name"
-                value={formData.company_name}
-                onChange={handleChange}
-              />
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Changes
-            </Button>
-          </CardFooter>
-        </form>
-      </Card>
+      <Tabs defaultValue="profile" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="profile">Profile Information</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="profile">
+          <ProfileInformation />
+        </TabsContent>
+        
+        <TabsContent value="security">
+          <SecuritySettings />
+        </TabsContent>
+        
+        <TabsContent value="notifications">
+          <NotificationSettings />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

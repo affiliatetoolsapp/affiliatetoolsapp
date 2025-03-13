@@ -14,6 +14,8 @@ import UnauthorizedPage from '@/pages/UnauthorizedPage';
 import ClickRedirectPage from '@/pages/ClickRedirectPage';
 import OffersPage from '@/pages/OffersPage';
 import ReportsPage from '@/pages/ReportsPage';
+import PaymentsPage from '@/pages/PaymentsPage';
+import LinksPage from '@/pages/LinksPage';
 import { UserRole } from '@/types';
 import './App.css';
 
@@ -56,9 +58,9 @@ function App() {
               {/* Main routes */}
               <Route path="offers" element={<OffersPage />} />
               <Route path="offers/:id" element={<OffersPage />} />
-              <Route path="links" element={<DashboardPage />} />
+              <Route path="links" element={<LinksPage />} />
               <Route path="reports" element={<ReportsPage />} />
-              <Route path="payments" element={<DashboardPage />} />
+              <Route path="payments" element={<PaymentsPage />} />
             </Route>
           </Routes>
         </Router>

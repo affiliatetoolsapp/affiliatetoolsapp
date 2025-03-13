@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -43,11 +42,14 @@ export default function SignInForm() {
   const onSubmit = async (data: FormValues) => {
     if (isLoading) return; // Prevent multiple submissions
     
+    console.log('SignInForm: Attempting to sign in with:', data.email);
     setIsLoading(true);
     try {
       await signIn(data.email, data.password);
-      // No need to navigate here as the auth state change will trigger navigation
+      console.log('SignInForm: Sign in successful');
+      // Auth state change will trigger navigation
     } catch (error: any) {
+      console.error('SignInForm: Sign in error:', error);
       toast({
         title: "Error",
         description: error.message || 'An error occurred during sign in',

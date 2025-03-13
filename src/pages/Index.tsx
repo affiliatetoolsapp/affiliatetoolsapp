@@ -7,11 +7,16 @@ export default function Index() {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
 
+  // Add console log for debugging
+  console.log('Index page render:', { user, isLoading });
+
   useEffect(() => {
     if (!isLoading) {
       if (user) {
+        console.log('Index: User detected, redirecting to dashboard');
         navigate('/dashboard');
       } else {
+        console.log('Index: No user, redirecting to login');
         navigate('/login');
       }
     }

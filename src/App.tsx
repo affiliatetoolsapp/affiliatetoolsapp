@@ -23,6 +23,7 @@ import PerformancePage from '@/pages/PerformancePage';
 import EarningsPage from '@/pages/EarningsPage';
 import PartnersPage from '@/pages/PartnersPage';
 import SettingsPage from '@/pages/SettingsPage';
+import Index from '@/pages/Index';
 import { UserRole } from '@/types';
 import './App.css';
 
@@ -37,12 +38,15 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+  console.log('App component rendering');
+  
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Router>
           <Routes>
             {/* Public Routes */}
+            <Route path="/" element={<Index />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/signup-success" element={<SignupSuccessPage />} />
@@ -61,7 +65,6 @@ function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<DashboardPage />} />
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="profile" element={<ProfilePage />} />
               

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Offer } from '@/types';
@@ -69,6 +68,7 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['affiliate-offers', user?.id] });
       toast({
         title: "Application Submitted",
         description: "Your application has been submitted successfully",
@@ -159,10 +159,12 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
           <div>
             <h1 className="text-3xl font-bold">{offer.name}</h1>
             {offer.is_featured && (
-              <Badge variant="outline" className="mt-2 bg-yellow-100 dark:bg-yellow-900">
-                <Star className="h-3 w-3 mr-1 text-yellow-500" />
-                Featured Offer
-              </Badge>
+              <div className="mt-2">
+                <Badge variant="outline" className="bg-yellow-100 dark:bg-yellow-900">
+                  <Star className="h-3 w-3 mr-1 text-yellow-500" />
+                  Featured Offer
+                </Badge>
+              </div>
             )}
           </div>
         </div>
@@ -183,6 +185,7 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
               <CardDescription>Key information about this offer</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label className="text-sm text-muted-foreground">Commission Model</Label>
@@ -256,6 +259,7 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
         </TabsContent>
         
         <TabsContent value="requirements" className="space-y-4">
+          
           <Card>
             <CardHeader>
               <CardTitle>Requirements & Expectations</CardTitle>
@@ -308,6 +312,7 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
         </TabsContent>
         
         <TabsContent value="geo" className="space-y-4">
+          
           <Card>
             <CardHeader>
               <CardTitle>Geo Targeting Information</CardTitle>

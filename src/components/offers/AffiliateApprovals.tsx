@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { AffiliateOffer } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -15,7 +14,7 @@ export default function AffiliateApprovals() {
   const queryClient = useQueryClient();
   
   // Get affiliate applications for my offers
-  const { data: applications, isLoading } = useQuery({
+  const { data: applications, isLoading, refetch } = useQuery({
     queryKey: ['affiliate-applications', user?.id],
     queryFn: async () => {
       if (!user) return [];
@@ -85,11 +84,18 @@ export default function AffiliateApprovals() {
       return { id, status };
     },
     onSuccess: (data) => {
+      // Invalidate multiple related queries to update all views
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications'] });
+      queryClient.invalidateQueries({ queryKey: ['affiliate-offers'] });
+      queryClient.invalidateQueries({ queryKey: ['available-offers'] });
+      
       toast({
         title: `Application ${data.status}`,
         description: `The affiliate application has been ${data.status}`,
       });
+      
+      // Immediately refetch the current list to update the UI
+      refetch();
     },
     onError: (error) => {
       toast({

@@ -1,9 +1,12 @@
 
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 import OffersList from '@/components/offers/OffersList';
 import OfferDetails from '@/components/offers/OfferDetails';
 import CreateOffer from '@/components/offers/CreateOffer';
+import OfferBrowser from '@/components/affiliate/OfferBrowser';
+import OfferManagement from '@/components/advertiser/OfferManagement';
 import { useEffect } from 'react';
 
 export default function OffersPage() {
@@ -30,6 +33,26 @@ export default function OffersPage() {
     return <OfferDetails offerId={id} />;
   }
   
-  // Otherwise, we show the list of offers
-  return <OffersList />;
+  // For the main offers page, we show different views based on the user role
+  return (
+    <>
+      {user.role === 'affiliate' && (
+        <ProtectedRoute allowedRoles={['affiliate']}>
+          <OfferBrowser />
+        </ProtectedRoute>
+      )}
+      
+      {user.role === 'advertiser' && (
+        <ProtectedRoute allowedRoles={['advertiser']}>
+          <OfferManagement />
+        </ProtectedRoute>
+      )}
+      
+      {user.role === 'admin' && (
+        <ProtectedRoute allowedRoles={['admin']}>
+          <OffersList />
+        </ProtectedRoute>
+      )}
+    </>
+  );
 }

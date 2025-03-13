@@ -1,4 +1,17 @@
+
 export type UserRole = 'admin' | 'advertiser' | 'affiliate';
+
+export type CommissionType = 'CPC' | 'CPL' | 'CPA' | 'CPS' | 'RevShare';
+
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export type ConversionEventType = 'lead' | 'sale' | 'action' | 'deposit';
+
+export type PaymentStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+export type PaymentMethod = 'paypal' | 'bank_transfer' | 'crypto';
+
+export type LinkType = 'direct' | 'shortened' | 'qr';
 
 export interface User {
   id: string;
@@ -19,7 +32,7 @@ export interface Offer {
   name: string;
   description?: string;
   url: string;
-  commission_type: 'CPC' | 'CPL' | 'CPA' | 'CPS' | 'RevShare';
+  commission_type: CommissionType;
   commission_amount?: number;
   commission_percent?: number;
   niche?: string;
@@ -33,7 +46,7 @@ export interface AffiliateOffer {
   id: string;
   affiliate_id: string;
   offer_id: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: ApprovalStatus;
   traffic_source?: string;
   notes?: string;
   applied_at: string;
@@ -58,10 +71,10 @@ export interface Click {
 export interface Conversion {
   id: string;
   click_id: string;
-  event_type: 'lead' | 'sale' | 'action' | 'deposit';
+  event_type: ConversionEventType;
   revenue?: number;
   commission?: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: ApprovalStatus;
   metadata?: any;
   created_at: string;
   updated_at: string;
@@ -74,8 +87,8 @@ export interface Payment {
   amount: number;
   fee: number;
   total: number;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  payment_method?: string;
+  status: PaymentStatus;
+  payment_method?: PaymentMethod;
   payment_details?: any;
   created_at: string;
   updated_at: string;
@@ -96,5 +109,30 @@ export interface TrackingLink {
   offer_id: string;
   tracking_code: string;
   custom_params?: any;
+  created_at: string;
+}
+
+export interface SmartLink {
+  id: string;
+  affiliate_id: string;
+  name: string;
+  smart_link_id: string;
+  rules: any;
+  created_at: string;
+}
+
+export interface PixelCode {
+  id: string;
+  user_id: string;
+  pixel_code: string;
+  type: 'js' | 'img';
+  created_at: string;
+}
+
+export interface PostbackUrl {
+  id: string;
+  affiliate_id: string;
+  url: string;
+  events: ConversionEventType[];
   created_at: string;
 }

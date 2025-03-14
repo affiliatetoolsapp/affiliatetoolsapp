@@ -26,7 +26,7 @@ export default function OfferManagement() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode<'grid' | 'list'>('grid');
   
   // Get advertiser's offers
   const { data: offers, isLoading: offersLoading } = useQuery({
@@ -46,14 +46,16 @@ export default function OfferManagement() {
     enabled: !!user && user.role === 'advertiser',
   });
   
-  // Get pending applications count for badge display - Improved query
+  // Get pending applications count for badge display - Using the same query approach as other components
   const { data: pendingApplicationsCount, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery({
     queryKey: ['pending-applications-count', user?.id],
     queryFn: async () => {
       if (!user) return 0;
       
       try {
-        // Get all pending applications for offers owned by this advertiser in a single query
+        console.log('[OfferManagement] Fetching pending applications count');
+        
+        // Direct query to count pending applications for this advertiser's offers
         const { count, error } = await supabase
           .from('affiliate_offers')
           .select(`
@@ -64,20 +66,21 @@ export default function OfferManagement() {
           .eq('offers.advertiser_id', user.id);
         
         if (error) {
-          console.error("Error counting applications:", error);
+          console.error("[OfferManagement] Error counting applications:", error);
           throw error;
         }
         
-        console.log("Pending applications count:", count);
+        console.log("[OfferManagement] Pending applications count:", count);
         return count || 0;
       } catch (err) {
-        console.error("Error in applications count query:", err);
+        console.error("[OfferManagement] Error in applications count query:", err);
         throw err;
       }
     },
     enabled: !!user && user.role === 'advertiser',
     refetchInterval: 30000, // Check every 30 seconds
     refetchOnWindowFocus: true,
+    staleTime: 0,
   });
   
   // Refresh applications when the applications tab is selected

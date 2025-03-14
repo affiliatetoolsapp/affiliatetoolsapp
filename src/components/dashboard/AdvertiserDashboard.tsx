@@ -115,52 +115,41 @@ export default function AdvertiserDashboard() {
     enabled: !!user,
   });
   
-  // Add a specific query for pending applications count to display on the dashboard
+  // Add a specific query for pending applications count to display on the dashboard - Updated query
   const { data: pendingApplicationsCount, refetch: refetchApplications } = useQuery({
     queryKey: ['pending-applications-count', user?.id],
     queryFn: async () => {
       if (!user) return 0;
       
       try {
-        // First get all offers from this advertiser
-        const { data: myOffers, error: offersError } = await supabase
-          .from('offers')
-          .select('id')
-          .eq('advertiser_id', user.id);
+        console.log('[AdvertiserDashboard] Fetching pending applications count for:', user.id);
         
-        if (offersError) {
-          console.error("Error fetching offers:", offersError);
-          throw offersError;
-        }
-        
-        if (!myOffers || myOffers.length === 0) {
-          return 0;
-        }
-        
-        const offerIds = myOffers.map(o => o.id);
-        
-        // Just count the pending applications
+        // Direct count of pending applications for offers owned by this advertiser
         const { count, error } = await supabase
           .from('affiliate_offers')
-          .select('*', { count: 'exact', head: true })
+          .select(`
+            id, 
+            offers!inner(advertiser_id)
+          `, { count: 'exact', head: true })
           .eq('status', 'pending')
-          .in('offer_id', offerIds);
+          .eq('offers.advertiser_id', user.id);
         
         if (error) {
-          console.error("Error counting applications:", error);
+          console.error("[AdvertiserDashboard] Error counting applications:", error);
           throw error;
         }
         
-        console.log("Pending applications count:", count);
+        console.log("[AdvertiserDashboard] Pending applications count:", count);
         return count || 0;
       } catch (err) {
-        console.error("Error in applications count query:", err);
+        console.error("[AdvertiserDashboard] Error in applications count query:", err);
         throw err;
       }
     },
     enabled: !!user && user.role === 'advertiser',
     refetchInterval: 15000, // Check every 15 seconds
     refetchOnWindowFocus: true,
+    staleTime: 0, // Consider data stale immediately
   });
   
   // Refresh applications when the applications tab is selected

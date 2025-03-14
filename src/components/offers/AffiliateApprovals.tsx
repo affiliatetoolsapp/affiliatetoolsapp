@@ -6,74 +6,64 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Check, X } from 'lucide-react';
+import { Check, X, AlertCircle } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table';
 
 export default function AffiliateApprovals() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Get pending applications directly from the database
+  // More direct query approach for pending affiliate applications
   const { data: applications, isLoading, error } = useQuery({
     queryKey: ['pending-affiliate-applications', user?.id],
     queryFn: async () => {
-      if (!user || user.role !== 'advertiser') {
-        console.log('User is not an advertiser or not logged in');
+      if (!user?.id || user.role !== 'advertiser') {
+        console.log('[AffiliateApprovals] User is not an advertiser or not logged in');
         return [];
       }
       
-      console.log('Fetching pending applications for advertiser:', user.id);
+      console.log('[AffiliateApprovals] Fetching pending applications for advertiser:', user.id);
       
       try {
-        // First get all offers from this advertiser
-        const { data: myOffers, error: offersError } = await supabase
-          .from('offers')
-          .select('id')
-          .eq('advertiser_id', user.id);
-        
-        if (offersError) {
-          console.error('Error fetching offers:', offersError);
-          throw offersError;
-        }
-        
-        if (!myOffers || myOffers.length === 0) {
-          console.log('No offers found for advertiser');
-          return [];
-        }
-        
-        const offerIds = myOffers.map(o => o.id);
-        
-        // Now get all pending applications for these offers
-        const { data: pendingApps, error: appsError } = await supabase
+        // Get all pending applications for offers owned by this advertiser
+        const { data, error } = await supabase
           .from('affiliate_offers')
           .select(`
             id, 
-            offer_id, 
+            offer_id,
             affiliate_id,
             applied_at,
             traffic_source,
             notes,
             status,
-            offers(id, name, description, niche, advertiser_id),
+            offers!inner(id, name, description, niche, advertiser_id),
             users!affiliate_id(id, email, contact_name, company_name, website)
           `)
           .eq('status', 'pending')
-          .in('offer_id', offerIds);
+          .eq('offers.advertiser_id', user.id);
         
-        if (appsError) {
-          console.error('Error fetching applications:', appsError);
-          throw appsError;
+        if (error) {
+          console.error('[AffiliateApprovals] Error fetching applications:', error);
+          throw error;
         }
         
-        console.log('Pending applications found:', pendingApps);
-        return pendingApps || [];
+        console.log('[AffiliateApprovals] Pending applications found:', data);
+        return data || [];
       } catch (err) {
-        console.error('Error in affiliate applications query:', err);
+        console.error('[AffiliateApprovals] Error in affiliate applications query:', err);
         throw err;
       }
     },
     enabled: !!user && user.role === 'advertiser',
-    refetchInterval: 10000, // Check for updates every 10 seconds
+    refetchInterval: 15000, // Check for updates every 15 seconds
     refetchOnWindowFocus: true,
     staleTime: 0, // Consider data stale immediately
   });
@@ -81,7 +71,7 @@ export default function AffiliateApprovals() {
   // Mutation to update application status
   const updateApplication = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: 'approved' | 'rejected' }) => {
-      console.log(`Updating application ${id} to status: ${status}`);
+      console.log(`[AffiliateApprovals] Updating application ${id} to status: ${status}`);
       
       const { error } = await supabase
         .from('affiliate_offers')
@@ -92,7 +82,7 @@ export default function AffiliateApprovals() {
         .eq('id', id);
       
       if (error) {
-        console.error('Error updating application:', error);
+        console.error('[AffiliateApprovals] Error updating application:', error);
         throw error;
       }
       
@@ -140,8 +130,14 @@ export default function AffiliateApprovals() {
   if (error) {
     return (
       <Card className="p-8 text-center">
-        <p className="text-red-500 font-medium mb-2">Error loading applications</p>
-        <p className="text-muted-foreground">Please try refreshing the page</p>
+        <div className="flex flex-col items-center gap-2">
+          <AlertCircle className="h-8 w-8 text-red-500" />
+          <p className="text-red-500 font-medium mb-2">Error loading applications</p>
+          <p className="text-muted-foreground">Please try refreshing the page</p>
+          <pre className="mt-4 p-4 bg-muted text-left text-xs overflow-auto rounded-md max-w-full">
+            {JSON.stringify(error, null, 2)}
+          </pre>
+        </div>
       </Card>
     );
   }
@@ -160,51 +156,53 @@ export default function AffiliateApprovals() {
         <div className="p-4 bg-muted/50">
           <h3 className="text-lg font-semibold">Pending Affiliate Applications</h3>
         </div>
-        <div className="divide-y">
-          {applications.map((app) => (
-            <div key={app.id} className="p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h4 className="font-medium">
-                    {app.users && ('contact_name' in app.users && app.users.contact_name) 
-                      ? app.users.contact_name 
-                      : (app.users?.email || 'Unknown Affiliate')}
-                  </h4>
-                  <p className="text-sm text-muted-foreground">{app.users?.email}</p>
-                  <p className="text-sm mt-1">Applied for: <span className="font-medium">{app.offers?.name}</span></p>
-                  {app.traffic_source && (
-                    <p className="text-sm mt-1">Traffic Source: {app.traffic_source}</p>
-                  )}
-                  {app.notes && (
-                    <p className="text-sm mt-1">Notes: {app.notes}</p>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Applied on {new Date(app.applied_at).toLocaleDateString()}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button 
-                    size="sm" 
-                    onClick={() => handleApprove(app.id)}
-                    disabled={updateApplication.isPending}
-                  >
-                    <Check className="h-4 w-4 mr-1" />
-                    Approve
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    onClick={() => handleReject(app.id)}
-                    disabled={updateApplication.isPending}
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    Reject
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Affiliate</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Offer</TableHead>
+              <TableHead>Applied On</TableHead>
+              <TableHead>Traffic Source</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {applications.map((app) => (
+              <TableRow key={app.id}>
+                <TableCell className="font-medium">
+                  {app.users?.contact_name || 'Unknown Affiliate'}
+                </TableCell>
+                <TableCell>{app.users?.email}</TableCell>
+                <TableCell>{app.offers?.name}</TableCell>
+                <TableCell>{new Date(app.applied_at).toLocaleDateString()}</TableCell>
+                <TableCell>{app.traffic_source || '-'}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      size="sm" 
+                      onClick={() => handleApprove(app.id)}
+                      disabled={updateApplication.isPending}
+                    >
+                      <Check className="h-4 w-4 mr-1" />
+                      Approve
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => handleReject(app.id)}
+                      disabled={updateApplication.isPending}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Reject
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );

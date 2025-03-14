@@ -25,8 +25,8 @@ export default function OffersPage() {
   
   // Log current page and parameters
   useEffect(() => {
-    console.log("OffersPage loaded with id:", id);
-    console.log("Current user:", user);
+    console.log("[OffersPage] Loaded with id:", id);
+    console.log("[OffersPage] Current user:", user);
   }, [id, user]);
   
   if (!user) return null;
@@ -38,7 +38,7 @@ export default function OffersPage() {
   
   // If we have "approve" in the URL, show the approval interface (only for advertisers)
   if (id === 'approve' && user.role === 'advertiser') {
-    console.log("Loading approval interface for advertiser");
+    console.log("[OffersPage] Loading approval interface for advertiser");
     return <AffiliateApprovals />;
   }
   
@@ -49,7 +49,7 @@ export default function OffersPage() {
   
   // For the main offers page, we show different views based on the user role
   if (user.role === 'affiliate') {
-    console.log("Loading affiliate offers view");
+    console.log("[OffersPage] Loading affiliate offers view");
     return (
       <ProtectedRoute allowedRoles={['affiliate']}>
         <AffiliateOffers />
@@ -58,7 +58,7 @@ export default function OffersPage() {
   }
   
   if (user.role === 'advertiser') {
-    console.log("Loading advertiser offer management");
+    console.log("[OffersPage] Loading advertiser offer management");
     return (
       <ProtectedRoute allowedRoles={['advertiser']}>
         <OfferManagement />

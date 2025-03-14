@@ -46,36 +46,22 @@ export default function OfferManagement() {
     enabled: !!user && user.role === 'advertiser',
   });
   
-  // Get pending applications count for badge display
+  // Get pending applications count for badge display - Improved query
   const { data: pendingApplicationsCount, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery({
     queryKey: ['pending-applications-count', user?.id],
     queryFn: async () => {
       if (!user) return 0;
       
       try {
-        // First get all offers from this advertiser
-        const { data: myOffers, error: offersError } = await supabase
-          .from('offers')
-          .select('id')
-          .eq('advertiser_id', user.id);
-        
-        if (offersError) {
-          console.error("Error fetching offers:", offersError);
-          throw offersError;
-        }
-        
-        if (!myOffers || myOffers.length === 0) {
-          return 0;
-        }
-        
-        const offerIds = myOffers.map(o => o.id);
-        
-        // Just count the pending applications
+        // Get all pending applications for offers owned by this advertiser in a single query
         const { count, error } = await supabase
           .from('affiliate_offers')
-          .select('*', { count: 'exact', head: true })
+          .select(`
+            id, 
+            offers!inner(advertiser_id)
+          `, { count: 'exact', head: true })
           .eq('status', 'pending')
-          .in('offer_id', offerIds);
+          .eq('offers.advertiser_id', user.id);
         
         if (error) {
           console.error("Error counting applications:", error);
@@ -90,7 +76,7 @@ export default function OfferManagement() {
       }
     },
     enabled: !!user && user.role === 'advertiser',
-    refetchInterval: 5000, // Check every 5 seconds
+    refetchInterval: 30000, // Check every 30 seconds
     refetchOnWindowFocus: true,
   });
   

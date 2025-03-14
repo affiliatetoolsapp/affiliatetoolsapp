@@ -13,7 +13,7 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Direct query for pending applications with better structure
+  // Optimized query for pending applications
   const { data: applications, isLoading, error } = useQuery({
     queryKey: ['pending-affiliate-applications', user?.id],
     queryFn: async () => {
@@ -25,26 +25,8 @@ export default function AffiliateApprovals() {
       console.log('Fetching pending applications for advertiser:', user.id);
       
       try {
-        // Get all offers from this advertiser
-        const { data: myOffers, error: offersError } = await supabase
-          .from('offers')
-          .select('id')
-          .eq('advertiser_id', user.id);
-        
-        if (offersError) {
-          console.error('Error fetching offers:', offersError);
-          throw offersError;
-        }
-        
-        if (!myOffers || myOffers.length === 0) {
-          console.log('No offers found for this advertiser');
-          return [];
-        }
-        
-        const offerIds = myOffers.map(offer => offer.id);
-        
-        // Get pending applications with affiliate and offer details in a single query
-        const { data: pendingApplications, error: applicationsError } = await supabase
+        // Direct join query to get all pending applications for offers owned by this advertiser
+        const { data: pendingApplications, error } = await supabase
           .from('affiliate_offers')
           .select(`
             id, 
@@ -54,19 +36,22 @@ export default function AffiliateApprovals() {
             traffic_source,
             notes,
             status,
-            offers:offers(id, name, description, niche),
-            affiliates:users!affiliate_id(id, email, contact_name, company_name, website)
+            offers(id, name, description, niche, advertiser_id),
+            users!affiliate_id(id, email, contact_name, company_name, website)
           `)
-          .in('offer_id', offerIds)
-          .eq('status', 'pending');
+          .eq('status', 'pending')
+          .eq('offers.advertiser_id', user.id);
         
-        if (applicationsError) {
-          console.error('Error fetching applications:', applicationsError);
-          throw applicationsError;
+        if (error) {
+          console.error('Error fetching applications:', error);
+          throw error;
         }
         
-        console.log('Pending applications found:', pendingApplications);
-        return pendingApplications || [];
+        // Filter out any applications that might have null offers
+        const validApplications = pendingApplications.filter(app => app.offers !== null);
+        
+        console.log('Pending applications found:', validApplications);
+        return validApplications || [];
       } catch (err) {
         console.error('Error in affiliate applications query:', err);
         throw err;
@@ -104,7 +89,7 @@ export default function AffiliateApprovals() {
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications'] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-offers'] });
       queryClient.invalidateQueries({ queryKey: ['available-offers'] });
-      queryClient.invalidateQueries({ queryKey: ['affiliate-applications-count'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-applications-count'] });
       
       toast({
         title: `Application ${data.status}`,
@@ -166,9 +151,11 @@ export default function AffiliateApprovals() {
               <div className="flex justify-between items-start">
                 <div>
                   <h4 className="font-medium">
-                    {app.affiliates?.contact_name || app.affiliates?.email || 'Unknown Affiliate'}
+                    {app.users && ('contact_name' in app.users && app.users.contact_name) 
+                      ? app.users.contact_name 
+                      : (app.users?.email || 'Unknown Affiliate')}
                   </h4>
-                  <p className="text-sm text-muted-foreground">{app.affiliates?.email}</p>
+                  <p className="text-sm text-muted-foreground">{app.users?.email}</p>
                   <p className="text-sm mt-1">Applied for: <span className="font-medium">{app.offers?.name}</span></p>
                   {app.traffic_source && (
                     <p className="text-sm mt-1">Traffic Source: {app.traffic_source}</p>

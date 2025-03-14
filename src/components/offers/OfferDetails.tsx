@@ -1,41 +1,22 @@
-
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { Offer, AffiliateOffer } from '@/types';
-import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { ExternalLink, MoreVertical, Edit, Trash2, Users, AlertTriangle } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import AdvertiserPostbackSetup from '@/components/advertiser/AdvertiserPostbackSetup';
 
-interface OfferDetailsProps {
-  offerId: string;
-}
-
-export default function OfferDetails({ offerId }: OfferDetailsProps) {
-  const { user } = useAuth();
+export default function OfferDetails({ offerId }: { offerId: string }) {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('details');
   
-  const isAdvertiser = user?.role === 'advertiser';
-  
-  // Get offer details
+  // Fetch offer details
   const { data: offer, isLoading } = useQuery({
     queryKey: ['offer', offerId],
     queryFn: async () => {
@@ -46,450 +27,340 @@ export default function OfferDetails({ offerId }: OfferDetailsProps) {
         .single();
       
       if (error) throw error;
-      return data as Offer;
+      return data;
     },
-    enabled: !!offerId,
   });
   
-  // Get affiliates for this offer
-  const { data: affiliateOffers } = useQuery({
+  // Fetch affiliates who have applied to this offer
+  const { data: affiliates } = useQuery({
     queryKey: ['offer-affiliates', offerId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('affiliate_offers')
         .select(`
-          *,
-          affiliates:users!affiliate_id(*)
+          id,
+          status,
+          applied_at,
+          reviewed_at,
+          traffic_source,
+          notes,
+          affiliate:affiliate_id(
+            id,
+            email,
+            contact_name,
+            company_name
+          )
         `)
         .eq('offer_id', offerId);
       
       if (error) throw error;
       return data;
     },
-    enabled: !!offerId && isAdvertiser,
   });
   
-  // Get offer stats (clicks, conversions)
-  const { data: offerStats } = useQuery({
-    queryKey: ['offer-stats', offerId],
-    queryFn: async () => {
-      // Get clicks count
-      const { count: clicksCount, error: clicksError } = await supabase
-        .from('clicks')
-        .select('*', { count: 'exact', head: true })
-        .eq('offer_id', offerId);
-      
-      if (clicksError) throw clicksError;
-      
-      // Get conversions and sum revenue
-      const { data: conversions, error: convsError } = await supabase
-        .from('clicks')
-        .select(`
-          click_id,
-          conversions:conversions(*)
-        `)
-        .eq('offer_id', offerId);
-      
-      if (convsError) throw convsError;
-      
-      // Calculate total conversions and revenue
-      let convCount = 0;
-      let totalRevenue = 0;
-      let totalCommissions = 0;
-      
-      conversions.forEach(item => {
-        if (item.conversions && item.conversions.length > 0) {
-          convCount += item.conversions.length;
-          
-          item.conversions.forEach((conv: any) => {
-            totalRevenue += conv.revenue || 0;
-            totalCommissions += conv.commission || 0;
-          });
-        }
-      });
-      
-      return {
-        clicks: clicksCount || 0,
-        conversions: convCount,
-        revenue: totalRevenue,
-        commissions: totalCommissions
-      };
-    },
-    enabled: !!offerId && isAdvertiser,
-  });
-  
-  // Toggle offer status
-  const toggleStatus = useMutation({
-    mutationFn: async (newStatus: string) => {
-      const { error } = await supabase
+  // Mutation to update offer
+  const updateOffer = useMutation({
+    mutationFn: async (updatedOffer: any) => {
+      const { data, error } = await supabase
         .from('offers')
-        .update({ status: newStatus })
-        .eq('id', offerId);
+        .update(updatedOffer)
+        .eq('id', offerId)
+        .select();
       
       if (error) throw error;
-      return newStatus;
-    },
-    onSuccess: (newStatus) => {
-      queryClient.invalidateQueries({ queryKey: ['offer', offerId] });
-      toast({
-        title: 'Status Updated',
-        description: `Offer status changed to ${newStatus}`,
-      });
-    },
-    onError: (error) => {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to update offer status',
-      });
-      console.error(error);
-    },
-  });
-  
-  // Delete offer
-  const deleteOffer = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase
-        .from('offers')
-        .delete()
-        .eq('id', offerId);
-      
-      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['offer', offerId] });
       toast({
-        title: 'Offer Deleted',
-        description: 'Your offer has been deleted successfully',
+        title: 'Offer Updated',
+        description: 'The offer has been updated successfully',
       });
-      navigate('/offers');
     },
     onError: (error) => {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to delete offer. It may have active affiliates or tracking data.',
+        description: 'Failed to update offer',
       });
       console.error(error);
     },
   });
   
-  // Handle status toggle
-  const handleStatusToggle = (checked: boolean) => {
-    const newStatus = checked ? 'active' : 'paused';
-    toggleStatus.mutate(newStatus);
-  };
+  // Mutation to update affiliate application status
+  const updateAffiliateStatus = useMutation({
+    mutationFn: async ({ affiliateOfferId, status }: { affiliateOfferId: string, status: string }) => {
+      const { data, error } = await supabase
+        .from('affiliate_offers')
+        .update({
+          status,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', affiliateOfferId)
+        .select();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['offer-affiliates', offerId] });
+      toast({
+        title: 'Status Updated',
+        description: 'The affiliate application status has been updated',
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update affiliate status',
+      });
+      console.error(error);
+    },
+  });
   
-  // Handle delete confirmation
-  const handleDeleteConfirm = () => {
-    deleteOffer.mutate();
-  };
-  
-  // Get counts for different affiliate statuses
-  const approvedAffiliates = affiliateOffers?.filter(ao => ao.status === 'approved').length || 0;
-  const pendingAffiliates = affiliateOffers?.filter(ao => ao.status === 'pending').length || 0;
+  // Check if user is authorized to view this offer
+  useEffect(() => {
+    if (offer && user) {
+      const isAuthorized = 
+        user.role === 'admin' || 
+        (user.role === 'advertiser' && offer.advertiser_id === user.id);
+      
+      if (!isAuthorized) {
+        toast({
+          variant: 'destructive',
+          title: 'Access Denied',
+          description: 'You do not have permission to view this offer',
+        });
+        navigate('/offers');
+      }
+    }
+  }, [offer, user, navigate, toast]);
   
   if (isLoading) {
     return (
-      <div className="flex justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
   
   if (!offer) {
     return (
-      <div className="p-8 text-left">
-        <h2 className="text-xl font-bold mb-2">Offer Not Found</h2>
-        <p className="text-muted-foreground mb-4">The requested offer could not be found</p>
-        <Button asChild>
-          <a href="/offers">Back to Offers</a>
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-bold">Offer Not Found</h2>
+        <p className="text-muted-foreground mt-2">The offer you're looking for doesn't exist or you don't have permission to view it.</p>
+        <Button className="mt-4" onClick={() => navigate('/offers')}>
+          Back to Offers
         </Button>
       </div>
     );
   }
   
-  // Check if current user is the owner
-  const isOwner = user?.id === offer.advertiser_id;
-  
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
+      <div className="flex justify-between items-center">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight text-left">{offer.name}</h1>
-            <Badge variant={offer.status === 'active' ? 'default' : 'secondary'} className="capitalize">
-              {offer.status}
-            </Badge>
-          </div>
-          <p className="text-muted-foreground mt-1 text-left">{offer.description}</p>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {offer.name}
+          </h1>
+          <p className="text-muted-foreground">
+            Manage your offer details, affiliates, and tracking
+          </p>
         </div>
         
-        {isOwner && (
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="status" className="cursor-pointer">
-                {offer.status === 'active' ? 'Active' : 'Paused'}
-              </Label>
-              <Switch
-                id="status"
-                checked={offer.status === 'active'}
-                onCheckedChange={handleStatusToggle}
-              />
-            </div>
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => navigate(`/offers/${offerId}/edit`)}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Offer
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setDeleteDialogOpen(true)} className="text-destructive">
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Offer
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
+        <div className="flex space-x-2">
+          <Button variant="outline" onClick={() => navigate('/offers')}>
+            Back to Offers
+          </Button>
+          <Button 
+            variant={offer.status === 'active' ? 'destructive' : 'default'}
+            onClick={() => {
+              updateOffer.mutate({
+                status: offer.status === 'active' ? 'inactive' : 'active'
+              });
+            }}
+          >
+            {offer.status === 'active' ? 'Pause Offer' : 'Activate Offer'}
+          </Button>
+        </div>
       </div>
       
-      {isAdvertiser && offerStats && (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <Tabs defaultValue="details" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
+          <TabsTrigger value="conversions">Conversions</TabsTrigger>
+          <TabsTrigger value="tracking">Tracking</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="details">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-left">Total Clicks</CardTitle>
+            <CardHeader>
+              <CardTitle>Offer Details</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-left">{offerStats.clicks}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-left">Conversions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-left">{offerStats.conversions}</div>
-              <p className="text-xs text-muted-foreground text-left">
-                CR: {offerStats.clicks ? ((offerStats.conversions / offerStats.clicks) * 100).toFixed(2) : '0.00'}%
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-left">Revenue</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-left">${offerStats.revenue.toFixed(2)}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-left">Commissions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-left">${offerStats.commissions.toFixed(2)}</div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-      
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-left">Offer Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <h4 className="text-sm font-medium text-muted-foreground text-left">Offer URL</h4>
-              <div className="flex items-center gap-2 mt-1">
-                <p className="font-mono text-sm truncate text-left">{offer.url}</p>
-                <Button size="icon" variant="ghost" className="h-6 w-6" asChild>
-                  <a href={offer.url} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                </Button>
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium text-muted-foreground text-left">Commission</h4>
-              <p className="mt-1 text-left">
-                {offer.commission_type === 'RevShare' 
-                  ? `${offer.commission_percent}% Revenue Share` 
-                  : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
-              </p>
-            </div>
-            
-            {offer.niche && (
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground text-left">Niche</h4>
-                <p className="mt-1 text-left">{offer.niche}</p>
-              </div>
-            )}
-            
-            {isAdvertiser && (
-              <div>
-                <h4 className="text-sm font-medium text-muted-foreground text-left">Affiliates</h4>
-                <div className="flex items-center gap-2 mt-1">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-left">{approvedAffiliates} approved</p>
-                  {pendingAffiliates > 0 && (
-                    <Badge variant="outline" className="flex items-center gap-1">
-                      {pendingAffiliates} pending
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-      
-      {isAdvertiser && (
-        <Tabs defaultValue="affiliates">
-          <TabsList>
-            <TabsTrigger value="affiliates">Affiliates</TabsTrigger>
-            <TabsTrigger value="tracking">Tracking</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="affiliates">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-left">Approved Affiliates</CardTitle>
-                <CardDescription className="text-left">
-                  Affiliates currently promoting this offer
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {affiliateOffers?.filter(ao => ao.status === 'approved').length ? (
-                  <div className="rounded-md border">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b bg-muted/50">
-                            <th className="p-2 text-left font-medium">Affiliate</th>
-                            <th className="p-2 text-left font-medium">Traffic Source</th>
-                            <th className="p-2 text-left font-medium">Approved On</th>
-                            <th className="p-2 text-left font-medium">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {affiliateOffers
-                            .filter((ao: any) => ao.status === 'approved')
-                            .map((ao: any) => (
-                              <tr key={ao.id} className="border-b hover:bg-muted/50">
-                                <td className="p-2 text-left">
-                                  {ao.affiliates.contact_name || ao.affiliates.email}
-                                </td>
-                                <td className="p-2 text-left">{ao.traffic_source || 'Not specified'}</td>
-                                <td className="p-2 text-left">
-                                  {new Date(ao.reviewed_at).toLocaleDateString()}
-                                </td>
-                                <td className="p-2">
-                                  <Button variant="outline" size="sm">
-                                    View Stats
-                                  </Button>
-                                </td>
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-left py-6 border rounded-md pl-4">
-                    <p className="text-muted-foreground">No approved affiliates yet</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="tracking">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-left">Tracking Information</CardTitle>
-                <CardDescription className="text-left">
-                  Implementation details for your technical team
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <h4 className="text-sm font-medium mb-2 text-left">Postback URL</h4>
-                  <div className="bg-muted p-3 rounded-md font-mono text-sm break-all text-left">
-                    {`${window.location.origin}/api/conversion?click_id={click_id}&event_type=sale&revenue=100&secret_key=YOUR_SECRET_KEY`}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2 text-left">
-                    Use this URL to send conversion data back to our system. Replace <code>{`{click_id}`}</code> with the click ID passed to your offer URL, and update the event type and revenue as needed.
+                  <h3 className="font-medium">Name</h3>
+                  <p>{offer.name}</p>
+                </div>
+                <div>
+                  <h3 className="font-medium">Status</h3>
+                  <p className="capitalize">{offer.status}</p>
+                </div>
+                <div>
+                  <h3 className="font-medium">URL</h3>
+                  <p className="truncate">{offer.url}</p>
+                </div>
+                <div>
+                  <h3 className="font-medium">Commission</h3>
+                  <p>
+                    {offer.commission_type === 'RevShare' 
+                      ? `${offer.commission_percent}% RevShare` 
+                      : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
                   </p>
                 </div>
-                
-                <div>
-                  <h4 className="text-sm font-medium mb-2 text-left">Available Parameters</h4>
-                  <div className="grid gap-2">
-                    <div className="grid grid-cols-4 p-2 border-b">
-                      <div className="font-medium text-left">Parameter</div>
-                      <div className="font-medium text-left">Required</div>
-                      <div className="font-medium text-left">Example</div>
-                      <div className="font-medium text-left">Description</div>
-                    </div>
-                    <div className="grid grid-cols-4 p-2 border-b">
-                      <div className="font-mono text-sm text-left">click_id</div>
-                      <div className="text-left">Yes</div>
-                      <div className="font-mono text-sm text-left">abc123</div>
-                      <div className="text-sm text-left">Unique identifier for the click</div>
-                    </div>
-                    <div className="grid grid-cols-4 p-2 border-b">
-                      <div className="font-mono text-sm text-left">event_type</div>
-                      <div className="text-left">Yes</div>
-                      <div className="font-mono text-sm text-left">sale</div>
-                      <div className="text-sm text-left">Type: lead, sale, action, deposit</div>
-                    </div>
-                    <div className="grid grid-cols-4 p-2 border-b">
-                      <div className="font-mono text-sm text-left">revenue</div>
-                      <div className="text-left">For RevShare</div>
-                      <div className="font-mono text-sm text-left">99.95</div>
-                      <div className="text-sm text-left">Transaction amount (for RevShare)</div>
-                    </div>
+                {offer.niche && (
+                  <div>
+                    <h3 className="font-medium">Niche</h3>
+                    <p>{offer.niche}</p>
                   </div>
+                )}
+                {offer.description && (
+                  <div className="col-span-2">
+                    <h3 className="font-medium">Description</h3>
+                    <p>{offer.description}</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="pt-4">
+                <Button onClick={() => navigate(`/offers/${offerId}/edit`)}>
+                  Edit Offer
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="affiliates">
+          <Card>
+            <CardHeader>
+              <CardTitle>Affiliate Applications</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {affiliates && affiliates.length > 0 ? (
+                <div className="rounded-md border">
+                  <table className="min-w-full divide-y divide-border">
+                    <thead>
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Affiliate</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Applied</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Traffic Source</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {affiliates.map((affiliate) => (
+                        <tr key={affiliate.id}>
+                          <td className="px-4 py-3 text-sm">
+                            {affiliate.affiliate.contact_name || affiliate.affiliate.company_name || affiliate.affiliate.email}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {new Date(affiliate.applied_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {affiliate.traffic_source || 'Not specified'}
+                          </td>
+                          <td className="px-4 py-3 text-sm capitalize">
+                            {affiliate.status}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-right">
+                            {affiliate.status === 'pending' && (
+                              <div className="flex justify-end space-x-2">
+                                <Button 
+                                  size="sm" 
+                                  variant="default"
+                                  onClick={() => updateAffiliateStatus.mutate({
+                                    affiliateOfferId: affiliate.id,
+                                    status: 'approved'
+                                  })}
+                                >
+                                  Approve
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="destructive"
+                                  onClick={() => updateAffiliateStatus.mutate({
+                                    affiliateOfferId: affiliate.id,
+                                    status: 'rejected'
+                                  })}
+                                >
+                                  Reject
+                                </Button>
+                              </div>
+                            )}
+                            {affiliate.status === 'approved' && (
+                              <Button 
+                                size="sm" 
+                                variant="destructive"
+                                onClick={() => updateAffiliateStatus.mutate({
+                                  affiliateOfferId: affiliate.id,
+                                  status: 'rejected'
+                                })}
+                              >
+                                Revoke
+                              </Button>
+                            )}
+                            {affiliate.status === 'rejected' && (
+                              <Button 
+                                size="sm" 
+                                variant="default"
+                                onClick={() => updateAffiliateStatus.mutate({
+                                  affiliateOfferId: affiliate.id,
+                                  status: 'approved'
+                                })}
+                              >
+                                Approve
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      )}
-      
-      {/* Delete confirmation dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              Delete Offer
-            </DialogTitle>
-            <DialogDescription className="text-left">
-              Are you sure you want to delete this offer? This action cannot be undone and will remove all related tracking links.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleDeleteConfirm}
-              disabled={deleteOffer.isPending}
-            >
-              {deleteOffer.isPending ? 'Deleting...' : 'Delete Offer'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No affiliate applications yet</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="conversions">
+          <Card>
+            <CardHeader>
+              <CardTitle>Conversions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Conversion tracking data will appear here</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Set up your postback URL in the Tracking tab to start recording conversions
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="tracking">
+          <AdvertiserPostbackSetup />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

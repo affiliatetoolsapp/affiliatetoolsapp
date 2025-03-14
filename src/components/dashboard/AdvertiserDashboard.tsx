@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -116,51 +115,51 @@ export default function AdvertiserDashboard() {
     enabled: !!user,
   });
   
-  // Add a specific query for pending applications to display on the dashboard
-  const { data: pendingApplications, refetch: refetchApplications } = useQuery({
-    queryKey: ['affiliate-applications-count', user?.id],
+  // Add a specific query for pending applications count to display on the dashboard
+  const { data: pendingApplicationsCount, refetch: refetchApplications } = useQuery({
+    queryKey: ['pending-applications-count', user?.id],
     queryFn: async () => {
-      if (!user) return [];
+      if (!user) return 0;
       
-      // First get all offers from this advertiser
-      const { data: myOffers, error: offersError } = await supabase
-        .from('offers')
-        .select('id')
-        .eq('advertiser_id', user.id);
-      
-      if (offersError) {
-        console.error("Error fetching offers:", offersError);
-        throw offersError;
+      try {
+        // First get all offers from this advertiser
+        const { data: myOffers, error: offersError } = await supabase
+          .from('offers')
+          .select('id')
+          .eq('advertiser_id', user.id);
+        
+        if (offersError) {
+          console.error("Error fetching offers:", offersError);
+          throw offersError;
+        }
+        
+        if (!myOffers || myOffers.length === 0) {
+          return 0;
+        }
+        
+        const offerIds = myOffers.map(o => o.id);
+        
+        // Just count the pending applications
+        const { count, error } = await supabase
+          .from('affiliate_offers')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending')
+          .in('offer_id', offerIds);
+        
+        if (error) {
+          console.error("Error counting applications:", error);
+          throw error;
+        }
+        
+        console.log("Pending applications count:", count);
+        return count || 0;
+      } catch (err) {
+        console.error("Error in applications count query:", err);
+        throw err;
       }
-      
-      if (!myOffers || myOffers.length === 0) {
-        console.log("No offers found for this advertiser");
-        return [];
-      }
-      
-      const offerIds = myOffers.map(o => o.id);
-      console.log("Fetching applications for offer IDs:", offerIds);
-      
-      const { data, error } = await supabase
-        .from('affiliate_offers')
-        .select(`
-          *,
-          offer:offers(*),
-          affiliate:users!affiliate_id(*)
-        `)
-        .eq('status', 'pending')
-        .in('offer_id', offerIds);
-      
-      if (error) {
-        console.error("Error fetching applications:", error);
-        throw error;
-      }
-      
-      console.log("Fetched applications:", data);
-      return data || [];
     },
     enabled: !!user && user.role === 'advertiser',
-    refetchInterval: 15000,
+    refetchInterval: 15000, // Check every 15 seconds
     refetchOnWindowFocus: true,
   });
   
@@ -248,8 +247,9 @@ export default function AdvertiserDashboard() {
     : 0;
 
   // Update the pendingAffiliateRequests variable to use our new query
-  const pendingAffiliateRequests = pendingApplications?.length || 0;
+  const pendingAffiliateRequests = pendingApplicationsCount || 0;
 
+  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -348,11 +348,12 @@ export default function AdvertiserDashboard() {
           <TabsTrigger value="offers">Offers</TabsTrigger>
           <TabsTrigger value="affiliates" onClick={() => refetchApplications()}>
             Affiliate Requests
-            {pendingApplications?.length ? (
-              <Badge variant="secondary" className="ml-2">{pendingApplications.length}</Badge>
+            {pendingApplicationsCount ? (
+              <Badge variant="secondary" className="ml-2">{pendingApplicationsCount}</Badge>
             ) : null}
           </TabsTrigger>
         </TabsList>
+        
         
         <TabsContent value="overview" className="space-y-4">
           <Card>

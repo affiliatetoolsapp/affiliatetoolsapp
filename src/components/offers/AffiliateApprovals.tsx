@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -13,22 +13,22 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Simplified direct query for pending applications
+  // Direct query for pending applications with better structure
   const { data: applications, isLoading, error } = useQuery({
-    queryKey: ['affiliate-pending-applications', user?.id],
+    queryKey: ['pending-affiliate-applications', user?.id],
     queryFn: async () => {
       if (!user || user.role !== 'advertiser') {
         console.log('User is not an advertiser or not logged in');
         return [];
       }
       
-      console.log('Fetching affiliate applications for advertiser:', user.id);
+      console.log('Fetching pending applications for advertiser:', user.id);
       
       try {
         // Get all offers from this advertiser
         const { data: myOffers, error: offersError } = await supabase
           .from('offers')
-          .select('id, name')
+          .select('id')
           .eq('advertiser_id', user.id);
         
         if (offersError) {
@@ -36,17 +36,14 @@ export default function AffiliateApprovals() {
           throw offersError;
         }
         
-        console.log('Advertiser offers found:', myOffers?.length, myOffers);
-        
         if (!myOffers || myOffers.length === 0) {
           console.log('No offers found for this advertiser');
           return [];
         }
         
         const offerIds = myOffers.map(offer => offer.id);
-        console.log('Checking for applications with these offer IDs:', offerIds);
         
-        // Direct query for pending applications - simplified
+        // Get pending applications with affiliate and offer details in a single query
         const { data: pendingApplications, error: applicationsError } = await supabase
           .from('affiliate_offers')
           .select(`
@@ -56,7 +53,9 @@ export default function AffiliateApprovals() {
             applied_at,
             traffic_source,
             notes,
-            status
+            status,
+            offers:offers(id, name, description, niche),
+            affiliates:users!affiliate_id(id, email, contact_name, company_name, website)
           `)
           .in('offer_id', offerIds)
           .eq('status', 'pending');
@@ -66,61 +65,18 @@ export default function AffiliateApprovals() {
           throw applicationsError;
         }
         
-        console.log('Raw pending applications found:', pendingApplications?.length, pendingApplications);
-        
-        if (!pendingApplications || pendingApplications.length === 0) {
-          console.log('No pending applications found');
-          return [];
-        }
-        
-        // Enrich with affiliate and offer details
-        const enrichedApplications = await Promise.all(
-          pendingApplications.map(async (app) => {
-            // Get offer details
-            const { data: offerData } = await supabase
-              .from('offers')
-              .select('id, name, description, niche')
-              .eq('id', app.offer_id)
-              .single();
-            
-            // Get affiliate details
-            const { data: affiliateData } = await supabase
-              .from('users')
-              .select('id, email, contact_name, company_name, website')
-              .eq('id', app.affiliate_id)
-              .single();
-            
-            return {
-              ...app,
-              offers: offerData || { name: 'Unknown Offer' },
-              affiliates: affiliateData || { email: 'Unknown Affiliate' }
-            };
-          })
-        );
-        
-        console.log('Final enriched applications:', enrichedApplications);
-        return enrichedApplications;
+        console.log('Pending applications found:', pendingApplications);
+        return pendingApplications || [];
       } catch (err) {
         console.error('Error in affiliate applications query:', err);
         throw err;
       }
     },
     enabled: !!user && user.role === 'advertiser',
-    refetchInterval: 5000, // Check more frequently for updates
+    refetchInterval: 10000, // Check for updates every 10 seconds
     refetchOnWindowFocus: true,
     staleTime: 0, // Consider data stale immediately
   });
-  
-  useEffect(() => {
-    if (error) {
-      console.error('Error in applications query:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error loading applications',
-        description: 'There was a problem loading your affiliate applications.',
-      });
-    }
-  }, [error, toast]);
   
   // Mutation to update application status
   const updateApplication = useMutation({
@@ -143,8 +99,8 @@ export default function AffiliateApprovals() {
       return { id, status };
     },
     onSuccess: (data) => {
-      // Invalidate multiple related queries to update all views
-      queryClient.invalidateQueries({ queryKey: ['affiliate-pending-applications'] });
+      // Invalidate all related queries to update all views
+      queryClient.invalidateQueries({ queryKey: ['pending-affiliate-applications'] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications'] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-offers'] });
       queryClient.invalidateQueries({ queryKey: ['available-offers'] });
@@ -210,10 +166,7 @@ export default function AffiliateApprovals() {
               <div className="flex justify-between items-start">
                 <div>
                   <h4 className="font-medium">
-                    {/* Check if contact_name exists before using it */}
-                    {('contact_name' in app.affiliates && app.affiliates.contact_name) 
-                      ? app.affiliates.contact_name 
-                      : app.affiliates.email || 'Unknown Affiliate'}
+                    {app.affiliates?.contact_name || app.affiliates?.email || 'Unknown Affiliate'}
                   </h4>
                   <p className="text-sm text-muted-foreground">{app.affiliates?.email}</p>
                   <p className="text-sm mt-1">Applied for: <span className="font-medium">{app.offers?.name}</span></p>

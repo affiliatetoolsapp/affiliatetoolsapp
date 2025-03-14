@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { Offer, AffiliateOffer } from '@/types';
+import { Offer } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,13 +46,11 @@ export default function OfferManagement() {
     enabled: !!user && user.role === 'advertiser',
   });
   
-  // Get affiliate applications for advertiser's offers - improved direct query
-  const { data: applications, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery({
-    queryKey: ['affiliate-applications-count', user?.id],
+  // Get pending applications count for badge display
+  const { data: pendingApplicationsCount, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery({
+    queryKey: ['pending-applications-count', user?.id],
     queryFn: async () => {
-      if (!user) return [];
-      
-      console.log('Fetching affiliate applications count for advertiser:', user.id);
+      if (!user) return 0;
       
       try {
         // First get all offers from this advertiser
@@ -67,34 +65,31 @@ export default function OfferManagement() {
         }
         
         if (!myOffers || myOffers.length === 0) {
-          console.log("No offers found for this advertiser");
-          return [];
+          return 0;
         }
         
         const offerIds = myOffers.map(o => o.id);
-        console.log("Fetching applications for offer IDs:", offerIds);
         
-        // Direct query just for pending applications count
-        const { data, error } = await supabase
+        // Just count the pending applications
+        const { count, error } = await supabase
           .from('affiliate_offers')
-          .select('id, offer_id, affiliate_id, status')
+          .select('*', { count: 'exact', head: true })
           .eq('status', 'pending')
           .in('offer_id', offerIds);
         
         if (error) {
-          console.error("Error fetching applications:", error);
+          console.error("Error counting applications:", error);
           throw error;
         }
         
-        console.log("Fetched applications count:", data?.length, data);
-        return data || [];
+        console.log("Pending applications count:", count);
+        return count || 0;
       } catch (err) {
         console.error("Error in applications count query:", err);
         throw err;
       }
     },
     enabled: !!user && user.role === 'advertiser',
-    // Add refetch interval to periodically check for new applications
     refetchInterval: 5000, // Check every 5 seconds
     refetchOnWindowFocus: true,
   });
@@ -145,44 +140,6 @@ export default function OfferManagement() {
   // Handle offer status toggle
   const handleStatusUpdate = (offerId: string, newStatus: string) => {
     updateOfferStatus.mutate({ offerId, status: newStatus });
-  };
-  
-  // Handle application approval/rejection
-  const handleApplicationAction = async (applicationId: string, action: 'approved' | 'rejected') => {
-    try {
-      console.log(`Processing application ${applicationId} with action: ${action}`);
-      
-      const { error } = await supabase
-        .from('affiliate_offers')
-        .update({
-          status: action,
-          reviewed_at: new Date().toISOString()
-        })
-        .eq('id', applicationId);
-      
-      if (error) {
-        console.error("Error updating application:", error);
-        throw error;
-      }
-      
-      queryClient.invalidateQueries({ queryKey: ['affiliate-applications', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['affiliate-applications-count', user?.id] });
-      
-      toast({
-        title: action === 'approved' ? 'Affiliate Approved' : 'Affiliate Rejected',
-        description: action === 'approved' 
-          ? 'Affiliate has been approved and can now promote your offer'
-          : 'Affiliate application has been rejected'
-      });
-      
-    } catch (error: any) {
-      console.error("Error in handleApplicationAction:", error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Failed to update application status',
-      });
-    }
   };
   
   const handleViewOffer = (offerId: string) => {
@@ -349,8 +306,8 @@ export default function OfferManagement() {
           <TabsTrigger value="offers">My Offers</TabsTrigger>
           <TabsTrigger value="applications" onClick={() => refetchApplications()}>
             Pending Applications
-            {applications?.length ? (
-              <Badge variant="secondary" className="ml-2">{applications.length}</Badge>
+            {pendingApplicationsCount ? (
+              <Badge variant="secondary" className="ml-2">{pendingApplicationsCount}</Badge>
             ) : null}
           </TabsTrigger>
         </TabsList>

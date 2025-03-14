@@ -547,6 +547,23 @@ export type Database = {
       }
     }
     Functions: {
+      get_advertiser_pending_applications: {
+        Args: {
+          advertiser_id: string
+        }
+        Returns: {
+          id: string
+          offer_id: string
+          affiliate_id: string
+          applied_at: string
+          traffic_source: string
+          notes: string
+          status: string
+          reviewed_at: string
+          offers: Json
+          users: Json
+        }[]
+      }
       get_user_role: {
         Args: {
           user_id: string

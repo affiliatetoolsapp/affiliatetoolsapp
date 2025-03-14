@@ -62,7 +62,7 @@ export default function AffiliateApprovals() {
         // First attempt: Use the database function
         console.log('[AffiliateApprovals] Trying to use RPC function');
         const { data, error } = await supabase
-          .rpc('get_advertiser_pending_applications', {
+          .rpc<PendingApplication>('get_advertiser_pending_applications', {
             advertiser_id: user.id
           });
         

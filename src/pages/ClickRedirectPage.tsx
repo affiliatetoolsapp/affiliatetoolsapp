@@ -16,8 +16,6 @@ export default function ClickRedirectPage() {
       }
 
       try {
-        console.log('Processing click for tracking code:', trackingCode);
-        
         // Get tracking link details
         const { data: linkData, error: linkError } = await supabase
           .from('tracking_links')
@@ -26,12 +24,9 @@ export default function ClickRedirectPage() {
           .single();
 
         if (linkError || !linkData) {
-          console.error('Link not found or expired:', linkError);
           setError('Link not found or expired');
           return;
         }
-
-        console.log('Found tracking link data:', linkData);
 
         // Check if affiliate is approved for this offer
         if (linkData.affiliate_offers.status !== 'approved') {
@@ -42,16 +37,6 @@ export default function ClickRedirectPage() {
         // Generate a unique click ID using crypto for better security
         const clickId = crypto.randomUUID();
 
-        // Get IP info for geo tracking
-        let ipInfo: any = null;
-        try {
-          const ipResponse = await fetch('https://ipapi.co/json/');
-          ipInfo = await ipResponse.json();
-          console.log('IP info:', ipInfo);
-        } catch (ipError) {
-          console.error('Failed to get IP info:', ipError);
-        }
-
         // Log click
         const { error: clickError } = await supabase
           .from('clicks')
@@ -60,55 +45,16 @@ export default function ClickRedirectPage() {
             tracking_code: trackingCode,
             affiliate_id: linkData.affiliate_id,
             offer_id: linkData.offer_id,
-            ip_address: ipInfo?.ip || null,
+            ip_address: '', // We'd need server-side code to get this
             user_agent: navigator.userAgent,
             device: navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop',
-            geo: ipInfo?.country || null,
             referrer: document.referrer,
-            custom_params: linkData.custom_params
           });
 
         if (clickError) {
           console.error('Error logging click:', clickError);
           setError('Failed to process click');
           return;
-        }
-
-        console.log('Click logged successfully with ID:', clickId);
-
-        // For CPC offers, immediately credit the affiliate
-        if (linkData.offers.commission_type === 'CPC' && linkData.offers.commission_amount) {
-          console.log('Processing CPC commission:', linkData.offers.commission_amount);
-          
-          const { data: walletData, error: walletError } = await supabase
-            .from('wallets')
-            .select('*')
-            .eq('user_id', linkData.affiliate_id)
-            .single();
-          
-          if (walletError) {
-            console.error('Error fetching wallet:', walletError);
-          } else if (walletData) {
-            // Update wallet with the CPC amount
-            await supabase
-              .from('wallets')
-              .update({
-                pending: walletData.pending + linkData.offers.commission_amount
-              })
-              .eq('user_id', linkData.affiliate_id);
-            
-            // Create a conversion record for CPC
-            await supabase
-              .from('conversions')
-              .insert({
-                click_id: clickId,
-                event_type: 'click',
-                commission: linkData.offers.commission_amount,
-                status: 'pending',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              });
-          }
         }
 
         // Get offer URL for redirect
@@ -124,8 +70,6 @@ export default function ClickRedirectPage() {
             redirectUrl.searchParams.append(key, value as string);
           });
         }
-
-        console.log('Redirecting to:', redirectUrl.toString());
 
         // Redirect to advertiser URL
         window.location.href = redirectUrl.toString();

@@ -26,7 +26,7 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import { DownloadIcon, FilterIcon } from 'lucide-react';
-import { format, subDays, startOfDay, endOfDay, eachDayOfInterval, parseISO } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay, eachDayOfInterval } from 'date-fns';
 
 export default function ReportsPage() {
   const { user } = useAuth();
@@ -65,18 +65,14 @@ export default function ReportsPage() {
         } else {
           return [];
         }
-      } else if (user.role === 'affiliate') {
+      } else {
         // For affiliates
         query = query.eq('affiliate_id', user.id);
       }
       
       const { data, error } = await query;
-      if (error) {
-        console.error("Error fetching clicks:", error);
-        throw error;
-      }
-      
-      return data || [];
+      if (error) throw error;
+      return data;
     },
     enabled: !!user,
   });
@@ -99,46 +95,10 @@ export default function ReportsPage() {
       }
       
       const { data, error } = await query;
-      if (error) {
-        console.error("Error fetching conversions:", error);
-        throw error;
-      }
-      
-      return data || [];
+      if (error) throw error;
+      return data;
     },
     enabled: !!user && !!clicks && clicks.length > 0,
-  });
-  
-  // Get offers for additional details
-  const { data: offers, isLoading: isLoadingOffers } = useQuery({
-    queryKey: ['report-offers', user?.id, user?.role],
-    queryFn: async () => {
-      if (!user) return [];
-      
-      let query = supabase.from('offers').select('*');
-      
-      if (isAdvertiser) {
-        query = query.eq('advertiser_id', user.id);
-      } else if (user.role === 'affiliate') {
-        const { data: affiliateOffers } = await supabase
-          .from('affiliate_offers')
-          .select('offer_id')
-          .eq('affiliate_id', user.id)
-          .eq('status', 'approved');
-        
-        if (affiliateOffers && affiliateOffers.length > 0) {
-          const offerIds = affiliateOffers.map(o => o.offer_id);
-          query = query.in('id', offerIds);
-        } else {
-          return [];
-        }
-      }
-      
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user,
   });
   
   // Prepare data for charts
@@ -162,7 +122,7 @@ export default function ReportsPage() {
     
     // Count clicks by day
     clicks.forEach(click => {
-      const clickDate = format(parseISO(click.created_at), 'yyyy-MM-dd');
+      const clickDate = format(new Date(click.created_at), 'yyyy-MM-dd');
       const dataPoint = data.find(d => d.date === clickDate);
       if (dataPoint) {
         dataPoint.clicks += 1;
@@ -175,7 +135,7 @@ export default function ReportsPage() {
         // Find associated click to get date
         const click = clicks.find(c => c.click_id === conv.click_id);
         if (click) {
-          const clickDate = format(parseISO(click.created_at), 'yyyy-MM-dd');
+          const clickDate = format(new Date(click.created_at), 'yyyy-MM-dd');
           const dataPoint = data.find(d => d.date === clickDate);
           if (dataPoint) {
             dataPoint.conversions += 1;
@@ -204,7 +164,7 @@ export default function ReportsPage() {
   const totalRevenue = conversions?.reduce((sum, conv) => sum + (conv.revenue || 0), 0) || 0;
   const totalCommissions = conversions?.reduce((sum, conv) => sum + (conv.commission || 0), 0) || 0;
   
-  const isLoading = isLoadingClicks || isLoadingConversions || isLoadingOffers;
+  const isLoading = isLoadingClicks || isLoadingConversions;
   
   if (!user) return null;
   

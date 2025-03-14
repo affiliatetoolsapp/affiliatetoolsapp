@@ -21,11 +21,10 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Fetch all pending applications first, then filter by advertiser
-  const { data: allPendingApplications, isLoading, error } = useQuery({
-    queryKey: ['all-pending-affiliate-applications'],
+  // Fetch all pending applications
+  const { data: pendingApplications, isLoading, error } = useQuery({
+    queryKey: ['pending-affiliate-applications'],
     queryFn: async () => {
-      // Better solution: fetch all pending applications
       console.log('[AffiliateApprovals] Fetching all pending applications');
       
       const { data, error } = await supabase
@@ -53,23 +52,19 @@ export default function AffiliateApprovals() {
     },
     refetchInterval: 15000,
     refetchOnWindowFocus: true,
-    staleTime: 0,
+    enabled: !!user,
   });
   
-  // Filter applications locally for the current advertiser
-  const applications = allPendingApplications?.filter(app => 
+  // Filter applications for the current advertiser
+  const applications = pendingApplications?.filter(app => 
     app.offers?.advertiser_id === user?.id
   ) || [];
   
   useEffect(() => {
-    if (applications.length > 0) {
-      console.log('[AffiliateApprovals] Pending applications found:', applications);
-    } else {
-      console.log('[AffiliateApprovals] Pending applications found: []');
-    }
+    console.log('[AffiliateApprovals] Pending applications found:', applications);
   }, [applications]);
   
-  // Improved mutation to update application status
+  // Mutation to update application status
   const updateApplication = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: 'approved' | 'rejected' }) => {
       console.log(`[AffiliateApprovals] Updating application ${id} to status: ${status}`);
@@ -92,12 +87,11 @@ export default function AffiliateApprovals() {
     },
     onSuccess: (data) => {
       // Invalidate all related queries
-      queryClient.invalidateQueries({ queryKey: ['all-pending-affiliate-applications'] });
       queryClient.invalidateQueries({ queryKey: ['pending-affiliate-applications'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-applications-count'] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications'] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-offers'] });
       queryClient.invalidateQueries({ queryKey: ['available-offers'] });
-      queryClient.invalidateQueries({ queryKey: ['pending-applications-count'] });
       
       toast({
         title: `Application ${data.status}`,

@@ -8,13 +8,17 @@ import CreateOffer from '@/components/offers/CreateOffer';
 import OfferBrowser from '@/components/affiliate/OfferBrowser';
 import OfferManagement from '@/components/advertiser/OfferManagement';
 import AffiliateOffers from '@/components/affiliate/AffiliateOffers';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import AffiliateApprovals from '@/components/offers/AffiliateApprovals';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import OfferDetailView from '@/components/affiliate/OfferDetailView';
 
 export default function OffersPage() {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [applicationStatus, setApplicationStatus] = useState<string | null>(null);
   
   useEffect(() => {
     // If user is affiliate and tries to create an offer, redirect to the offers list
@@ -28,6 +32,57 @@ export default function OffersPage() {
     console.log("[OffersPage] Loaded with id:", id);
     console.log("[OffersPage] Current user:", user);
   }, [id, user]);
+
+  // Fetch application status if this is an affiliate viewing an offer
+  const { data: offerData } = useQuery({
+    queryKey: ['offer', id],
+    queryFn: async () => {
+      if (!id || !user) return null;
+      
+      const { data, error } = await supabase
+        .from('offers')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (error) {
+        console.error("Error fetching offer:", error);
+        return null;
+      }
+      
+      return data;
+    },
+    enabled: !!id && !!user,
+  });
+
+  // Fetch application status for affiliate
+  const { data: applicationData } = useQuery({
+    queryKey: ['offer-application', id, user?.id],
+    queryFn: async () => {
+      if (!id || !user || user.role !== 'affiliate') return null;
+      
+      const { data, error } = await supabase
+        .from('affiliate_offers')
+        .select('status')
+        .eq('offer_id', id)
+        .eq('affiliate_id', user.id)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        console.error("Error fetching application:", error);
+      }
+      
+      return data;
+    },
+    enabled: !!id && !!user && user.role === 'affiliate',
+    onSuccess: (data) => {
+      if (data) {
+        setApplicationStatus(data.status);
+      } else {
+        setApplicationStatus(null);
+      }
+    }
+  });
   
   if (!user) return null;
   
@@ -42,8 +97,21 @@ export default function OffersPage() {
     return <AffiliateApprovals />;
   }
   
-  // If we have an ID, we show the offer details (for all user types)
-  if (id) {
+  // If we have an ID, we show the offer details based on user role
+  if (id && offerData) {
+    // For affiliates, show the enhanced OfferDetailView
+    if (user.role === 'affiliate') {
+      console.log("[OffersPage] Showing affiliate offer detail view with status:", applicationStatus);
+      return (
+        <OfferDetailView 
+          offer={offerData} 
+          applicationStatus={applicationStatus} 
+          onBack={() => navigate('/offers')} 
+        />
+      );
+    }
+    
+    // For advertisers and admins, continue using the existing OfferDetails component
     return <OfferDetails offerId={id} />;
   }
   

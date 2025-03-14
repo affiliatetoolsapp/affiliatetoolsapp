@@ -19,6 +19,7 @@ export default function OffersList() {
   
   const isAdvertiser = user?.role === 'advertiser';
   
+  // Get all offers query
   const { data: offers, isLoading } = useQuery({
     queryKey: ['offers', user?.id, user?.role],
     queryFn: async () => {
@@ -32,12 +33,50 @@ export default function OffersList() {
       }
       
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching offers:", error);
+        throw error;
+      }
+      
+      console.log("Fetched offers:", data?.length);
       return data as Offer[];
     },
     enabled: !!user,
   });
   
+  // Get pending applications count - now used more consistently across components
+  const { data: pendingApplicationsCount } = useQuery({
+    queryKey: ['pending-applications-count', user?.id],
+    queryFn: async () => {
+      if (!user || !isAdvertiser) return 0;
+      
+      // Get all pending applications first
+      const { data, error } = await supabase
+        .from('affiliate_offers')
+        .select(`
+          id, 
+          offers!inner(advertiser_id)
+        `)
+        .eq('status', 'pending');
+      
+      if (error) {
+        console.error("Error fetching pending applications count:", error);
+        throw error;
+      }
+      
+      // Filter for this advertiser's offers
+      const filteredApplications = data.filter(app => 
+        app.offers?.advertiser_id === user.id
+      );
+      
+      console.log("Pending applications count:", filteredApplications.length);
+      return filteredApplications.length;
+    },
+    enabled: !!user && isAdvertiser,
+    refetchInterval: 30000,
+  });
+  
+  // Filter offers based on search query
   const filteredOffers = offers?.filter(offer => 
     offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -93,7 +132,14 @@ export default function OffersList() {
         <Tabs defaultValue="active">
           <TabsList>
             <TabsTrigger value="active">Active Offers</TabsTrigger>
-            <TabsTrigger value="applications">Affiliate Applications</TabsTrigger>
+            <TabsTrigger value="applications">
+              Affiliate Applications
+              {pendingApplicationsCount ? (
+                <span className="ml-2 px-2 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
+                  {pendingApplicationsCount}
+                </span>
+              ) : null}
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="active">

@@ -1,31 +1,36 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Offer } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { PlusCircle, Search, Filter, List, Grid } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table';
-import { Link } from 'react-router-dom';
+import { Input } from '@/components/ui/input';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+import { Search, Filter, PlusCircle, MoreVertical, Edit, Trash2, Users, Pause, Play, Grid, List, Globe, Shield, Target } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import AffiliateApprovals from '@/components/offers/AffiliateApprovals';
 
 export default function OfferManagement() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
-  const { data: offers, isLoading } = useQuery({
-    queryKey: ['offers', user?.id],
+  // Get advertiser's offers
+  const { data: offers, isLoading: offersLoading } = useQuery({
+    queryKey: ['advertiser-offers', user?.id],
     queryFn: async () => {
       if (!user) return [];
       
@@ -35,33 +40,27 @@ export default function OfferManagement() {
         .eq('advertiser_id', user.id);
       
       if (error) throw error;
+      console.log("Advertiser offers:", data);
       return data as Offer[];
     },
-    enabled: !!user,
+    enabled: !!user && user.role === 'advertiser',
   });
   
-  const filteredOffers = offers?.filter(offer => 
-    offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    offer.niche?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  
-  // Get pending applications count - Simplified query consistent with other components
+  // Get pending applications count for badge display - Using the improved direct query approach
   const { data: pendingApplicationsCount, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery({
     queryKey: ['pending-applications-count', user?.id],
     queryFn: async () => {
       if (!user) return 0;
       
       try {
-        console.log('[OfferManagement] Fetching pending applications count');
+        console.log('[OfferManagement] Fetching pending applications');
         
-        // Get all affiliate offers with pending status
+        // Get all pending applications first
         const { data, error } = await supabase
           .from('affiliate_offers')
           .select(`
             id, 
-            offer_id,
-            offers(advertiser_id)
+            offers!inner(advertiser_id)
           `)
           .eq('status', 'pending');
         
@@ -70,15 +69,13 @@ export default function OfferManagement() {
           throw error;
         }
         
-        // Filter for offers owned by this advertiser
-        const advertiserApplications = data?.filter(app => 
+        // Filter for this advertiser's offers
+        const filteredApplications = data.filter(app => 
           app.offers?.advertiser_id === user.id
-        ) || [];
+        );
         
-        console.log("[OfferManagement] Pending applications data:", data);
-        console.log("[OfferManagement] Filtered applications count:", advertiserApplications.length);
-        
-        return advertiserApplications.length;
+        console.log("[OfferManagement] Pending applications count:", filteredApplications.length);
+        return filteredApplications.length;
       } catch (err) {
         console.error("[OfferManagement] Error in applications count query:", err);
         throw err;
@@ -90,24 +87,148 @@ export default function OfferManagement() {
     staleTime: 0,
   });
   
+  // Refresh applications when the applications tab is selected
+  const [activeTab, setActiveTab] = useState('offers');
+  
+  useEffect(() => {
+    if (activeTab === 'applications') {
+      refetchApplications();
+    }
+  }, [activeTab, refetchApplications]);
+  
+  // Filter offers based on search term
+  const filteredOffers = offers?.filter(offer => 
+    offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    offer.niche?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  
+  // Mutation to update offer status
+  const updateOfferStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string, status: 'active' | 'inactive' }) => {
+      console.log(`Updating offer ${id} to status: ${status}`);
+      
+      const { data, error } = await supabase
+        .from('offers')
+        .update({ status })
+        .eq('id', id)
+        .select();
+      
+      if (error) {
+        console.error('Error updating offer status:', error);
+        throw error;
+      }
+      
+      return data;
+    },
+    onSuccess: () => {
+      // Invalidate queries to refetch offers
+      queryClient.invalidateQueries({ queryKey: ['advertiser-offers', user?.id] });
+      toast({
+        title: 'Offer Status Updated',
+        description: 'The offer status has been updated successfully',
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to update offer status',
+      });
+      console.error(error);
+    },
+  });
+  
+  const handleStatusUpdate = (offerId: string, newStatus: 'active' | 'inactive') => {
+    updateOfferStatus.mutate({ id: offerId, status: newStatus });
+  };
+  
+  const renderOffersTable = () => (
+    <div className="rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Offer</TableHead>
+            <TableHead>Niche</TableHead>
+            <TableHead>Commission</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredOffers?.map((offer) => (
+            <TableRow key={offer.id}>
+              <TableCell className="font-medium">{offer.name}</TableCell>
+              <TableCell>{offer.niche || '-'}</TableCell>
+              <TableCell>
+                {offer.commission_type === 'RevShare' 
+                  ? `${offer.commission_percent}% RevShare` 
+                  : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
+              </TableCell>
+              <TableCell className="capitalize">{offer.status}</TableCell>
+              <TableCell className="text-right">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 p-0">
+                      <span className="sr-only">Open menu</span>
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => navigate(`/offers/${offer.id}`)}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleStatusUpdate(offer.id, offer.status === 'active' ? 'inactive' : 'active')}>
+                      {offer.status === 'active' ? (
+                        <>
+                          <Pause className="h-4 w-4 mr-2" />
+                          Pause
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-4 w-4 mr-2" />
+                          Activate
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-destructive">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate(`/offers/${offer.id}/applications`)}>
+                      <Users className="h-4 w-4 mr-2" />
+                      View Applications
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Offers</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            My Offers
+          </h1>
           <p className="text-muted-foreground">
-            Manage your offers and track affiliate applications
+            Manage your offers and affiliate applications
           </p>
         </div>
-        <Button asChild>
-          <Link to="/offers/create">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Create Offer
-          </Link>
+        
+        <Button onClick={() => navigate('/offers/create')}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Create Offer
         </Button>
       </div>
       
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center justify-between">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -118,31 +239,56 @@ export default function OfferManagement() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button variant="outline" size="icon">
-          <Filter className="h-4 w-4" />
-        </Button>
-        <Button variant="outline" size="icon" onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}>
-          {viewMode === 'grid' ? <List className="h-4 w-4" /> : <Grid className="h-4 w-4" />}
-        </Button>
+        
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="icon">
+            <Filter className="h-4 w-4" />
+          </Button>
+          
+          <div className="flex items-center border rounded-md">
+            <Button 
+              variant={viewMode === 'grid' ? 'default' : 'ghost'} 
+              size="sm" 
+              className="rounded-r-none" 
+              onClick={() => setViewMode('grid')}
+            >
+              <Grid className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant={viewMode === 'list' ? 'default' : 'ghost'} 
+              size="sm" 
+              className="rounded-l-none" 
+              onClick={() => setViewMode('list')}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
       
-      {applicationsLoading ? (
-        <div className="flex justify-center p-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      ) : (
-        <>
-          {filteredOffers?.length ? (
+      <Tabs defaultValue="offers" onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="offers">My Offers</TabsTrigger>
+          <TabsTrigger value="applications" onClick={() => refetchApplications()}>
+            Pending Applications
+            {pendingApplicationsCount ? (
+              <Badge variant="secondary" className="ml-2">{pendingApplicationsCount}</Badge>
+            ) : null}
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="offers">
+          {offersLoading ? (
+            <div className="flex justify-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : filteredOffers?.length ? (
             viewMode === 'grid' ? (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {filteredOffers.map((offer) => (
                   <Card key={offer.id} className="overflow-hidden">
                     <CardHeader className="p-4">
-                      <CardTitle className="text-lg">
-                        <Link to={`/offers/${offer.id}`} className="hover:underline">
-                          {offer.name}
-                        </Link>
-                      </CardTitle>
+                      <CardTitle className="text-lg">{offer.name}</CardTitle>
                       <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
                     </CardHeader>
                     <CardContent className="p-4 pt-0 grid gap-2">
@@ -162,8 +308,8 @@ export default function OfferManagement() {
                         <span className="capitalize">{offer.status}</span>
                       </div>
                       <div className="mt-2 flex justify-end">
-                        <Button variant="outline" size="sm" asChild>
-                          <Link to={`/offers/${offer.id}`}>Manage</Link>
+                        <Button variant="outline" size="sm" onClick={() => navigate(`/offers/${offer.id}`)}>
+                          Manage
                         </Button>
                       </div>
                     </CardContent>
@@ -171,76 +317,23 @@ export default function OfferManagement() {
                 ))}
               </div>
             ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Commission</TableHead>
-                      <TableHead>Niche</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredOffers.map((offer) => (
-                      <TableRow key={offer.id}>
-                        <TableCell>
-                          <Link to={`/offers/${offer.id}`} className="hover:underline">
-                            {offer.name}
-                          </Link>
-                        </TableCell>
-                        <TableCell>
-                          {offer.commission_type === 'RevShare' 
-                            ? `${offer.commission_percent}% RevShare` 
-                            : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
-                        </TableCell>
-                        <TableCell>{offer.niche}</TableCell>
-                        <TableCell className="capitalize">{offer.status}</TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="outline" size="sm" asChild>
-                            <Link to={`/offers/${offer.id}`}>Manage</Link>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              renderOffersTable()
             )
           ) : (
             <Card className="p-8 text-center">
-              <p className="text-muted-foreground mb-4">You haven't created any offers yet</p>
-              <Button asChild>
-                <Link to="/offers/create">
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Create Your First Offer
-                </Link>
+              <p className="text-muted-foreground mb-4">You don't have any offers yet</p>
+              <Button onClick={() => navigate('/offers/create')}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Create Your First Offer
               </Button>
             </Card>
           )}
-          
-          {pendingApplicationsCount > 0 && (
-            <div className="mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Pending Affiliate Applications</CardTitle>
-                  <CardDescription>
-                    You have {pendingApplicationsCount} pending affiliate applications.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button asChild>
-                    <Link to="/offers/approve">
-                      View Applications <Badge className="ml-2">{pendingApplicationsCount}</Badge>
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </>
-      )}
+        </TabsContent>
+        
+        <TabsContent value="applications">
+          <AffiliateApprovals />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Offer } from '@/types';
 import { useAuth } from '@/context/AuthContext';
@@ -28,16 +29,21 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [open, setOpen] = React.useState(false);
-  const [trafficSource, setTrafficSource] = React.useState('');
-  const [notes, setNotes] = React.useState('');
+  const [open, setOpen] = useState(false);
+  const [trafficSource, setTrafficSource] = useState('');
+  const [notes, setNotes] = useState('');
 
-  // Apply for offer mutation - simplified and improved
+  // Improved mutation with better error handling and debugging
   const applyForOfferMutation = useMutation({
     mutationFn: async (offerId: string) => {
       if (!user) throw new Error("User not authenticated");
       
-      console.log(`Applying for offer ${offerId} as affiliate ${user.id}`);
+      console.log(`Applying for offer ${offerId} as affiliate ${user.id}`, {
+        affiliate_id: user.id,
+        offer_id: offerId,
+        traffic_source: trafficSource,
+        notes: notes
+      });
       
       const application = {
         affiliate_id: user.id,
@@ -48,8 +54,25 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
         status: 'pending'
       };
       
-      console.log("Creating application with data:", application);
+      // First check if an application already exists to prevent duplicates
+      const { data: existingApp, error: checkError } = await supabase
+        .from('affiliate_offers')
+        .select('id')
+        .eq('affiliate_id', user.id)
+        .eq('offer_id', offerId)
+        .single();
       
+      if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "no rows returned" - expected if no app exists
+        console.error("Error checking for existing application:", checkError);
+        throw new Error(`Failed to check for existing application: ${checkError.message}`);
+      }
+      
+      if (existingApp) {
+        console.log("Application already exists:", existingApp);
+        throw new Error("You have already applied for this offer");
+      }
+      
+      // Insert the new application
       const { data, error } = await supabase
         .from('affiliate_offers')
         .insert(application)
@@ -57,17 +80,19 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
       
       if (error) {
         console.error("Error creating application:", error);
-        throw error;
+        throw new Error(`Failed to create application: ${error.message}`);
       }
       
       console.log("Application created successfully:", data);
-      return data;
+      return data[0];
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-offers', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['available-offers'] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-pending-offers', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['available-offers'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-applications-count'] });
       
       toast({
         title: "Application Submitted",
@@ -87,7 +112,7 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
     }
   });
 
-  // Cancel application mutation
+  // Improved cancel application mutation with better error handling
   const cancelApplicationMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("User not authenticated");
@@ -105,7 +130,7 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
       
       if (findError) {
         console.error("Error finding application:", findError);
-        throw findError;
+        throw new Error(`Could not find application: ${findError.message}`);
       }
       
       if (!applicationData) {
@@ -122,17 +147,19 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
       
       if (deleteError) {
         console.error("Error deleting application:", deleteError);
-        throw deleteError;
+        throw new Error(`Failed to cancel application: ${deleteError.message}`);
       }
       
       console.log("Application cancelled successfully");
-      return { success: true };
+      return { success: true, applicationId: applicationData.id };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications', user?.id] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-offers', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['available-offers'] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-pending-offers', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['available-offers'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-applications-count'] });
       
       toast({
         title: "Application Cancelled",
@@ -152,6 +179,15 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
   const handleApplyClick = () => setOpen(true);
   
   const handleApplySubmit = () => {
+    if (!trafficSource.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Missing Information",
+        description: "Please specify your traffic source",
+      });
+      return;
+    }
+    
     console.log("Submitting application for offer:", offer.id);
     applyForOfferMutation.mutate(offer.id);
   };
@@ -446,7 +482,13 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
           {!applicationStatus ? (
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" onClick={handleApplyClick}>Apply Now</Button>
+                <Button 
+                  size="sm" 
+                  onClick={handleApplyClick}
+                  disabled={applyForOfferMutation.isPending}
+                >
+                  {applyForOfferMutation.isPending ? 'Applying...' : 'Apply Now'}
+                </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
@@ -458,12 +500,13 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
                 
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="traffic">Traffic Source</Label>
+                    <Label htmlFor="traffic">Traffic Source <span className="text-red-500">*</span></Label>
                     <Input 
                       id="traffic" 
                       value={trafficSource} 
                       onChange={(e) => setTrafficSource(e.target.value)} 
                       placeholder="e.g., Social Media, Email Marketing" 
+                      required
                     />
                   </div>
                   
@@ -484,6 +527,7 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
                     type="button" 
                     variant="secondary"
                     onClick={() => setOpen(false)}
+                    disabled={applyForOfferMutation.isPending}
                   >
                     Cancel
                   </Button>

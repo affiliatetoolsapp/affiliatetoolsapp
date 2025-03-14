@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -21,18 +21,13 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Simplified query for pending applications - using direct table joins
-  const { data: applications, isLoading, error } = useQuery({
-    queryKey: ['pending-affiliate-applications', user?.id],
+  // Fetch all pending applications first, then filter by advertiser
+  const { data: allPendingApplications, isLoading, error } = useQuery({
+    queryKey: ['all-pending-affiliate-applications'],
     queryFn: async () => {
-      if (!user?.id || user.role !== 'advertiser') {
-        console.log('[AffiliateApprovals] User is not an advertiser or not logged in');
-        return [];
-      }
+      // Better solution: fetch all pending applications
+      console.log('[AffiliateApprovals] Fetching all pending applications');
       
-      console.log('[AffiliateApprovals] Fetching pending applications for advertiser:', user.id);
-      
-      // Simple direct query joining affiliate_offers with offers and users
       const { data, error } = await supabase
         .from('affiliate_offers')
         .select(`
@@ -53,44 +48,51 @@ export default function AffiliateApprovals() {
         throw error;
       }
       
-      // Filter for offers owned by this advertiser
-      const advertiserApplications = data?.filter(app => 
-        app.offers?.advertiser_id === user.id
-      ) || [];
-      
-      console.log('[AffiliateApprovals] Raw data from query:', data);
-      console.log('[AffiliateApprovals] Filtered applications for advertiser:', advertiserApplications);
-      
-      return advertiserApplications;
+      console.log('[AffiliateApprovals] All pending applications:', data);
+      return data || [];
     },
-    enabled: !!user && user.role === 'advertiser',
     refetchInterval: 15000,
     refetchOnWindowFocus: true,
     staleTime: 0,
   });
   
-  // Mutation to update application status
+  // Filter applications locally for the current advertiser
+  const applications = allPendingApplications?.filter(app => 
+    app.offers?.advertiser_id === user?.id
+  ) || [];
+  
+  useEffect(() => {
+    if (applications.length > 0) {
+      console.log('[AffiliateApprovals] Pending applications found:', applications);
+    } else {
+      console.log('[AffiliateApprovals] Pending applications found: []');
+    }
+  }, [applications]);
+  
+  // Improved mutation to update application status
   const updateApplication = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: 'approved' | 'rejected' }) => {
       console.log(`[AffiliateApprovals] Updating application ${id} to status: ${status}`);
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('affiliate_offers')
         .update({ 
           status, 
           reviewed_at: new Date().toISOString() 
         })
-        .eq('id', id);
+        .eq('id', id)
+        .select();
       
       if (error) {
         console.error('[AffiliateApprovals] Error updating application:', error);
         throw error;
       }
       
-      return { id, status };
+      return { id, status, data };
     },
     onSuccess: (data) => {
       // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: ['all-pending-affiliate-applications'] });
       queryClient.invalidateQueries({ queryKey: ['pending-affiliate-applications'] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications'] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-offers'] });
@@ -102,13 +104,13 @@ export default function AffiliateApprovals() {
         description: `The affiliate application has been ${data.status}`,
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to update application status',
+        description: `Failed to update application status: ${error.message}`,
       });
-      console.error(error);
+      console.error('Error updating application:', error);
     },
   });
   

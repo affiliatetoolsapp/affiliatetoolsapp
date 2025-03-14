@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -208,6 +207,12 @@ export default function OfferBrowser() {
         return "Worldwide";
       }
       
+      // Return the country codes/names directly as an array
+      if (Array.isArray(geoObj)) {
+        return geoObj;
+      }
+      
+      // If it's an object with country codes as keys
       return Object.keys(geoObj);
     } catch (e) {
       console.error("Error parsing geo targets:", e);
@@ -369,8 +374,8 @@ export default function OfferBrowser() {
                     {Array.isArray(targetedGeos) ? (
                       <div className="flex flex-wrap gap-1 ml-5 mt-1">
                         {targetedGeos.length > 0 ? (
-                          targetedGeos.map(geo => (
-                            <Badge key={geo} variant="outline" className="flex items-center">
+                          targetedGeos.map((geo, index) => (
+                            <Badge key={`${geo}-${index}`} variant="outline" className="flex items-center">
                               <MapPin className="h-3 w-3 mr-1" />
                               {geo}
                             </Badge>
@@ -392,8 +397,8 @@ export default function OfferBrowser() {
                         <span className="font-medium">Restricted Geos:</span>
                       </div>
                       <div className="flex flex-wrap gap-1 ml-5 mt-1">
-                        {restrictedGeos.map(geo => (
-                          <Badge key={geo} variant="outline" className="flex items-center bg-red-50 text-red-700 border-red-200">
+                        {restrictedGeos.map((geo, index) => (
+                          <Badge key={`${geo}-${index}`} variant="outline" className="flex items-center bg-red-50 text-red-700 border-red-200">
                             <MapPin className="h-3 w-3 mr-1" />
                             {geo}
                           </Badge>
@@ -578,8 +583,8 @@ export default function OfferBrowser() {
                         <div className="flex flex-wrap gap-1">
                           {Array.isArray(targetedGeos) ? (
                             targetedGeos.length > 0 ? (
-                              targetedGeos.slice(0, 3).map(geo => (
-                                <Badge key={geo} variant="outline" className="flex items-center">
+                              targetedGeos.slice(0, 3).map((geo, index) => (
+                                <Badge key={`${geo}-${index}`} variant="outline" className="flex items-center">
                                   {geo}
                                 </Badge>
                               ))
@@ -598,8 +603,8 @@ export default function OfferBrowser() {
                           <>
                             <div className="text-xs font-medium mt-1 text-amber-700">Restricted:</div>
                             <div className="flex flex-wrap gap-1">
-                              {restrictedGeos.slice(0, 2).map(geo => (
-                                <Badge key={geo} variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                              {restrictedGeos.slice(0, 2).map((geo, index) => (
+                                <Badge key={`${geo}-${index}`} variant="outline" className="bg-red-50 text-red-700 border-red-200">
                                   {geo}
                                 </Badge>
                               ))}

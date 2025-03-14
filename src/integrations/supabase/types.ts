@@ -175,6 +175,41 @@ export type Database = {
           },
         ]
       }
+      custom_postbacks: {
+        Row: {
+          affiliate_id: string
+          created_at: string
+          events: string[] | null
+          id: string
+          postback_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          affiliate_id: string
+          created_at?: string
+          events?: string[] | null
+          id?: string
+          postback_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          affiliate_id?: string
+          created_at?: string
+          events?: string[] | null
+          id?: string
+          postback_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_postbacks_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       offers: {
         Row: {
           advertiser_id: string | null

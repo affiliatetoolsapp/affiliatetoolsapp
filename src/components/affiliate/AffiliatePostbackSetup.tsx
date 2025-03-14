@@ -5,16 +5,26 @@ import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Save, Trash, Check } from 'lucide-react';
+import { AlertCircle, Save, Trash } from 'lucide-react';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+
+// Define the custom postback type
+interface CustomPostback {
+  id: string;
+  affiliate_id: string;
+  postback_url: string | null;
+  events: string[];
+  created_at: string;
+  updated_at: string;
+}
 
 // Define form schema using zod
 const formSchema = z.object({
@@ -41,12 +51,12 @@ export default function AffiliatePostbackSetup() {
         .eq('affiliate_id', user.id)
         .maybeSingle();
         
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      if (error) {
         console.error("Error fetching postback settings:", error);
         throw error;
       }
       
-      return data;
+      return data as CustomPostback | null;
     },
     enabled: !!user,
   });

@@ -93,8 +93,8 @@ serve(async (req) => {
       console.error('Error getting affiliate postback:', postbackError)
     }
     
-    // If affiliate has a postback URL, call it
-    if (postbackData?.postback_url) {
+    // If affiliate has a postback URL and the event type is in their list of events to forward, call it
+    if (postbackData?.postback_url && (!postbackData.events || postbackData.events.includes(event_type))) {
       try {
         console.log(`Forwarding postback to affiliate URL: ${postbackData.postback_url}`)
         

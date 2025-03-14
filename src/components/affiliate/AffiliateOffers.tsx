@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
@@ -11,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, ExternalLink, Link as LinkIcon, Clock, Check, X, Grid, List, Trash, DollarSign, Calendar, Tag, MapPin, Globe } from 'lucide-react';
+import { Search, ExternalLink, Link as LinkIcon, Clock, Check, X, Grid, List, Trash, DollarSign, Calendar, Tag, MapPin, Globe, Eye } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -20,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 export default function AffiliateOffers() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode<'grid' | 'list'>('grid');
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -171,6 +170,17 @@ export default function AffiliateOffers() {
     }
   };
   
+  // Handle navigation to offer details - updated to be more explicit
+  const handleViewOfferDetails = (offerId: string) => {
+    console.log("[AffiliateOffers] Navigating to offer details:", offerId);
+    navigate(`/offers/${offerId}`);
+  };
+  
+  // Handle navigation to links page with offer ID
+  const handleGenerateLinks = (offerId: string) => {
+    navigate(`/links?offer=${offerId}`);
+  };
+
   const renderPendingTable = (applications: (AffiliateOffer & { offer: Offer })[]) => (
     <div className="rounded-md border overflow-hidden">
       <Table>
@@ -260,16 +270,6 @@ export default function AffiliateOffers() {
     </div>
   );
   
-  // Handle navigation to links page with offer ID
-  const handleGenerateLinks = (offerId: string) => {
-    navigate(`/links?offer=${offerId}`);
-  };
-
-  // Navigate to offer details
-  const handleViewOfferDetails = (offerId: string) => {
-    navigate(`/offers/${offerId}`);
-  };
-
   return (
     <div className="space-y-6">
       <div>
@@ -338,12 +338,7 @@ export default function AffiliateOffers() {
                       <div className="flex justify-between items-start">
                         <div>
                           <CardTitle className="text-lg">
-                            <button 
-                              onClick={() => handleViewOfferDetails(affiliateOffer.offer_id)} 
-                              className="hover:underline text-left"
-                            >
-                              {affiliateOffer.offer.name}
-                            </button>
+                            {affiliateOffer.offer.name}
                           </CardTitle>
                           {affiliateOffer.offer.is_featured && (
                             <Badge variant="outline" className="mt-1 bg-yellow-100 dark:bg-yellow-900">
@@ -362,7 +357,7 @@ export default function AffiliateOffers() {
                     <CardContent className="p-4 pt-2 grid gap-2">
                       <div className="text-sm flex items-center">
                         <DollarSign className="h-4 w-4 mr-1 text-green-500" />
-                        <span className="font-medium">Commission: </span>
+                        <span className="font-medium">Commission: </span> 
                         <span className="ml-1">
                           {affiliateOffer.offer.commission_type === 'RevShare' 
                             ? `${affiliateOffer.offer.commission_percent}% Revenue Share` 
@@ -424,10 +419,10 @@ export default function AffiliateOffers() {
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={() => window.open(affiliateOffer.offer.url, '_blank')}
+                        onClick={() => handleViewOfferDetails(affiliateOffer.offer_id)}
                       >
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Preview
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Offer
                       </Button>
                       
                       <Button
@@ -460,12 +455,7 @@ export default function AffiliateOffers() {
                       <TableRow key={affiliateOffer.id}>
                         <TableCell className="font-medium">
                           <div className="flex flex-col">
-                            <button 
-                              onClick={() => handleViewOfferDetails(affiliateOffer.offer_id)} 
-                              className="hover:underline text-left font-medium"
-                            >
-                              {affiliateOffer.offer.name}
-                            </button>
+                            {affiliateOffer.offer.name}
                             {affiliateOffer.offer.is_featured && (
                               <Badge variant="outline" className="w-fit mt-1 text-xs bg-yellow-100 dark:bg-yellow-900">
                                 Featured
@@ -510,10 +500,10 @@ export default function AffiliateOffers() {
                             <Button 
                               variant="outline" 
                               size="sm" 
-                              onClick={() => window.open(affiliateOffer.offer.url, '_blank')}
+                              onClick={() => handleViewOfferDetails(affiliateOffer.offer_id)}
                             >
-                              <ExternalLink className="h-4 w-4 mr-1" />
-                              Preview
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
                             </Button>
                             
                             <Button

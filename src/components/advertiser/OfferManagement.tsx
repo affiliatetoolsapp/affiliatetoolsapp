@@ -26,7 +26,7 @@ export default function OfferManagement() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
   // Get advertiser's offers
   const { data: offers, isLoading: offersLoading } = useQuery({

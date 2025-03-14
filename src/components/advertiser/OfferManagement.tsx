@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -47,34 +46,31 @@ export default function OfferManagement() {
     enabled: !!user && user.role === 'advertiser',
   });
   
-  // Get ALL pending applications, then filter client-side
-  const { data: allPendingApplications, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery({
-    queryKey: ['all-pending-applications'],
+  // Get pending applications directly with a proper query that filters by this advertiser
+  const { data: pendingApplicationsCount = 0, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery({
+    queryKey: ['pending-applications-count', user?.id],
     queryFn: async () => {
-      if (!user) return [];
+      if (!user) return 0;
       
       try {
-        console.log('[OfferManagement] Fetching ALL pending applications');
+        console.log('[OfferManagement] Fetching pending applications count for advertiser:', user.id);
         
-        // Get all pending applications with no filtering
-        const { data, error } = await supabase
+        // Get pending applications count directly with a database filter
+        const { data, count, error } = await supabase
           .from('affiliate_offers')
-          .select(`
-            id, 
-            offer_id,
-            offers(advertiser_id)
-          `)
-          .eq('status', 'pending');
+          .select('id, offers!inner(advertiser_id)', { count: 'exact' })
+          .eq('status', 'pending')
+          .eq('offers.advertiser_id', user.id);
         
         if (error) {
-          console.error("[OfferManagement] Error fetching applications:", error);
+          console.error("[OfferManagement] Error fetching applications count:", error);
           throw error;
         }
         
-        console.log("[OfferManagement] All pending applications (pre-filter):", data);
-        return data || [];
+        console.log("[OfferManagement] Pending applications count:", count);
+        return count || 0;
       } catch (err) {
-        console.error("[OfferManagement] Error in applications query:", err);
+        console.error("[OfferManagement] Error in applications count query:", err);
         throw err;
       }
     },
@@ -83,15 +79,6 @@ export default function OfferManagement() {
     refetchOnWindowFocus: true,
     staleTime: 0,
   });
-  
-  // Filter for applications belonging to this advertiser's offers
-  const pendingApplicationsCount = allPendingApplications?.filter(app => 
-    app.offers?.advertiser_id === user?.id
-  ).length || 0;
-  
-  useEffect(() => {
-    console.log("[OfferManagement] Filtered pending applications count:", pendingApplicationsCount);
-  }, [pendingApplicationsCount]);
   
   // Refresh applications when the applications tab is selected
   const [activeTab, setActiveTab] = useState('offers');
@@ -277,7 +264,7 @@ export default function OfferManagement() {
           <TabsTrigger value="offers">My Offers</TabsTrigger>
           <TabsTrigger value="applications" onClick={() => refetchApplications()}>
             Pending Applications
-            {pendingApplicationsCount ? (
+            {pendingApplicationsCount > 0 ? (
               <Badge variant="secondary" className="ml-2">{pendingApplicationsCount}</Badge>
             ) : null}
           </TabsTrigger>
@@ -310,7 +297,7 @@ export default function OfferManagement() {
                         </div>
                       )}
                       <div className="text-sm">
-                        <span className="font-medium">Status: </span>
+                        <span className="font-medium">Status: </span> 
                         <span className="capitalize">{offer.status}</span>
                       </div>
                       <div className="mt-2 flex justify-end">

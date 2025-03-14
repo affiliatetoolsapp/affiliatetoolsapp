@@ -21,12 +21,18 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Fetch ALL pending applications without filtering at the database level
-  const { data: pendingApplications, isLoading, error } = useQuery({
-    queryKey: ['all-pending-affiliate-applications'],
+  // Fetch pending applications directly with a simpler query that properly joins the tables
+  const { data: applications, isLoading, error } = useQuery({
+    queryKey: ['pending-affiliate-applications', user?.id],
     queryFn: async () => {
-      console.log('[AffiliateApprovals] Fetching ALL pending applications');
+      console.log('[AffiliateApprovals] Fetching pending applications for advertiser:', user?.id);
       
+      if (!user?.id) {
+        console.log('[AffiliateApprovals] No user ID available');
+        return [];
+      }
+      
+      // Direct query that filters by advertiser_id at the database level
       const { data, error } = await supabase
         .from('affiliate_offers')
         .select(`
@@ -37,34 +43,24 @@ export default function AffiliateApprovals() {
           traffic_source,
           notes,
           status,
-          offers(id, name, description, niche, advertiser_id),
+          offers!inner(id, name, description, niche, advertiser_id),
           users!affiliate_id(id, email, contact_name, company_name, website)
         `)
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .eq('offers.advertiser_id', user.id);
       
       if (error) {
         console.error('[AffiliateApprovals] Error fetching applications:', error);
         throw error;
       }
       
-      console.log('[AffiliateApprovals] All pending applications (pre-filter):', data);
+      console.log('[AffiliateApprovals] Pending applications data:', data);
       return data || [];
     },
     refetchInterval: 15000,
     refetchOnWindowFocus: true,
     staleTime: 0
   });
-  
-  // Filter applications for the current advertiser on the client side
-  const applications = pendingApplications?.filter(app => {
-    const isMatch = app.offers?.advertiser_id === user?.id;
-    console.log(`[AffiliateApprovals] Checking app ${app.id} for offer ${app.offer_id}: advertiser_id=${app.offers?.advertiser_id}, user.id=${user?.id}, isMatch=${isMatch}`);
-    return isMatch;
-  }) || [];
-  
-  useEffect(() => {
-    console.log('[AffiliateApprovals] Filtered applications for current advertiser:', applications);
-  }, [applications]);
   
   // Mutation to update application status
   const updateApplication = useMutation({
@@ -89,7 +85,6 @@ export default function AffiliateApprovals() {
     },
     onSuccess: (data) => {
       // Invalidate all related queries
-      queryClient.invalidateQueries({ queryKey: ['all-pending-affiliate-applications'] });
       queryClient.invalidateQueries({ queryKey: ['pending-affiliate-applications'] });
       queryClient.invalidateQueries({ queryKey: ['pending-applications-count'] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications'] });

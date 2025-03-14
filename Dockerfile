@@ -27,8 +27,8 @@ COPY --from=build /app/dist /usr/share/nginx/html
 COPY ./nginx.conf /etc/nginx/conf.d/default.conf
 
 # Create a healthcheck to help Railway determine if the container is ready
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD wget -q --spider http://localhost/ || exit 1
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -q --spider http://localhost/health || exit 1
 
 # Expose port
 EXPOSE 80

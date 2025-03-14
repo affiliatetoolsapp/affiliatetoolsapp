@@ -21,7 +21,8 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Fetch pending applications directly with a simpler query that properly joins the tables
+  // Fetch pending applications with a simpler approach by first getting the advertiser's offers
+  // and then finding all pending applications for those offers
   const { data: applications, isLoading, error } = useQuery({
     queryKey: ['pending-affiliate-applications', user?.id],
     queryFn: async () => {
@@ -32,8 +33,27 @@ export default function AffiliateApprovals() {
         return [];
       }
       
-      // Direct query that filters by advertiser_id at the database level
-      const { data, error } = await supabase
+      // First, get all offer IDs that belong to this advertiser
+      const { data: offers, error: offersError } = await supabase
+        .from('offers')
+        .select('id')
+        .eq('advertiser_id', user.id);
+      
+      if (offersError) {
+        console.error('[AffiliateApprovals] Error fetching offers:', offersError);
+        throw offersError;
+      }
+      
+      if (!offers || offers.length === 0) {
+        console.log('[AffiliateApprovals] No offers found for this advertiser');
+        return [];
+      }
+      
+      const offerIds = offers.map(offer => offer.id);
+      console.log('[AffiliateApprovals] Found offer IDs:', offerIds);
+      
+      // Now fetch all pending applications for these offers
+      const { data: apps, error: appsError } = await supabase
         .from('affiliate_offers')
         .select(`
           id, 
@@ -43,19 +63,19 @@ export default function AffiliateApprovals() {
           traffic_source,
           notes,
           status,
-          offers!inner(id, name, description, niche, advertiser_id),
+          offers(id, name, description, niche, advertiser_id),
           users!affiliate_id(id, email, contact_name, company_name, website)
         `)
         .eq('status', 'pending')
-        .eq('offers.advertiser_id', user.id);
+        .in('offer_id', offerIds);
       
-      if (error) {
-        console.error('[AffiliateApprovals] Error fetching applications:', error);
-        throw error;
+      if (appsError) {
+        console.error('[AffiliateApprovals] Error fetching applications:', appsError);
+        throw appsError;
       }
       
-      console.log('[AffiliateApprovals] Pending applications data:', data);
-      return data || [];
+      console.log('[AffiliateApprovals] Pending applications data:', apps || []);
+      return apps || [];
     },
     refetchInterval: 15000,
     refetchOnWindowFocus: true,

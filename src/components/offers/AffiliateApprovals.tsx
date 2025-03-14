@@ -46,17 +46,41 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Fetch pending applications using the database function
+  // Fetch pending applications with a direct query
   const { data: applications, isLoading, error } = useQuery({
     queryKey: ['pending-affiliate-applications', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       
-      // Use the database function with RLS policies now correctly in place
+      // Direct query with joins to get pending applications
       const { data, error } = await supabase
-        .rpc('get_advertiser_pending_applications', { 
-          advertiser_id: user.id 
-        });
+        .from('affiliate_offers')
+        .select(`
+          id,
+          offer_id,
+          affiliate_id,
+          applied_at,
+          traffic_source,
+          notes,
+          status,
+          reviewed_at,
+          offers:offer_id (
+            id,
+            name,
+            description,
+            niche,
+            advertiser_id
+          ),
+          users:affiliate_id (
+            id,
+            email,
+            contact_name,
+            company_name,
+            website
+          )
+        `)
+        .eq('status', 'pending')
+        .eq('offers.advertiser_id', user.id);
       
       if (error) {
         console.error('Error fetching pending applications:', error);

@@ -13,7 +13,7 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Optimized query for pending applications
+  // Get pending applications directly from the database
   const { data: applications, isLoading, error } = useQuery({
     queryKey: ['pending-affiliate-applications', user?.id],
     queryFn: async () => {
@@ -25,8 +25,26 @@ export default function AffiliateApprovals() {
       console.log('Fetching pending applications for advertiser:', user.id);
       
       try {
-        // Direct join query to get all pending applications for offers owned by this advertiser
-        const { data: pendingApplications, error } = await supabase
+        // First get all offers from this advertiser
+        const { data: myOffers, error: offersError } = await supabase
+          .from('offers')
+          .select('id')
+          .eq('advertiser_id', user.id);
+        
+        if (offersError) {
+          console.error('Error fetching offers:', offersError);
+          throw offersError;
+        }
+        
+        if (!myOffers || myOffers.length === 0) {
+          console.log('No offers found for advertiser');
+          return [];
+        }
+        
+        const offerIds = myOffers.map(o => o.id);
+        
+        // Now get all pending applications for these offers
+        const { data: pendingApps, error: appsError } = await supabase
           .from('affiliate_offers')
           .select(`
             id, 
@@ -40,18 +58,15 @@ export default function AffiliateApprovals() {
             users!affiliate_id(id, email, contact_name, company_name, website)
           `)
           .eq('status', 'pending')
-          .eq('offers.advertiser_id', user.id);
+          .in('offer_id', offerIds);
         
-        if (error) {
-          console.error('Error fetching applications:', error);
-          throw error;
+        if (appsError) {
+          console.error('Error fetching applications:', appsError);
+          throw appsError;
         }
         
-        // Filter out any applications that might have null offers
-        const validApplications = pendingApplications.filter(app => app.offers !== null);
-        
-        console.log('Pending applications found:', validApplications);
-        return validApplications || [];
+        console.log('Pending applications found:', pendingApps);
+        return pendingApps || [];
       } catch (err) {
         console.error('Error in affiliate applications query:', err);
         throw err;

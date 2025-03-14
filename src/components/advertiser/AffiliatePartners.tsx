@@ -34,12 +34,10 @@ import {
   Search, 
   Filter, 
   UserPlus, 
-  CheckCircle, 
-  XCircle, 
-  ExternalLink,
   Mail,
   User
 } from 'lucide-react';
+import AffiliateApprovals from '../offers/AffiliateApprovals';
 
 export default function AffiliatePartners() {
   const { user } = useAuth();
@@ -49,73 +47,112 @@ export default function AffiliatePartners() {
   const [selectedAffiliate, setSelectedAffiliate] = useState<any>(null);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteMessage, setInviteMessage] = useState('');
-  const [isInviting, setIsInviting] = useState(false);
-  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   
-  // Get approved affiliates
+  // Get approved affiliates - real data from Supabase
   const { data: affiliates, isLoading: affiliatesLoading } = useQuery({
     queryKey: ['advertiser-affiliates', user?.id],
     queryFn: async () => {
       if (!user) throw new Error('User not authenticated');
       
       try {
-        // This would be replaced with actual Supabase query in a real app
-        // Mock implementation for demo
-        return [
-          { 
-            id: 'aff-1', 
-            email: 'affiliate1@example.com', 
-            contact_name: 'John Affiliate', 
-            approved_offers: 3,
-            total_clicks: 1245,
-            total_conversions: 87,
-            conversion_rate: 6.99,
-            total_payout: 825.50,
-            join_date: '2023-01-15',
-            traffic_sources: ['Social Media', 'Blog', 'Email'],
-            status: 'active'
-          },
-          { 
-            id: 'aff-2', 
-            email: 'affiliate2@example.com', 
-            contact_name: 'Sarah Partner', 
-            approved_offers: 2,
-            total_clicks: 957,
-            total_conversions: 42,
-            conversion_rate: 4.39,
-            total_payout: 623.75,
-            join_date: '2023-03-22',
-            traffic_sources: ['PPC', 'Content'],
-            status: 'active'
-          },
-          { 
-            id: 'aff-3', 
-            email: 'affiliate3@example.com', 
-            contact_name: 'Mike Marketer', 
-            approved_offers: 5,
-            total_clicks: 2134,
-            total_conversions: 154,
-            conversion_rate: 7.22,
-            total_payout: 1432.80,
-            join_date: '2022-11-05',
-            traffic_sources: ['Social Media', 'SEO', 'YouTube'],
-            status: 'active'
-          },
-          { 
-            id: 'aff-4', 
-            email: 'affiliate4@example.com', 
-            contact_name: 'Emma Promoter', 
-            approved_offers: 1,
-            total_clicks: 356,
-            total_conversions: 12,
-            conversion_rate: 3.37,
-            total_payout: 156.20,
-            join_date: '2023-06-10',
-            traffic_sources: ['Instagram', 'TikTok'],
-            status: 'active'
-          },
-        ];
+        // Get all approved affiliate_offers for this advertiser's offers
+        const { data: advertiserOffers, error: offersError } = await supabase
+          .from('offers')
+          .select('id')
+          .eq('advertiser_id', user.id);
+          
+        if (offersError) throw offersError;
+        
+        if (!advertiserOffers || advertiserOffers.length === 0) {
+          return [];
+        }
+        
+        const offerIds = advertiserOffers.map(offer => offer.id);
+        
+        // Get approved affiliates for these offers
+        const { data: approvedAffiliates, error: affiliatesError } = await supabase
+          .from('affiliate_offers')
+          .select(`
+            id,
+            offer_id,
+            affiliate_id,
+            applied_at,
+            reviewed_at,
+            offers(name),
+            users!affiliate_id(id, email, contact_name, company_name, website)
+          `)
+          .eq('status', 'approved')
+          .in('offer_id', offerIds);
+          
+        if (affiliatesError) throw affiliatesError;
+        
+        if (!approvedAffiliates || approvedAffiliates.length === 0) {
+          return [];
+        }
+        
+        // Count stats for each affiliate
+        const affiliateMap = new Map();
+        
+        for (const affOffer of approvedAffiliates) {
+          const affiliateId = affOffer.affiliate_id;
+          
+          if (!affiliateMap.has(affiliateId)) {
+            // Get performance data for this affiliate
+            const { data: clicks, error: clicksError } = await supabase
+              .from('clicks')
+              .select('click_id, created_at')
+              .eq('affiliate_id', affiliateId)
+              .in('offer_id', offerIds);
+              
+            if (clicksError) console.error('Error fetching clicks:', clicksError);
+            
+            const totalClicks = clicks?.length || 0;
+            
+            // Get conversions
+            let conversions = [];
+            let totalPayout = 0;
+            
+            if (totalClicks > 0) {
+              const clickIds = clicks.map(c => c.click_id);
+              
+              const { data: convData, error: convError } = await supabase
+                .from('conversions')
+                .select('*')
+                .in('click_id', clickIds);
+                
+              if (convError) console.error('Error fetching conversions:', convError);
+              
+              conversions = convData || [];
+              totalPayout = conversions.reduce((sum, conv) => sum + (conv.commission || 0), 0);
+            }
+            
+            const totalConversions = conversions.length;
+            const convRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0;
+            
+            // Create affiliate entry
+            affiliateMap.set(affiliateId, {
+              id: affiliateId,
+              email: affOffer.users?.email || 'Unknown',
+              contact_name: affOffer.users?.contact_name || 'Unknown Affiliate',
+              approved_offers: 1,
+              total_clicks: totalClicks,
+              total_conversions: totalConversions,
+              conversion_rate: parseFloat(convRate.toFixed(2)),
+              total_payout: totalPayout,
+              join_date: new Date(affOffer.reviewed_at || affOffer.applied_at).toISOString().split('T')[0],
+              traffic_sources: [],
+              status: 'active'
+            });
+          } else {
+            // Update existing affiliate
+            const affiliate = affiliateMap.get(affiliateId);
+            affiliate.approved_offers += 1;
+          }
+        }
+        
+        return Array.from(affiliateMap.values());
       } catch (error) {
         console.error('Error fetching affiliates:', error);
         throw error;
@@ -124,54 +161,13 @@ export default function AffiliatePartners() {
     enabled: !!user && user.role === 'advertiser',
   });
   
-  // Get pending applications
-  const { data: applications, isLoading: applicationsLoading } = useQuery({
-    queryKey: ['affiliate-applications', user?.id],
-    queryFn: async () => {
-      if (!user) throw new Error('User not authenticated');
-      
-      try {
-        // Mock implementation for demo
-        return [
-          {
-            id: 'app-1',
-            affiliate_id: 'aff-5',
-            affiliate_email: 'newaffiliate@example.com',
-            affiliate_name: 'Alex Newbie',
-            offer_id: 'offer-1',
-            offer_name: 'Finance App Promotion',
-            traffic_source: 'Blog, Email Newsletter',
-            applied_at: '2023-07-12T15:30:00Z',
-            notes: 'I have a finance blog with 10k monthly visitors and an email list of 5k subscribers.'
-          },
-          {
-            id: 'app-2',
-            affiliate_id: 'aff-6',
-            affiliate_email: 'marketerpro@example.com',
-            affiliate_name: 'Chris Marketer',
-            offer_id: 'offer-2',
-            offer_name: 'SaaS Subscription',
-            traffic_source: 'YouTube, Social Media',
-            applied_at: '2023-07-10T09:15:00Z',
-            notes: 'I have a tech YouTube channel with 50k subscribers and active social media presence.'
-          }
-        ];
-      } catch (error) {
-        console.error('Error fetching applications:', error);
-        throw error;
-      }
-    },
-    enabled: !!user && user.role === 'advertiser',
-  });
-  
   // Invite affiliate mutation
   const inviteAffiliateMutation = useMutation({
-    mutationFn: async (variables: { email: string, message: string }) => {
+    mutationFn: async ({ email, message }: { email: string, message: string }) => {
       if (!user) throw new Error('User not authenticated');
       
-      // This would connect to a real API endpoint in production
-      // Mock implementation for demo
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // In a real app, this would send an invitation email
+      // For now, we'll just show a success toast
       
       return { success: true };
     },
@@ -194,36 +190,6 @@ export default function AffiliatePartners() {
     }
   });
   
-  // Application response mutation
-  const respondToApplicationMutation = useMutation({
-    mutationFn: async (variables: { applicationId: string, status: 'approved' | 'rejected' }) => {
-      if (!user) throw new Error('User not authenticated');
-      
-      // This would update a real database in production
-      // Mock implementation for demo
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      return { success: true };
-    },
-    onSuccess: (_, variables) => {
-      toast({
-        title: variables.status === 'approved' ? "Application Approved" : "Application Rejected",
-        description: variables.status === 'approved' 
-          ? "The affiliate has been approved to promote your offer" 
-          : "The application has been rejected",
-      });
-      
-      queryClient.invalidateQueries({ queryKey: ['affiliate-applications', user?.id] });
-    },
-    onError: (error: any) => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to process application",
-      });
-    }
-  });
-  
   const handleInviteAffiliate = () => {
     if (!inviteEmail) {
       toast({
@@ -234,18 +200,9 @@ export default function AffiliatePartners() {
       return;
     }
     
-    setIsInviting(true);
     inviteAffiliateMutation.mutate({
       email: inviteEmail,
       message: inviteMessage
-    });
-    setIsInviting(false);
-  };
-  
-  const handleRespondToApplication = (applicationId: string, status: 'approved' | 'rejected') => {
-    respondToApplicationMutation.mutate({
-      applicationId,
-      status
     });
   };
   
@@ -314,9 +271,9 @@ export default function AffiliatePartners() {
               </Button>
               <Button
                 onClick={handleInviteAffiliate}
-                disabled={isInviting || !inviteEmail}
+                disabled={inviteAffiliateMutation.isPending || !inviteEmail}
               >
-                {isInviting ? "Sending..." : "Send Invitation"}
+                {inviteAffiliateMutation.isPending ? "Sending..." : "Send Invitation"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -409,73 +366,7 @@ export default function AffiliatePartners() {
         </TabsContent>
         
         <TabsContent value="applications">
-          {applicationsLoading ? (
-            <div className="flex justify-center p-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          ) : applications?.length ? (
-            <div className="grid gap-6">
-              {applications.map((app) => (
-                <Card key={app.id}>
-                  <CardHeader>
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                      <div>
-                        <CardTitle>{app.affiliate_name}</CardTitle>
-                        <CardDescription>{app.affiliate_email}</CardDescription>
-                      </div>
-                      <div className="mt-2 sm:mt-0 text-sm text-muted-foreground">
-                        Applied: {new Date(app.applied_at).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <div className="text-sm font-medium mb-1">Applying for Offer:</div>
-                      <div className="flex items-center">
-                        <span className="font-medium">{app.offer_name}</span>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 ml-1">
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <div className="text-sm font-medium mb-1">Traffic Source:</div>
-                      <div>{app.traffic_source}</div>
-                    </div>
-                    
-                    {app.notes && (
-                      <div>
-                        <div className="text-sm font-medium mb-1">Additional Notes:</div>
-                        <div className="text-sm">{app.notes}</div>
-                      </div>
-                    )}
-                    
-                    <div className="flex justify-end gap-3 pt-2">
-                      <Button 
-                        variant="outline" 
-                        className="text-destructive"
-                        onClick={() => handleRespondToApplication(app.id, 'rejected')}
-                      >
-                        <XCircle className="mr-2 h-4 w-4" />
-                        Reject
-                      </Button>
-                      <Button
-                        onClick={() => handleRespondToApplication(app.id, 'approved')}
-                      >
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        Approve
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground">No pending applications</p>
-            </Card>
-          )}
+          <AffiliateApprovals />
         </TabsContent>
       </Tabs>
       
@@ -529,14 +420,18 @@ export default function AffiliatePartners() {
               <div>
                 <div className="text-sm font-medium mb-2">Traffic Sources:</div>
                 <div className="flex flex-wrap gap-2">
-                  {selectedAffiliate.traffic_sources.map((source: string) => (
-                    <span 
-                      key={source} 
-                      className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium"
-                    >
-                      {source}
-                    </span>
-                  ))}
+                  {selectedAffiliate.traffic_sources && selectedAffiliate.traffic_sources.length > 0 ? (
+                    selectedAffiliate.traffic_sources.map((source: string) => (
+                      <span 
+                        key={source} 
+                        className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium"
+                      >
+                        {source}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">No traffic sources specified</span>
+                  )}
                 </div>
               </div>
               

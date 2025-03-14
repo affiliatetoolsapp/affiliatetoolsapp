@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,9 +55,8 @@ export default function LinkRedirectPage() {
           return;
         }
         
-        // Generate a unique click ID
-        const clickId = Math.random().toString(36).substring(2, 15) + 
-                       Math.random().toString(36).substring(2, 15);
+        // Generate a unique click ID using crypto for better security
+        const clickId = crypto.randomUUID();
         
         // Get IP info for geo tracking
         let ipInfo: any = null;

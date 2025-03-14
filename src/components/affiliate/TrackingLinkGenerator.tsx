@@ -132,8 +132,8 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
         }
       });
       
-      // Generate a random tracking code
-      const trackingCode = Math.random().toString(36).substring(2, 12);
+      // Generate a random tracking code (more secure than exposing database info)
+      const trackingCode = crypto.randomUUID().substring(0, 8);
       
       const { data, error } = await supabase
         .from('tracking_links')
@@ -181,8 +181,8 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
         
       if (fetchError) throw fetchError;
       
-      // Generate a new tracking code
-      const newTrackingCode = Math.random().toString(36).substring(2, 12);
+      // Generate a new tracking code (more secure)
+      const newTrackingCode = crypto.randomUUID().substring(0, 8);
       
       // Update the tracking link with the new code
       const { data, error } = await supabase

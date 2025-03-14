@@ -34,7 +34,7 @@ export default function ClickRedirectPage() {
           return;
         }
 
-        // Generate a unique click ID
+        // Generate a unique click ID using crypto for better security
         const clickId = crypto.randomUUID();
 
         // Log click

@@ -42,7 +42,7 @@ export default function OffersPage() {
     return <AffiliateApprovals />;
   }
   
-  // If we have an ID, we show the offer details
+  // If we have an ID, we show the offer details (for all user types)
   if (id) {
     return <OfferDetails offerId={id} />;
   }

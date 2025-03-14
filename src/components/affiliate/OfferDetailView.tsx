@@ -16,7 +16,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Star, ExternalLink, Calendar, Tag, Landmark, Users, Info, Globe, AlertTriangle, Target, DollarSign, MapPin } from 'lucide-react';
+import { 
+  ArrowLeft, Star, ExternalLink, Calendar, Tag, Landmark, Users, Info, Globe, AlertTriangle, 
+  Target, DollarSign, MapPin, ChevronRight, BarChart3, Link as LinkIcon, Clock, 
+  FileText, CheckCircle, HelpCircle, ShieldAlert
+} from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface OfferDetailViewProps {
   offer: Offer;
@@ -264,27 +269,41 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
       </div>
       
       <div className="text-left">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 justify-between">
           <div>
             <h1 className="text-3xl font-bold">{offer.name}</h1>
-            {offer.is_featured && (
-              <div className="mt-2">
+            <div className="flex items-center gap-2 mt-2">
+              {offer.is_featured && (
                 <Badge variant="outline" className="bg-yellow-100 dark:bg-yellow-900">
                   <Star className="h-3 w-3 mr-1 text-yellow-500" />
                   Featured Offer
                 </Badge>
-              </div>
-            )}
+              )}
+              <Badge variant={offer.status === 'active' ? 'default' : 'secondary'} className="capitalize">
+                {offer.status}
+              </Badge>
+            </div>
           </div>
+          {applicationStatus === 'approved' && (
+            <Button 
+              onClick={() => navigate(`/links?offer=${offer.id}`)}
+              size="sm"
+              className="flex items-center"
+            >
+              <LinkIcon className="h-4 w-4 mr-2" />
+              Generate Links
+            </Button>
+          )}
         </div>
-        <p className="mt-2 text-muted-foreground">{offer.description}</p>
+        <p className="mt-3 text-muted-foreground">{offer.description}</p>
       </div>
       
       <Tabs defaultValue="details">
-        <TabsList>
+        <TabsList className="grid grid-cols-4 sm:flex">
           <TabsTrigger value="details">Offer Details</TabsTrigger>
           <TabsTrigger value="requirements">Requirements</TabsTrigger>
           <TabsTrigger value="geo">Geo Targeting</TabsTrigger>
+          {applicationStatus === 'approved' && <TabsTrigger value="tracking">Tracking</TabsTrigger>}
         </TabsList>
         
         <TabsContent value="details" className="space-y-4">
@@ -295,7 +314,7 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
             </CardHeader>
             <CardContent className="space-y-4">
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label className="text-sm text-muted-foreground">Commission Model</Label>
                   <p className="font-medium flex items-center">
@@ -341,6 +360,27 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
                   {offer.advertiser_name || 'Company Name'}
                 </p>
               </div>
+              
+              {applicationStatus === 'approved' && (
+                <>
+                  <Separator />
+                  
+                  <div className="space-y-1">
+                    <Label className="text-sm text-muted-foreground">Offer URL</Label>
+                    <div className="flex items-center">
+                      <p className="font-mono text-sm truncate">{offer.url}</p>
+                      <Button variant="ghost" size="sm" className="px-2 ml-1" asChild>
+                        <a href={offer.url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This is the direct offer URL. Use tracking links for your promotions.
+                    </p>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
           
@@ -468,16 +508,103 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
             </CardContent>
           </Card>
         </TabsContent>
+        
+        {applicationStatus === 'approved' && (
+          <TabsContent value="tracking" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Tracking Information</CardTitle>
+                <CardDescription>Important details for implementing this offer</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <h3 className="font-medium flex items-center">
+                    <BarChart3 className="h-4 w-4 mr-2 text-indigo-500" />
+                    Performance Metrics
+                  </h3>
+                  <p className="text-sm text-muted-foreground ml-6">
+                    This offer is tracked based on {offer.commission_type === 'RevShare' ? 'revenue share' : 
+                      offer.commission_type === 'CPA' ? 'actions' : 
+                      offer.commission_type === 'CPC' ? 'clicks' : 
+                      offer.commission_type === 'CPL' ? 'leads' : 
+                      offer.commission_type === 'CPS' ? 'sales' : 'conversions'}.
+                  </p>
+                </div>
+                
+                <Separator />
+                
+                <div className="space-y-2">
+                  <h3 className="font-medium flex items-center">
+                    <Clock className="h-4 w-4 mr-2 text-orange-500" />
+                    Cookie Duration
+                  </h3>
+                  <p className="text-sm text-muted-foreground ml-6">
+                    Tracking cookies for this offer last for 30 days by default.
+                  </p>
+                </div>
+                
+                <Separator />
+                
+                <div className="space-y-2">
+                  <h3 className="font-medium flex items-center">
+                    <FileText className="h-4 w-4 mr-2 text-green-500" />
+                    Tracking Implementation
+                  </h3>
+                  <div className="ml-6">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      To promote this offer, create tracking links from the "Generate Links" button. These links will automatically:
+                    </p>
+                    <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-4">
+                      <li>Track visitor clicks</li>
+                      <li>Attribute conversions to your account</li> 
+                      <li>Pass additional parameters to the advertiser</li>
+                    </ul>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                <div className="bg-muted p-4 rounded-md">
+                  <div className="flex items-start">
+                    <CheckCircle className="h-5 w-5 mr-2 text-green-500 mt-0.5" />
+                    <div>
+                      <h3 className="font-medium">Ready to Promote</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        This offer is ready for promotion. Generate your tracking links and start driving traffic!
+                      </p>
+                      <Button 
+                        className="mt-2" 
+                        size="sm"
+                        onClick={() => navigate(`/links?offer=${offer.id}`)}
+                      >
+                        Generate Tracking Links
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
       
       <Card>
         <CardFooter className="flex justify-between p-4">
-          <Button variant="outline" size="sm" className="flex items-center space-x-1" asChild>
-            <a href={offer.url} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-4 w-4 mr-1" />
-              Preview Offer
-            </a>
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" className="flex items-center space-x-1" asChild>
+                  <a href={offer.url} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    Preview Offer
+                  </a>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Preview the offer landing page (no tracking)</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           
           {!applicationStatus ? (
             <Dialog open={open} onOpenChange={setOpen}>

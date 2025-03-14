@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -20,7 +19,8 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { TagInput } from '@/components/ui/tag-input';
-import { GlobeIcon, DollarSignIcon, ShieldIcon, TagIcon, UsersIcon } from 'lucide-react';
+import { GlobeIcon, DollarSignIcon, ShieldIcon, TagIcon, UsersIcon, Clipboard, Check, AlertCircle, RefreshCw } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 export default function CreateOffer() {
   const { user } = useAuth();
@@ -56,6 +56,63 @@ export default function CreateOffer() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentTab, setCurrentTab] = useState('basic');
+  const [copied, setCopied] = useState(false);
+  const [postbackUrl, setPostbackUrl] = useState('');
+  
+  // Get the domain name for the postback URL
+  useState(() => {
+    const baseUrl = `${window.location.origin}/api/postback`;
+    setPostbackUrl(`${baseUrl}?click_id={click_id}&goal={goal}&payout={payout}`);
+  });
+  
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(postbackUrl);
+    setCopied(true);
+    
+    toast({
+      title: "Copied to clipboard",
+      description: "The postback URL has been copied to your clipboard.",
+    });
+    
+    setTimeout(() => setCopied(false), 2000);
+  };
+  
+  const testPostback = () => {
+    const testUrl = postbackUrl
+      .replace('{click_id}', 'test_click_123')
+      .replace('{goal}', '1')
+      .replace('{payout}', '10');
+      
+    toast({
+      title: "Testing postback",
+      description: "Sending a test postback request...",
+    });
+    
+    fetch(testUrl)
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          toast({
+            title: "Test successful",
+            description: "The test postback was processed successfully.",
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Test failed",
+            description: data.error || "Something went wrong with the test postback.",
+          });
+        }
+      })
+      .catch(error => {
+        toast({
+          variant: "destructive",
+          title: "Test failed",
+          description: "Could not send the test postback request. Please try again.",
+        });
+        console.error("Error testing postback:", error);
+      });
+  };
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -185,6 +242,7 @@ export default function CreateOffer() {
             <TabsTrigger value="tracking">Tracking</TabsTrigger>
           </TabsList>
           
+          {/* Basic Info Tab */}
           <TabsContent value="basic">
             <Card>
               <CardHeader>
@@ -318,6 +376,7 @@ export default function CreateOffer() {
             </Card>
           </TabsContent>
           
+          {/* Commission Tab */}
           <TabsContent value="commission">
             <Card>
               <CardHeader>
@@ -538,6 +597,7 @@ export default function CreateOffer() {
             </Card>
           </TabsContent>
           
+          {/* Targeting Tab */}
           <TabsContent value="targeting">
             <Card>
               <CardHeader>
@@ -601,6 +661,7 @@ export default function CreateOffer() {
             </Card>
           </TabsContent>
           
+          {/* Tracking Tab - Updated with improved S2S Postback setup */}
           <TabsContent value="tracking">
             <Card>
               <CardHeader>
@@ -629,22 +690,102 @@ export default function CreateOffer() {
                   </Select>
                 </div>
                 
-                {formData.tracking_method === 'postback' && (
-                  <div className="grid gap-3">
-                    <Label htmlFor="postback_url">Your Postback URL (Optional)</Label>
-                    <Input
-                      id="postback_url"
-                      name="postback_url"
-                      value={formData.postback_url}
-                      onChange={handleInputChange}
-                      placeholder="https://yourdomain.com/conversion?clickId={clickId}"
-                    />
-                    <div className="text-sm text-muted-foreground">
-                      <p>If you have your own tracking system, provide a URL where we'll send conversion data.</p>
-                      <p className="mt-1">Available macros: {'{clickId}'}, {'{event}'}, {'{amount}'}, {'{status}'}</p>
+                {/* Enhanced Postback URL Section */}
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="postback-url">Global Postback URL</Label>
+                    <div className="flex mt-1">
+                      <Input
+                        id="postback-url"
+                        value={postbackUrl}
+                        readOnly
+                        className="flex-1 font-mono text-sm"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="ml-2"
+                        onClick={copyToClipboard}
+                        type="button"
+                      >
+                        {copied ? <Check className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Use this URL in your systems to track conversions. Replace the placeholders with actual values:
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Badge variant="outline">{'{click_id}'}</Badge>
+                      <p className="text-sm text-muted-foreground">
+                        Required. The click ID passed in tracking links.
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Badge variant="outline">{'{goal}'}</Badge>
+                      <p className="text-sm text-muted-foreground">
+                        Optional. Specify conversion type (1=lead, 2=sale, 3=action, 4=deposit).
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Badge variant="outline">{'{payout}'}</Badge>
+                      <p className="text-sm text-muted-foreground">
+                        Optional. The commission amount for this conversion.
+                      </p>
                     </div>
                   </div>
-                )}
+                  
+                  <div className="bg-muted p-3 rounded-md">
+                    <p className="text-sm font-medium">Example postbacks:</p>
+                    <div className="mt-2 space-y-2">
+                      <div className="text-xs font-mono p-2 bg-background rounded border">
+                        {postbackUrl.replace('{click_id}', 'abc123').replace('{goal}', '1').replace('{payout}', '5')}
+                        <span className="text-muted-foreground ml-2">← Lead conversion ($5)</span>
+                      </div>
+                      <div className="text-xs font-mono p-2 bg-background rounded border">
+                        {postbackUrl.replace('{click_id}', 'abc123').replace('{goal}', '2').replace('{payout}', '25')}
+                        <span className="text-muted-foreground ml-2">← Sale conversion ($25)</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                    <Button onClick={testPostback} variant="outline" className="sm:flex-1" type="button">
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Test Postback
+                    </Button>
+                    <Button onClick={copyToClipboard} className="sm:flex-1" type="button">
+                      <Clipboard className="h-4 w-4 mr-2" />
+                      Copy URL
+                    </Button>
+                  </div>
+                  
+                  {formData.tracking_method === 'postback' && (
+                    <div className="grid gap-3 pt-4">
+                      <Label htmlFor="postback_url">Your Postback URL (Optional)</Label>
+                      <Input
+                        id="postback_url"
+                        name="postback_url"
+                        value={formData.postback_url}
+                        onChange={handleInputChange}
+                        placeholder="https://yourdomain.com/conversion?clickId={clickId}"
+                      />
+                      <div className="text-sm text-muted-foreground">
+                        <p>If you have your own tracking system, provide a URL where we'll send conversion data.</p>
+                        <p className="mt-1">Available macros: {'{clickId}'}, {'{event}'}, {'{amount}'}, {'{status}'}</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center p-3 bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200 rounded-md">
+                    <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+                    <div className="text-sm">
+                      <p>Make sure your system sends a postback request for each conversion. Test thoroughly to ensure tracking works properly.</p>
+                    </div>
+                  </div>
+                </div>
                 
                 <div className="bg-muted rounded-md p-4 mt-4">
                   <h3 className="font-medium mb-2">Your Tracking Integration</h3>

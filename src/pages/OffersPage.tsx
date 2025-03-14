@@ -13,6 +13,7 @@ import AffiliateApprovals from '@/components/offers/AffiliateApprovals';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import OfferDetailView from '@/components/affiliate/OfferDetailView';
+import AffiliatePostbackSetup from '@/components/affiliate/AffiliatePostbackSetup';
 
 export default function OffersPage() {
   const { id } = useParams();
@@ -97,6 +98,12 @@ export default function OffersPage() {
   if (id === 'approve' && user.role === 'advertiser') {
     console.log("[OffersPage] Loading approval interface for advertiser");
     return <AffiliateApprovals />;
+  }
+  
+  // If we have "postback" in the URL, show the postback setup interface (only for affiliates)
+  if (id === 'postback' && user.role === 'affiliate') {
+    console.log("[OffersPage] Loading postback setup interface for affiliate");
+    return <AffiliatePostbackSetup />;
   }
   
   // If we have an ID, we show the offer details based on user role

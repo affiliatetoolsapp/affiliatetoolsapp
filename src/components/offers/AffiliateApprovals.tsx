@@ -49,7 +49,7 @@ type PendingApplication = {
     website: string | null;
     bio: string | null;
     phone: string | null;
-  };
+  } | null;
 };
 
 export default function AffiliateApprovals() {
@@ -64,6 +64,8 @@ export default function AffiliateApprovals() {
     queryFn: async () => {
       if (!user?.id) return [];
       
+      console.log('Fetching pending applications for advertiser:', user.id);
+      
       // Direct query with joins to get pending applications
       const { data, error } = await supabase
         .from('affiliate_offers')
@@ -76,14 +78,14 @@ export default function AffiliateApprovals() {
           notes,
           status,
           reviewed_at,
-          offers:offer_id (
+          offers:offer_id(
             id,
             name,
             description,
             niche,
             advertiser_id
           ),
-          users:affiliate_id (
+          users:affiliate_id(
             id,
             email,
             contact_name,
@@ -101,6 +103,7 @@ export default function AffiliateApprovals() {
         throw error;
       }
       
+      console.log('Pending applications data:', data);
       return (data || []) as PendingApplication[];
     },
     refetchInterval: 30000, // Check every 30 seconds

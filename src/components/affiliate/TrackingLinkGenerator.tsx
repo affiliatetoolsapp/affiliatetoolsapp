@@ -42,6 +42,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Link, QrCode, Copy, Download, RefreshCw, Filter, ChevronDown, ArrowUpDown } from 'lucide-react';
 import { TrackingLinkWithOffer } from '@/types';
+import { useNavigate } from 'react-router-dom';
 
 interface TrackingLinkGeneratorProps {
   preselectedOfferId?: string | null;
@@ -51,6 +52,7 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [selectedOfferId, setSelectedOfferId] = useState<string>("");
   const [customParams, setCustomParams] = useState<Record<string, string>>({
     sub1: "",
@@ -164,6 +166,52 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
       });
     }
   });
+
+  // New mutation for regenerating tracking links
+  const regenerateTrackingLinkMutation = useMutation({
+    mutationFn: async (trackingLinkId: string) => {
+      if (!user) throw new Error("User not authenticated");
+      
+      // Get the existing tracking link
+      const { data: existingLink, error: fetchError } = await supabase
+        .from('tracking_links')
+        .select('*')
+        .eq('id', trackingLinkId)
+        .single();
+        
+      if (fetchError) throw fetchError;
+      
+      // Generate a new tracking code
+      const newTrackingCode = Math.random().toString(36).substring(2, 12);
+      
+      // Update the tracking link with the new code
+      const { data, error } = await supabase
+        .from('tracking_links')
+        .update({
+          tracking_code: newTrackingCode
+        })
+        .eq('id', trackingLinkId)
+        .select();
+      
+      if (error) throw error;
+      
+      return data[0] as TrackingLink;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tracking-links', user?.id] });
+      toast({
+        title: "Tracking Link Regenerated",
+        description: "Your tracking link has been updated with a new code",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to regenerate tracking link",
+      });
+    }
+  });
   
   // Handle tracking link generation
   const handleGenerateLink = () => {
@@ -202,6 +250,39 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
         title: "Link Copied",
         description: "Tracking link copied to clipboard",
       });
+    });
+  };
+
+  // Handle regenerating a tracking link
+  const handleRegenerateLink = (linkId: string) => {
+    regenerateTrackingLinkMutation.mutate(linkId);
+  };
+
+  // Navigate to offer details page
+  const handleViewOffer = (offerId: string) => {
+    navigate(`/offers/${offerId}`);
+  };
+
+  // Download QR code
+  const handleDownloadQR = (trackingCode: string) => {
+    const baseUrl = window.location.origin;
+    const trackingUrl = `${baseUrl}/r/${trackingCode}`;
+    
+    // Create QR code URL - this would typically use a service or library
+    // For this implementation, we'll use an external service
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(trackingUrl)}`;
+    
+    // Trigger download
+    const link = document.createElement('a');
+    link.href = qrCodeUrl;
+    link.download = `qrcode-${trackingCode}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: "QR Code Downloaded",
+      description: "Your QR code has been downloaded",
     });
   };
   
@@ -409,7 +490,14 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
                       
                       return (
                         <tr key={link.id} className="border-b hover:bg-muted/50">
-                          <td className="p-3">{link.offer.name}</td>
+                          <td className="p-3">
+                            <button 
+                              className="font-medium text-left hover:underline focus:outline-none focus:underline"
+                              onClick={() => handleViewOffer(link.offer_id)}
+                            >
+                              {link.offer.name}
+                            </button>
+                          </td>
                           <td className="p-3">
                             {link.offer.commission_type === 'RevShare' 
                               ? `${link.offer.commission_percent}%` 
@@ -436,14 +524,21 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
                           <td className="p-3">
                             <div className="flex justify-center gap-2">
                               {link.link_type === 'qr' && (
-                                <Button variant="outline" size="sm" asChild>
-                                  <a href="#" download>
-                                    <Download className="h-4 w-4 mr-1" />
-                                    QR
-                                  </a>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={() => handleDownloadQR(link.tracking_code)}
+                                >
+                                  <Download className="h-4 w-4 mr-1" />
+                                  QR
                                 </Button>
                               )}
-                              <Button variant="outline" size="icon">
+                              <Button 
+                                variant="outline" 
+                                size="icon"
+                                onClick={() => handleRegenerateLink(link.id)}
+                                title="Generate a new tracking code"
+                              >
                                 <RefreshCw className="h-4 w-4" />
                               </Button>
                             </div>

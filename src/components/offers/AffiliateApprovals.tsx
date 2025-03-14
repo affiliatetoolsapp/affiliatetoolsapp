@@ -21,8 +21,7 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Fetch pending applications with a simpler approach by first getting the advertiser's offers
-  // and then finding all pending applications for those offers
+  // Fetch pending applications using a more direct approach with debug logging
   const { data: applications, isLoading, error } = useQuery({
     queryKey: ['pending-affiliate-applications', user?.id],
     queryFn: async () => {
@@ -33,49 +32,65 @@ export default function AffiliateApprovals() {
         return [];
       }
       
-      // First, get all offer IDs that belong to this advertiser
-      const { data: offers, error: offersError } = await supabase
-        .from('offers')
-        .select('id')
-        .eq('advertiser_id', user.id);
+      // Direct query to get all pending applications for this advertiser's offers
+      const { data, error } = await supabase
+        .rpc('get_advertiser_pending_applications', {
+          advertiser_id: user.id
+        });
       
-      if (offersError) {
-        console.error('[AffiliateApprovals] Error fetching offers:', offersError);
-        throw offersError;
+      if (error) {
+        console.error('[AffiliateApprovals] Error calling RPC function:', error);
+        
+        // Fallback to the two-step approach if the RPC fails
+        console.log('[AffiliateApprovals] Falling back to two-step query approach');
+        
+        // Step 1: Get all offers from this advertiser
+        const { data: offers, error: offersError } = await supabase
+          .from('offers')
+          .select('id')
+          .eq('advertiser_id', user.id);
+        
+        if (offersError) {
+          console.error('[AffiliateApprovals] Error fetching offers:', offersError);
+          throw offersError;
+        }
+        
+        if (!offers || offers.length === 0) {
+          console.log('[AffiliateApprovals] No offers found for this advertiser');
+          return [];
+        }
+        
+        const offerIds = offers.map(offer => offer.id);
+        console.log('[AffiliateApprovals] Found offer IDs:', offerIds);
+        
+        // Step 2: Get all pending applications for these offers
+        const { data: apps, error: appsError } = await supabase
+          .from('affiliate_offers')
+          .select(`
+            id, 
+            offer_id,
+            affiliate_id,
+            applied_at,
+            traffic_source,
+            notes,
+            status,
+            offers(id, name, description, niche, advertiser_id),
+            users!affiliate_id(id, email, contact_name, company_name, website)
+          `)
+          .eq('status', 'pending')
+          .in('offer_id', offerIds);
+        
+        if (appsError) {
+          console.error('[AffiliateApprovals] Error fetching applications:', appsError);
+          throw appsError;
+        }
+        
+        console.log('[AffiliateApprovals] Pending applications data:', apps || []);
+        return apps || [];
       }
       
-      if (!offers || offers.length === 0) {
-        console.log('[AffiliateApprovals] No offers found for this advertiser');
-        return [];
-      }
-      
-      const offerIds = offers.map(offer => offer.id);
-      console.log('[AffiliateApprovals] Found offer IDs:', offerIds);
-      
-      // Now fetch all pending applications for these offers
-      const { data: apps, error: appsError } = await supabase
-        .from('affiliate_offers')
-        .select(`
-          id, 
-          offer_id,
-          affiliate_id,
-          applied_at,
-          traffic_source,
-          notes,
-          status,
-          offers(id, name, description, niche, advertiser_id),
-          users!affiliate_id(id, email, contact_name, company_name, website)
-        `)
-        .eq('status', 'pending')
-        .in('offer_id', offerIds);
-      
-      if (appsError) {
-        console.error('[AffiliateApprovals] Error fetching applications:', appsError);
-        throw appsError;
-      }
-      
-      console.log('[AffiliateApprovals] Pending applications data:', apps || []);
-      return apps || [];
+      console.log('[AffiliateApprovals] Pending applications data from RPC:', data || []);
+      return data || [];
     },
     refetchInterval: 15000,
     refetchOnWindowFocus: true,
@@ -133,6 +148,38 @@ export default function AffiliateApprovals() {
   const handleReject = (id: string) => {
     updateApplication.mutate({ id, status: 'rejected' });
   };
+  
+  // For debugging - log when the component mounts
+  useEffect(() => {
+    console.log('[AffiliateApprovals] Component mounted');
+    
+    // Direct check in console to verify database content
+    const checkApplications = async () => {
+      if (!user?.id) return;
+      
+      // Get offers for this advertiser
+      const { data: offers } = await supabase
+        .from('offers')
+        .select('id, name')
+        .eq('advertiser_id', user.id);
+      
+      console.log('[AffiliateApprovals] Debug - Advertiser offers:', offers);
+      
+      if (offers && offers.length > 0) {
+        // Get all pending applications for these offers
+        const offerIds = offers.map(offer => offer.id);
+        const { data: pendingApps } = await supabase
+          .from('affiliate_offers')
+          .select('id, offer_id, affiliate_id, status')
+          .eq('status', 'pending')
+          .in('offer_id', offerIds);
+        
+        console.log('[AffiliateApprovals] Debug - Pending applications in DB:', pendingApps);
+      }
+    };
+    
+    checkApplications();
+  }, [user?.id]);
   
   if (isLoading) {
     return (

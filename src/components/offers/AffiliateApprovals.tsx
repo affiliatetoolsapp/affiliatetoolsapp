@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Check, X, AlertCircle, ExternalLink } from 'lucide-react';
+import { Check, X, AlertCircle, ExternalLink, Info, User } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -14,6 +14,14 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription
+} from '@/components/ui/dialog';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 
 // Define types for the applications
 type PendingApplication = {
@@ -38,6 +46,8 @@ type PendingApplication = {
     contact_name: string | null;
     company_name: string | null;
     website: string | null;
+    bio: string | null;
+    phone: string | null;
   };
 };
 
@@ -45,6 +55,7 @@ export default function AffiliateApprovals() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [selectedApplication, setSelectedApplication] = React.useState<PendingApplication | null>(null);
   
   // Fetch pending applications with a direct query
   const { data: applications, isLoading, error } = useQuery({
@@ -76,7 +87,9 @@ export default function AffiliateApprovals() {
             email,
             contact_name,
             company_name,
-            website
+            website,
+            bio,
+            phone
           )
         `)
         .eq('status', 'pending')
@@ -135,10 +148,16 @@ export default function AffiliateApprovals() {
   
   const handleApprove = (id: string) => {
     updateApplication.mutate({ id, status: 'approved' });
+    setSelectedApplication(null);
   };
   
   const handleReject = (id: string) => {
     updateApplication.mutate({ id, status: 'rejected' });
+    setSelectedApplication(null);
+  };
+
+  const handleViewDetails = (application: PendingApplication) => {
+    setSelectedApplication(application);
   };
   
   if (isLoading) {
@@ -194,21 +213,53 @@ export default function AffiliateApprovals() {
             {applications.map((app) => (
               <TableRow key={app.id}>
                 <TableCell className="font-medium">
-                  {app.users?.contact_name || 'Unknown Affiliate'}
-                  {app.users?.website && (
-                    <a 
-                      href={app.users.website.startsWith('http') ? app.users.website : `https://${app.users.website}`} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center text-xs text-muted-foreground hover:text-primary ml-2"
+                  <div className="flex items-center space-x-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 w-8 p-0"
+                      onClick={() => handleViewDetails(app)}
                     >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      Website
-                    </a>
-                  )}
+                      <Info className="h-4 w-4" />
+                      <span className="sr-only">View affiliate details</span>
+                    </Button>
+                    <span>
+                      {app.users?.contact_name || app.users?.company_name || 'Unknown Affiliate'}
+                    </span>
+                    {app.users?.website && (
+                      <a 
+                        href={app.users.website.startsWith('http') ? app.users.website : `https://${app.users.website}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-xs text-muted-foreground hover:text-primary"
+                      >
+                        <ExternalLink className="h-3 w-3 mr-1" />
+                        Website
+                      </a>
+                    )}
+                  </div>
                 </TableCell>
-                <TableCell>{app.users?.email}</TableCell>
-                <TableCell>{app.offers?.name}</TableCell>
+                <TableCell>{app.users?.email || 'No email provided'}</TableCell>
+                <TableCell>
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <span className="cursor-help underline decoration-dotted">
+                        {app.offers?.name}
+                      </span>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80">
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-semibold">{app.offers?.name}</h4>
+                        <p className="text-sm">{app.offers?.description || 'No description available'}</p>
+                        {app.offers?.niche && (
+                          <div className="flex items-center">
+                            <span className="text-xs text-muted-foreground">Niche: {app.offers.niche}</span>
+                          </div>
+                        )}
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                </TableCell>
                 <TableCell>{new Date(app.applied_at).toLocaleDateString()}</TableCell>
                 <TableCell>{app.traffic_source || '-'}</TableCell>
                 <TableCell>
@@ -237,6 +288,99 @@ export default function AffiliateApprovals() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Affiliate Details Dialog */}
+      <Dialog open={!!selectedApplication} onOpenChange={(open) => !open && setSelectedApplication(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Affiliate Profile
+            </DialogTitle>
+            <DialogDescription>
+              Review the affiliate's information before making a decision
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedApplication && (
+            <div className="grid gap-6 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Contact Information</h3>
+                  <div className="space-y-2">
+                    <p><span className="font-medium">Name:</span> {selectedApplication.users?.contact_name || 'Not provided'}</p>
+                    <p><span className="font-medium">Company:</span> {selectedApplication.users?.company_name || 'Not provided'}</p>
+                    <p><span className="font-medium">Email:</span> {selectedApplication.users?.email || 'Not provided'}</p>
+                    <p><span className="font-medium">Phone:</span> {selectedApplication.users?.phone || 'Not provided'}</p>
+                    {selectedApplication.users?.website && (
+                      <p>
+                        <span className="font-medium">Website:</span>{' '}
+                        <a 
+                          href={selectedApplication.users.website.startsWith('http') ? selectedApplication.users.website : `https://${selectedApplication.users.website}`}
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          {selectedApplication.users.website}
+                        </a>
+                      </p>
+                    )}
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Application Details</h3>
+                  <div className="space-y-2">
+                    <p><span className="font-medium">Offer:</span> {selectedApplication.offers?.name}</p>
+                    <p><span className="font-medium">Niche:</span> {selectedApplication.offers?.niche || 'Not specified'}</p>
+                    <p><span className="font-medium">Traffic Source:</span> {selectedApplication.traffic_source || 'Not specified'}</p>
+                    <p><span className="font-medium">Applied:</span> {new Date(selectedApplication.applied_at).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+              
+              {selectedApplication.users?.bio && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Bio</h3>
+                  <p className="text-sm whitespace-pre-line">{selectedApplication.users.bio}</p>
+                </div>
+              )}
+              
+              {selectedApplication.notes && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Application Notes</h3>
+                  <p className="text-sm whitespace-pre-line">{selectedApplication.notes}</p>
+                </div>
+              )}
+              
+              <div className="flex justify-end gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedApplication(null)}
+                  disabled={updateApplication.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => handleReject(selectedApplication.id)}
+                  disabled={updateApplication.isPending}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Reject
+                </Button>
+                <Button 
+                  onClick={() => handleApprove(selectedApplication.id)}
+                  disabled={updateApplication.isPending}
+                >
+                  <Check className="h-4 w-4 mr-1" />
+                  Approve
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

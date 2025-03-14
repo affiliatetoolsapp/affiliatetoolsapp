@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,9 +46,9 @@ type PendingApplication = {
     contact_name: string | null;
     company_name: string | null;
     website: string | null;
-    bio: string | null;
-    phone: string | null;
-  } | null;
+    bio?: string | null;
+    phone?: string | null;
+  };
 };
 
 export default function AffiliateApprovals() {
@@ -58,7 +57,7 @@ export default function AffiliateApprovals() {
   const queryClient = useQueryClient();
   const [selectedApplication, setSelectedApplication] = React.useState<PendingApplication | null>(null);
   
-  // Fetch pending applications with a direct query
+  // Fetch pending applications using the database function
   const { data: applications, isLoading, error } = useQuery({
     queryKey: ['pending-affiliate-applications', user?.id],
     queryFn: async () => {
@@ -66,37 +65,11 @@ export default function AffiliateApprovals() {
       
       console.log('Fetching pending applications for advertiser:', user.id);
       
-      // Direct query with joins to get pending applications
+      // Use the database function to get pending applications
       const { data, error } = await supabase
-        .from('affiliate_offers')
-        .select(`
-          id,
-          offer_id,
-          affiliate_id,
-          applied_at,
-          traffic_source,
-          notes,
-          status,
-          reviewed_at,
-          offers:offer_id(
-            id,
-            name,
-            description,
-            niche,
-            advertiser_id
-          ),
-          users:affiliate_id(
-            id,
-            email,
-            contact_name,
-            company_name,
-            website,
-            bio,
-            phone
-          )
-        `)
-        .eq('status', 'pending')
-        .eq('offers.advertiser_id', user.id);
+        .rpc('get_advertiser_pending_applications', {
+          advertiser_id: user.id
+        });
       
       if (error) {
         console.error('Error fetching pending applications:', error);

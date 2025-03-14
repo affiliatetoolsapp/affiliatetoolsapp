@@ -1,18 +1,21 @@
+
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { AffiliateOffer, Offer } from '@/types';
+import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, ExternalLink, Link as LinkIcon, Clock, Check, X, Grid, List, Trash } from 'lucide-react';
+import { Search, ExternalLink, Link as LinkIcon, Clock, Check, X, Grid, List, Trash, DollarSign, Calendar, Tag, MapPin, Globe } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function AffiliateOffers() {
   const { user } = useAuth();
@@ -20,6 +23,7 @@ export default function AffiliateOffers() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   
   // Get approved offers for this affiliate with improved query
   const { data: approvedOffers, isLoading: approvedLoading } = useQuery({
@@ -145,6 +149,28 @@ export default function AffiliateOffers() {
     cancelApplication.mutate(applicationId);
   };
   
+  // Format geo targets for display
+  const formatGeoTargets = (offer: Offer) => {
+    if (!offer.geo_targets) return ["Worldwide"];
+    
+    try {
+      // If geo_targets is a string, try to parse it
+      const geoObj = typeof offer.geo_targets === 'string' 
+        ? JSON.parse(offer.geo_targets) 
+        : offer.geo_targets;
+      
+      // If it's an empty object or not actually containing country data
+      if (!geoObj || Object.keys(geoObj).length === 0) {
+        return ["Worldwide"];
+      }
+      
+      return Object.keys(geoObj);
+    } catch (e) {
+      console.error("Error parsing geo targets:", e);
+      return ["Worldwide"];
+    }
+  };
+  
   const renderPendingTable = (applications: (AffiliateOffer & { offer: Offer })[]) => (
     <div className="rounded-md border overflow-hidden">
       <Table>
@@ -236,7 +262,12 @@ export default function AffiliateOffers() {
   
   // Handle navigation to links page with offer ID
   const handleGenerateLinks = (offerId: string) => {
-    window.location.href = `/links?offer=${offerId}`;
+    navigate(`/links?offer=${offerId}`);
+  };
+
+  // Navigate to offer details
+  const handleViewOfferDetails = (offerId: string) => {
+    navigate(`/offers/${offerId}`);
   };
 
   return (
@@ -303,70 +334,176 @@ export default function AffiliateOffers() {
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {filteredApprovedOffers.map((affiliateOffer) => (
                   <Card key={affiliateOffer.id} className="overflow-hidden">
-                    <CardHeader className="p-4">
-                      <CardTitle className="text-lg">{affiliateOffer.offer.name}</CardTitle>
-                      <CardDescription className="line-clamp-2">
+                    <CardHeader className="p-4 pb-0">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-lg">
+                            <button 
+                              onClick={() => handleViewOfferDetails(affiliateOffer.offer_id)} 
+                              className="hover:underline text-left"
+                            >
+                              {affiliateOffer.offer.name}
+                            </button>
+                          </CardTitle>
+                          {affiliateOffer.offer.is_featured && (
+                            <Badge variant="outline" className="mt-1 bg-yellow-100 dark:bg-yellow-900">
+                              Featured Offer
+                            </Badge>
+                          )}
+                        </div>
+                        <Badge variant="default" className="capitalize">
+                          Approved
+                        </Badge>
+                      </div>
+                      <CardDescription className="line-clamp-2 mt-2">
                         {affiliateOffer.offer.description}
                       </CardDescription>
                     </CardHeader>
-                    <CardContent className="p-4 pt-0 grid gap-2">
-                      <div className="text-sm">
+                    <CardContent className="p-4 pt-2 grid gap-2">
+                      <div className="text-sm flex items-center">
+                        <DollarSign className="h-4 w-4 mr-1 text-green-500" />
                         <span className="font-medium">Commission: </span>
-                        {affiliateOffer.offer.commission_type === 'RevShare' 
-                          ? `${affiliateOffer.offer.commission_percent}% Revenue Share` 
-                          : `$${affiliateOffer.offer.commission_amount} per ${affiliateOffer.offer.commission_type.slice(2)}`}
+                        <span className="ml-1">
+                          {affiliateOffer.offer.commission_type === 'RevShare' 
+                            ? `${affiliateOffer.offer.commission_percent}% Revenue Share` 
+                            : `$${affiliateOffer.offer.commission_amount} per ${affiliateOffer.offer.commission_type.slice(2)}`}
+                        </span>
                       </div>
                       
                       {affiliateOffer.offer.niche && (
-                        <div className="text-sm">
+                        <div className="text-sm flex items-center">
+                          <Tag className="h-4 w-4 mr-1 text-blue-500" />
                           <span className="font-medium">Niche: </span>
-                          {affiliateOffer.offer.niche}
+                          <span className="ml-1">{affiliateOffer.offer.niche}</span>
                         </div>
                       )}
                       
-                      <div className="mt-4 flex justify-between">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => window.open(affiliateOffer.offer.url, '_blank')}
-                        >
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Preview
-                        </Button>
-                        
-                        <Button
-                          size="sm"
-                          onClick={() => handleGenerateLinks(affiliateOffer.offer_id)}
-                        >
-                          <LinkIcon className="h-4 w-4 mr-2" />
-                          Generate Links
-                        </Button>
+                      <div className="text-sm flex items-center">
+                        <Calendar className="h-4 w-4 mr-1 text-purple-500" />
+                        <span className="font-medium">Joined: </span>
+                        <span className="ml-1">{affiliateOffer.reviewed_at ? new Date(affiliateOffer.reviewed_at).toLocaleDateString() : 'Recently'}</span>
                       </div>
+                      
+                      <div className="text-sm flex items-start">
+                        <Globe className="h-4 w-4 mr-1 text-indigo-500 mt-0.5" />
+                        <span className="font-medium mr-1">Geo: </span>
+                        <div className="flex flex-wrap gap-1">
+                          {formatGeoTargets(affiliateOffer.offer).slice(0, 3).map((geo, i) => (
+                            <Badge key={i} variant="outline" className="text-xs">
+                              {geo}
+                            </Badge>
+                          ))}
+                          {formatGeoTargets(affiliateOffer.offer).length > 3 && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge variant="outline" className="text-xs">
+                                    +{formatGeoTargets(affiliateOffer.offer).length - 3} more
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <div className="max-w-xs">
+                                    {formatGeoTargets(affiliateOffer.offer).slice(3).join(', ')}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {affiliateOffer.traffic_source && (
+                        <div className="text-sm flex items-center">
+                          <MapPin className="h-4 w-4 mr-1 text-red-500" />
+                          <span className="font-medium">Traffic Source: </span>
+                          <span className="ml-1">{affiliateOffer.traffic_source}</span>
+                        </div>
+                      )}
                     </CardContent>
+                    <CardFooter className="p-4 pt-0 flex justify-between gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => window.open(affiliateOffer.offer.url, '_blank')}
+                      >
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Preview
+                      </Button>
+                      
+                      <Button
+                        size="sm"
+                        onClick={() => handleGenerateLinks(affiliateOffer.offer_id)}
+                      >
+                        <LinkIcon className="h-4 w-4 mr-2" />
+                        Generate Links
+                      </Button>
+                    </CardFooter>
                   </Card>
                 ))}
               </div>
             ) : (
-              // Render table for approved offers
+              // List view for approved offers
               <div className="rounded-md border overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Offer</TableHead>
-                      <TableHead>Niche</TableHead>
                       <TableHead>Commission</TableHead>
+                      <TableHead>Niche</TableHead>
+                      <TableHead>Traffic Source</TableHead>
+                      <TableHead>Geo Targeting</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredApprovedOffers.map((affiliateOffer) => (
                       <TableRow key={affiliateOffer.id}>
-                        <TableCell className="font-medium">{affiliateOffer.offer.name}</TableCell>
-                        <TableCell>{affiliateOffer.offer.niche || '-'}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex flex-col">
+                            <button 
+                              onClick={() => handleViewOfferDetails(affiliateOffer.offer_id)} 
+                              className="hover:underline text-left font-medium"
+                            >
+                              {affiliateOffer.offer.name}
+                            </button>
+                            {affiliateOffer.offer.is_featured && (
+                              <Badge variant="outline" className="w-fit mt-1 text-xs bg-yellow-100 dark:bg-yellow-900">
+                                Featured
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           {affiliateOffer.offer.commission_type === 'RevShare' 
-                            ? `${affiliateOffer.offer.commission_percent}% Revenue Share` 
+                            ? `${affiliateOffer.offer.commission_percent}% RevShare` 
                             : `$${affiliateOffer.offer.commission_amount} per ${affiliateOffer.offer.commission_type.slice(2)}`}
+                        </TableCell>
+                        <TableCell>{affiliateOffer.offer.niche || '-'}</TableCell>
+                        <TableCell>{affiliateOffer.traffic_source || '-'}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {formatGeoTargets(affiliateOffer.offer).slice(0, 2).map((geo, i) => (
+                              <Badge key={i} variant="outline" className="text-xs">
+                                {geo}
+                              </Badge>
+                            ))}
+                            {formatGeoTargets(affiliateOffer.offer).length > 2 && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge variant="outline" className="text-xs">
+                                      +{formatGeoTargets(affiliateOffer.offer).length - 2} more
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <div className="max-w-xs">
+                                      {formatGeoTargets(affiliateOffer.offer).slice(2).join(', ')}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
@@ -375,7 +512,7 @@ export default function AffiliateOffers() {
                               size="sm" 
                               onClick={() => window.open(affiliateOffer.offer.url, '_blank')}
                             >
-                              <ExternalLink className="h-4 w-4 mr-2" />
+                              <ExternalLink className="h-4 w-4 mr-1" />
                               Preview
                             </Button>
                             
@@ -383,7 +520,7 @@ export default function AffiliateOffers() {
                               size="sm"
                               onClick={() => handleGenerateLinks(affiliateOffer.offer_id)}
                             >
-                              <LinkIcon className="h-4 w-4 mr-2" />
+                              <LinkIcon className="h-4 w-4 mr-1" />
                               Links
                             </Button>
                           </div>
@@ -399,7 +536,7 @@ export default function AffiliateOffers() {
               <p className="text-muted-foreground mb-4">You don't have any approved offers yet</p>
               <Button 
                 onClick={() => {
-                  window.location.href = '/marketplace';
+                  navigate('/marketplace');
                 }}
               >
                 Browse Marketplace
@@ -479,7 +616,7 @@ export default function AffiliateOffers() {
               <p className="text-muted-foreground">You don't have any pending applications</p>
               <Button 
                 onClick={() => {
-                  window.location.href = '/marketplace';
+                  navigate('/marketplace');
                 }}
                 className="mt-4"
               >
@@ -526,7 +663,7 @@ export default function AffiliateOffers() {
                         variant="outline" 
                         size="sm" 
                         className="mt-2"
-                        onClick={() => window.location.href = '/marketplace'}
+                        onClick={() => navigate('/marketplace')}
                       >
                         Find Similar Offers
                       </Button>
@@ -549,7 +686,7 @@ export default function AffiliateOffers() {
             <p className="mb-4">To view and generate tracking links for specific offers, please select an offer from the Active Offers tab.</p>
             <Button
               onClick={() => {
-                window.location.href = '/links';
+                navigate('/links');
               }}
             >
               Go to Links Page

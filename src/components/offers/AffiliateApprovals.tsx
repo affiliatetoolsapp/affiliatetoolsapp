@@ -21,11 +21,11 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Fetch all pending applications
+  // Fetch ALL pending applications without filtering at the database level
   const { data: pendingApplications, isLoading, error } = useQuery({
-    queryKey: ['pending-affiliate-applications'],
+    queryKey: ['all-pending-affiliate-applications'],
     queryFn: async () => {
-      console.log('[AffiliateApprovals] Fetching all pending applications');
+      console.log('[AffiliateApprovals] Fetching ALL pending applications');
       
       const { data, error } = await supabase
         .from('affiliate_offers')
@@ -47,21 +47,23 @@ export default function AffiliateApprovals() {
         throw error;
       }
       
-      console.log('[AffiliateApprovals] All pending applications:', data);
+      console.log('[AffiliateApprovals] All pending applications (pre-filter):', data);
       return data || [];
     },
     refetchInterval: 15000,
     refetchOnWindowFocus: true,
-    enabled: !!user,
+    staleTime: 0
   });
   
-  // Filter applications for the current advertiser
-  const applications = pendingApplications?.filter(app => 
-    app.offers?.advertiser_id === user?.id
-  ) || [];
+  // Filter applications for the current advertiser on the client side
+  const applications = pendingApplications?.filter(app => {
+    const isMatch = app.offers?.advertiser_id === user?.id;
+    console.log(`[AffiliateApprovals] Checking app ${app.id} for offer ${app.offer_id}: advertiser_id=${app.offers?.advertiser_id}, user.id=${user?.id}, isMatch=${isMatch}`);
+    return isMatch;
+  }) || [];
   
   useEffect(() => {
-    console.log('[AffiliateApprovals] Pending applications found:', applications);
+    console.log('[AffiliateApprovals] Filtered applications for current advertiser:', applications);
   }, [applications]);
   
   // Mutation to update application status
@@ -87,6 +89,7 @@ export default function AffiliateApprovals() {
     },
     onSuccess: (data) => {
       // Invalidate all related queries
+      queryClient.invalidateQueries({ queryKey: ['all-pending-affiliate-applications'] });
       queryClient.invalidateQueries({ queryKey: ['pending-affiliate-applications'] });
       queryClient.invalidateQueries({ queryKey: ['pending-applications-count'] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications'] });

@@ -47,21 +47,22 @@ export default function OfferManagement() {
     enabled: !!user && user.role === 'advertiser',
   });
   
-  // Get pending applications count for badge display - Using the improved direct query approach
-  const { data: pendingApplicationsCount, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery({
-    queryKey: ['pending-applications-count', user?.id],
+  // Get ALL pending applications, then filter client-side
+  const { data: allPendingApplications, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery({
+    queryKey: ['all-pending-applications'],
     queryFn: async () => {
-      if (!user) return 0;
+      if (!user) return [];
       
       try {
-        console.log('[OfferManagement] Fetching pending applications');
+        console.log('[OfferManagement] Fetching ALL pending applications');
         
-        // Get all pending applications first
+        // Get all pending applications with no filtering
         const { data, error } = await supabase
           .from('affiliate_offers')
           .select(`
             id, 
-            offers!inner(advertiser_id)
+            offer_id,
+            offers(advertiser_id)
           `)
           .eq('status', 'pending');
         
@@ -70,15 +71,10 @@ export default function OfferManagement() {
           throw error;
         }
         
-        // Filter for this advertiser's offers
-        const filteredApplications = data.filter(app => 
-          app.offers?.advertiser_id === user.id
-        );
-        
-        console.log("[OfferManagement] Pending applications count:", filteredApplications.length);
-        return filteredApplications.length;
+        console.log("[OfferManagement] All pending applications (pre-filter):", data);
+        return data || [];
       } catch (err) {
-        console.error("[OfferManagement] Error in applications count query:", err);
+        console.error("[OfferManagement] Error in applications query:", err);
         throw err;
       }
     },
@@ -87,6 +83,15 @@ export default function OfferManagement() {
     refetchOnWindowFocus: true,
     staleTime: 0,
   });
+  
+  // Filter for applications belonging to this advertiser's offers
+  const pendingApplicationsCount = allPendingApplications?.filter(app => 
+    app.offers?.advertiser_id === user?.id
+  ).length || 0;
+  
+  useEffect(() => {
+    console.log("[OfferManagement] Filtered pending applications count:", pendingApplicationsCount);
+  }, [pendingApplicationsCount]);
   
   // Refresh applications when the applications tab is selected
   const [activeTab, setActiveTab] = useState('offers');

@@ -62,17 +62,32 @@ export default function AffiliateApprovals() {
         // First attempt: Use the database function
         console.log('[AffiliateApprovals] Trying to use RPC function');
         const { data, error } = await supabase
-          .rpc<PendingApplication>('get_advertiser_pending_applications', {
-            advertiser_id: user.id
-          });
+          .from('affiliate_offers')
+          .select(`
+            id, 
+            offer_id,
+            affiliate_id,
+            applied_at,
+            traffic_source,
+            notes,
+            status,
+            reviewed_at,
+            offers(id, name, description, niche, advertiser_id),
+            users!affiliate_id(id, email, contact_name, company_name, website)
+          `)
+          .eq('status', 'pending')
+          .in('offer_id', (await supabase
+            .from('offers')
+            .select('id')
+            .eq('advertiser_id', user.id)).data?.map(o => o.id) || []);
         
         if (error) {
-          console.error('[AffiliateApprovals] Error calling RPC function:', error);
-          throw error; // This will trigger the catch block
+          console.error('[AffiliateApprovals] Error fetching applications:', error);
+          throw error;
         }
         
-        console.log('[AffiliateApprovals] Pending applications data from RPC:', data || []);
-        return data as PendingApplication[] || [];
+        console.log('[AffiliateApprovals] Pending applications data:', data || []);
+        return (data || []) as PendingApplication[];
       } catch (rpcError) {
         console.log('[AffiliateApprovals] Falling back to two-step query approach');
         
@@ -119,7 +134,7 @@ export default function AffiliateApprovals() {
         }
         
         console.log('[AffiliateApprovals] Pending applications data:', apps || []);
-        return apps as PendingApplication[] || [];
+        return (apps || []) as PendingApplication[];
       }
     },
     refetchInterval: 15000,

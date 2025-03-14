@@ -47,21 +47,44 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Fetch pending applications with a simplified approach
+  // Fetch pending applications with multiple approaches to debug
   const { data: applications, isLoading, error } = useQuery({
     queryKey: ['pending-affiliate-applications', user?.id],
     queryFn: async () => {
-      console.log('[AffiliateApprovals] Fetching pending applications for advertiser:', user?.id);
+      console.log('[AffiliateApprovals] Starting query with advertiser ID:', user?.id);
       
       if (!user?.id) {
         console.log('[AffiliateApprovals] No user ID available');
         return [];
       }
       
-      // Step 1: Get all offers from this advertiser
+      // DIAGNOSTIC: Get all affiliate_offers regardless of status or offer
+      const { data: allApplications, error: allAppsError } = await supabase
+        .from('affiliate_offers')
+        .select('*');
+      
+      console.log('[DIAGNOSTIC] All applications in system:', allApplications || []);
+      
+      if (allAppsError) {
+        console.error('[DIAGNOSTIC] Error fetching all applications:', allAppsError);
+      }
+      
+      // DIAGNOSTIC: Get all pending applications regardless of offer
+      const { data: allPending, error: pendingError } = await supabase
+        .from('affiliate_offers')
+        .select('*')
+        .eq('status', 'pending');
+      
+      console.log('[DIAGNOSTIC] All pending applications in system:', allPending || []);
+      
+      if (pendingError) {
+        console.error('[DIAGNOSTIC] Error fetching all pending applications:', pendingError);
+      }
+      
+      // Get all offers from this advertiser for reference
       const { data: offers, error: offersError } = await supabase
         .from('offers')
-        .select('id')
+        .select('id, name, advertiser_id')
         .eq('advertiser_id', user.id);
       
       if (offersError) {
@@ -69,7 +92,7 @@ export default function AffiliateApprovals() {
         throw offersError;
       }
       
-      console.log('[AffiliateApprovals] Found advertiser offers:', offers);
+      console.log('[AffiliateApprovals] Found advertiser offers:', offers || []);
       
       if (!offers || offers.length === 0) {
         console.log('[AffiliateApprovals] No offers found for this advertiser');
@@ -79,8 +102,8 @@ export default function AffiliateApprovals() {
       const offerIds = offers.map(offer => offer.id);
       console.log('[AffiliateApprovals] Offer IDs to check for applications:', offerIds);
       
-      // Step 2: Get all pending applications for these offers
-      const { data: pendingApps, error: appsError } = await supabase
+      // APPROACH 1: Try direct query with proper join syntax
+      const { data: pendingApps1, error: appsError1 } = await supabase
         .from('affiliate_offers')
         .select(`
           id, 
@@ -91,19 +114,114 @@ export default function AffiliateApprovals() {
           notes,
           status,
           reviewed_at,
-          offers:offer_id(id, name, description, niche, advertiser_id),
-          users:affiliate_id(id, email, contact_name, company_name, website)
+          offers:offer_id (id, name, description, niche, advertiser_id),
+          users:affiliate_id (id, email, contact_name, company_name, website)
         `)
         .eq('status', 'pending')
         .in('offer_id', offerIds);
       
-      if (appsError) {
-        console.error('[AffiliateApprovals] Error fetching applications:', appsError);
-        throw appsError;
+      console.log('[APPROACH 1] Direct join results:', pendingApps1 || []);
+      
+      if (appsError1) {
+        console.error('[APPROACH 1] Error:', appsError1);
       }
       
-      console.log('[AffiliateApprovals] Pending applications data:', pendingApps || []);
-      return (pendingApps || []) as PendingApplication[];
+      // APPROACH 2: Try using a different join technique
+      const { data: pendingApps2, error: appsError2 } = await supabase
+        .from('affiliate_offers')
+        .select(`
+          *,
+          offers!inner(*),
+          users!inner(*)
+        `)
+        .eq('status', 'pending')
+        .in('offer_id', offerIds);
+      
+      console.log('[APPROACH 2] Inner join results:', pendingApps2 || []);
+      
+      if (appsError2) {
+        console.error('[APPROACH 2] Error:', appsError2);
+      }
+      
+      // APPROACH 3: Try the database function
+      try {
+        const { data: functionData, error: functionError } = await supabase
+          .rpc('get_advertiser_pending_applications', { 
+            advertiser_id: user.id 
+          });
+        
+        console.log('[APPROACH 3] Function results:', functionData || []);
+        
+        if (functionError) {
+          console.error('[APPROACH 3] Error using function:', functionError);
+        }
+        
+        // If function works, return its data
+        if (functionData && functionData.length > 0) {
+          return functionData as PendingApplication[];
+        }
+      } catch (err) {
+        console.error('[APPROACH 3] Exception using function:', err);
+      }
+      
+      // APPROACH 4: Simple two-step query
+      // First get applications
+      const { data: simpleApps, error: simpleError } = await supabase
+        .from('affiliate_offers')
+        .select('*')
+        .eq('status', 'pending')
+        .in('offer_id', offerIds);
+      
+      console.log('[APPROACH 4] Simple query results:', simpleApps || []);
+      
+      if (simpleError) {
+        console.error('[APPROACH 4] Error:', simpleError);
+      }
+      
+      // If we have applications, enrich them with offer and user data
+      if (simpleApps && simpleApps.length > 0) {
+        const enrichedApps = await Promise.all(simpleApps.map(async (app) => {
+          // Get offer details
+          const { data: offerData } = await supabase
+            .from('offers')
+            .select('id, name, description, niche, advertiser_id')
+            .eq('id', app.offer_id)
+            .single();
+          
+          // Get affiliate user details
+          const { data: userData } = await supabase
+            .from('users')
+            .select('id, email, contact_name, company_name, website')
+            .eq('id', app.affiliate_id)
+            .single();
+          
+          return {
+            ...app,
+            offers: offerData,
+            users: userData
+          };
+        }));
+        
+        console.log('[APPROACH 4] Enriched applications:', enrichedApps);
+        return enrichedApps as PendingApplication[];
+      }
+      
+      // Default to approach 1 results if available
+      if (pendingApps1 && pendingApps1.length > 0) {
+        return pendingApps1 as PendingApplication[];
+      }
+      
+      // Fall back to approach 2
+      if (pendingApps2 && pendingApps2.length > 0) {
+        return pendingApps2.map(app => ({
+          ...app,
+          offers: app.offers,
+          users: app.users
+        })) as PendingApplication[];
+      }
+      
+      console.log('[AffiliateApprovals] No pending applications found with any approach');
+      return [];
     },
     refetchInterval: 15000,
     refetchOnWindowFocus: true,
@@ -170,13 +288,30 @@ export default function AffiliateApprovals() {
     const checkApplications = async () => {
       if (!user?.id) return;
       
+      console.log('[DIAGNOSTIC CHECK] Running diagnostic check for user ID:', user.id);
+      
+      // Get all pending applications regardless of offer
+      const { data: allPending } = await supabase
+        .from('affiliate_offers')
+        .select('*')
+        .eq('status', 'pending');
+      
+      console.log('[DIAGNOSTIC CHECK] All pending applications in system:', allPending || []);
+      
+      // Get all offers
+      const { data: allOffers } = await supabase
+        .from('offers')
+        .select('id, name, advertiser_id');
+      
+      console.log('[DIAGNOSTIC CHECK] All offers in system:', allOffers || []);
+      
       // Get offers for this advertiser
       const { data: offers } = await supabase
         .from('offers')
-        .select('id, name')
+        .select('id, name, advertiser_id')
         .eq('advertiser_id', user.id);
       
-      console.log('[AffiliateApprovals] Debug - Advertiser offers:', offers);
+      console.log('[DIAGNOSTIC CHECK] Advertiser offers:', offers || []);
       
       if (offers && offers.length > 0) {
         // Get all pending applications for these offers
@@ -187,7 +322,7 @@ export default function AffiliateApprovals() {
           .eq('status', 'pending')
           .in('offer_id', offerIds);
         
-        console.log('[AffiliateApprovals] Debug - Pending applications in DB:', pendingApps);
+        console.log('[DIAGNOSTIC CHECK] Pending applications for advertiser offers:', pendingApps || []);
       }
     };
     

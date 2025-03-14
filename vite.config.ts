@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
-          ui: ['@radix-ui/themes', '@radix-ui/react-icons'],
+          ui: ['@radix-ui/themes'] // Removed the non-existent @radix-ui/react-icons
         }
       }
     }

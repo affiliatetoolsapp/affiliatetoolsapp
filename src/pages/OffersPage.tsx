@@ -75,14 +75,16 @@ export default function OffersPage() {
       return data;
     },
     enabled: !!id && !!user && user.role === 'affiliate',
-    onSuccess: (data) => {
-      if (data) {
-        setApplicationStatus(data.status);
-      } else {
-        setApplicationStatus(null);
-      }
-    }
   });
+  
+  // Update application status when data changes
+  useEffect(() => {
+    if (applicationData) {
+      setApplicationStatus(applicationData.status);
+    } else {
+      setApplicationStatus(null);
+    }
+  }, [applicationData]);
   
   if (!user) return null;
   

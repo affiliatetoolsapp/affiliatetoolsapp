@@ -57,6 +57,8 @@ export default function AffiliatePartners() {
       if (!user) throw new Error('User not authenticated');
       
       try {
+        console.log('Fetching active affiliates for advertiser:', user.id);
+        
         // Get all approved affiliate_offers for this advertiser's offers
         const { data: advertiserOffers, error: offersError } = await supabase
           .from('offers')
@@ -71,7 +73,7 @@ export default function AffiliatePartners() {
         
         const offerIds = advertiserOffers.map(offer => offer.id);
         
-        // Get approved affiliates for these offers
+        // Get approved affiliates for these offers with proper user data
         const { data: approvedAffiliates, error: affiliatesError } = await supabase
           .from('affiliate_offers')
           .select(`
@@ -80,13 +82,24 @@ export default function AffiliatePartners() {
             affiliate_id,
             applied_at,
             reviewed_at,
-            offers(name),
-            users!affiliate_id(id, email, contact_name, company_name, website)
+            offers(id, name),
+            users:affiliate_id(
+              id, 
+              email, 
+              contact_name, 
+              company_name, 
+              website
+            )
           `)
           .eq('status', 'approved')
           .in('offer_id', offerIds);
           
-        if (affiliatesError) throw affiliatesError;
+        if (affiliatesError) {
+          console.error('Error fetching approved affiliates:', affiliatesError);
+          throw affiliatesError;
+        }
+        
+        console.log('Approved affiliates data:', approvedAffiliates);
         
         if (!approvedAffiliates || approvedAffiliates.length === 0) {
           return [];
@@ -97,6 +110,9 @@ export default function AffiliatePartners() {
         
         for (const affOffer of approvedAffiliates) {
           const affiliateId = affOffer.affiliate_id;
+          const userData = affOffer.users;
+          
+          console.log('Processing affiliate:', affiliateId, 'User data:', userData);
           
           if (!affiliateMap.has(affiliateId)) {
             // Get performance data for this affiliate
@@ -131,11 +147,13 @@ export default function AffiliatePartners() {
             const totalConversions = conversions.length;
             const convRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0;
             
-            // Create affiliate entry
+            // Create affiliate entry with properly accessed user data
             affiliateMap.set(affiliateId, {
               id: affiliateId,
-              email: affOffer.users?.email || 'Unknown',
-              contact_name: affOffer.users?.contact_name || 'Unknown Affiliate',
+              email: userData?.email || 'Unknown',
+              contact_name: userData?.contact_name || 'Unknown Affiliate',
+              company_name: userData?.company_name || '',
+              website: userData?.website || '',
               approved_offers: 1,
               total_clicks: totalClicks,
               total_conversions: totalConversions,
@@ -152,7 +170,9 @@ export default function AffiliatePartners() {
           }
         }
         
-        return Array.from(affiliateMap.values());
+        const result = Array.from(affiliateMap.values());
+        console.log('Processed affiliates:', result);
+        return result;
       } catch (error) {
         console.error('Error fetching affiliates:', error);
         throw error;

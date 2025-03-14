@@ -348,6 +348,7 @@ export type Database = {
           created_at: string | null
           custom_params: Json | null
           id: string
+          link_type: string
           offer_id: string | null
           tracking_code: string
         }
@@ -356,6 +357,7 @@ export type Database = {
           created_at?: string | null
           custom_params?: Json | null
           id?: string
+          link_type?: string
           offer_id?: string | null
           tracking_code: string
         }
@@ -364,6 +366,7 @@ export type Database = {
           created_at?: string | null
           custom_params?: Json | null
           id?: string
+          link_type?: string
           offer_id?: string | null
           tracking_code?: string
         }

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
@@ -235,6 +234,11 @@ export default function AffiliateOffers() {
     </div>
   );
   
+  // Handle navigation to links page with offer ID
+  const handleGenerateLinks = (offerId: string) => {
+    window.location.href = `/links?offer=${offerId}`;
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -332,9 +336,7 @@ export default function AffiliateOffers() {
                         
                         <Button
                           size="sm"
-                          onClick={() => {
-                            window.location.href = `/links?offer=${affiliateOffer.offer_id}`;
-                          }}
+                          onClick={() => handleGenerateLinks(affiliateOffer.offer_id)}
                         >
                           <LinkIcon className="h-4 w-4 mr-2" />
                           Generate Links
@@ -379,9 +381,7 @@ export default function AffiliateOffers() {
                             
                             <Button
                               size="sm"
-                              onClick={() => {
-                                window.location.href = `/links?offer=${affiliateOffer.offer_id}`;
-                              }}
+                              onClick={() => handleGenerateLinks(affiliateOffer.offer_id)}
                             >
                               <LinkIcon className="h-4 w-4 mr-2" />
                               Links
@@ -472,58 +472,7 @@ export default function AffiliateOffers() {
                 ))}
               </div>
             ) : (
-              <div className="rounded-md border overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Offer</TableHead>
-                      <TableHead>Applied On</TableHead>
-                      <TableHead>Traffic Source</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pendingApplications.map((application) => (
-                      <TableRow key={application.id}>
-                        <TableCell className="font-medium">{application.offer?.name}</TableCell>
-                        <TableCell>{new Date(application.applied_at || '').toLocaleDateString()}</TableCell>
-                        <TableCell>{application.traffic_source || '-'}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">
-                            <Clock className="h-3 w-3 mr-1" />
-                            Pending
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm" className="text-destructive">
-                                <Trash className="h-3 w-3 mr-1" />
-                                Cancel
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Cancel Application</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to cancel your application for "{application.offer?.name}"? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>No, keep it</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleCancelApplication(application.id)}>
-                                  Yes, cancel application
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              renderPendingTable(pendingApplications)
             )
           ) : (
             <Card className="p-8 text-center">

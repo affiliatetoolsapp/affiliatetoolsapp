@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -34,7 +35,11 @@ import { Switch } from '@/components/ui/switch';
 import { Link, QrCode, Copy, Download, RefreshCw } from 'lucide-react';
 import { TrackingLinkWithOffer } from '@/types';
 
-export default function TrackingLinkGenerator() {
+interface TrackingLinkGeneratorProps {
+  preselectedOfferId?: string | null;
+}
+
+export default function TrackingLinkGenerator({ preselectedOfferId = null }: TrackingLinkGeneratorProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -45,6 +50,13 @@ export default function TrackingLinkGenerator() {
   });
   const [linkType, setLinkType] = useState<"direct" | "shortened" | "qr">("direct");
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Set preselected offer when component loads or when preselectedOfferId changes
+  useEffect(() => {
+    if (preselectedOfferId) {
+      setSelectedOfferId(preselectedOfferId);
+    }
+  }, [preselectedOfferId]);
 
   // Get approved offers for this affiliate
   const { data: approvedOffers, isLoading: offersLoading } = useQuery({
@@ -161,7 +173,9 @@ export default function TrackingLinkGenerator() {
     setIsGenerating(false);
     
     // Reset form
-    setSelectedOfferId("");
+    if (!preselectedOfferId) {
+      setSelectedOfferId("");
+    }
     setCustomParams({ sub1: "", sub2: "" });
     setLinkType("direct");
   };

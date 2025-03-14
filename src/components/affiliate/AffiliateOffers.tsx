@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
@@ -19,7 +20,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 export default function AffiliateOffers() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();

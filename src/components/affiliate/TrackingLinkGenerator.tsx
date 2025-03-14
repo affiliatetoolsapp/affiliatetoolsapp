@@ -29,10 +29,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Link, QrCode, Copy, Download, RefreshCw } from 'lucide-react';
+import { Link, QrCode, Copy, Download, RefreshCw, Filter, ChevronDown, ArrowUpDown } from 'lucide-react';
 import { TrackingLinkWithOffer } from '@/types';
 
 interface TrackingLinkGeneratorProps {
@@ -50,6 +58,10 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
   });
   const [linkType, setLinkType] = useState<"direct" | "shortened" | "qr">("direct");
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // New state for filtering and sorting tracking links
+  const [filterOfferId, setFilterOfferId] = useState<string>("all");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
   // Set preselected offer when component loads or when preselectedOfferId changes
   useEffect(() => {
@@ -211,6 +223,17 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
       [key]: value
     });
   };
+
+  // Filter and sort tracking links
+  const filteredAndSortedLinks = trackingLinks
+    ? trackingLinks
+        .filter(link => filterOfferId === "all" || link.offer_id === filterOfferId)
+        .sort((a, b) => {
+          const dateA = new Date(a.created_at).getTime();
+          const dateB = new Date(b.created_at).getTime();
+          return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+        })
+    : [];
   
   return (
     <div className="space-y-6">
@@ -312,17 +335,61 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
       
       <Card>
         <CardHeader>
-          <CardTitle>My Tracking Links</CardTitle>
-          <CardDescription>
-            All your generated tracking links for approved offers
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle>My Tracking Links</CardTitle>
+              <CardDescription>
+                All your generated tracking links for approved offers
+              </CardDescription>
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+              {/* Filter dropdown */}
+              <Select value={filterOfferId} onValueChange={setFilterOfferId}>
+                <SelectTrigger className="w-[180px]">
+                  <div className="flex items-center">
+                    <Filter className="mr-2 h-4 w-4" />
+                    <span>Filter by Offer</span>
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Offers</SelectItem>
+                  {approvedOffers?.map((offer) => (
+                    <SelectItem key={offer.id} value={offer.id}>
+                      {offer.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {/* Sort dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="default">
+                    <ArrowUpDown className="mr-2 h-4 w-4" />
+                    {sortOrder === "newest" ? "Newest First" : "Oldest First"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Sort By</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setSortOrder("newest")}>
+                    Newest First
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOrder("oldest")}>
+                    Oldest First
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {linksLoading ? (
             <div className="flex justify-center p-4">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
-          ) : trackingLinks?.length ? (
+          ) : filteredAndSortedLinks.length > 0 ? (
             <div className="rounded-md border">
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -336,7 +403,7 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
                     </tr>
                   </thead>
                   <tbody>
-                    {trackingLinks.map((link: TrackingLinkWithOffer) => {
+                    {filteredAndSortedLinks.map((link: TrackingLinkWithOffer) => {
                       const baseUrl = window.location.origin;
                       const trackingUrl = `${baseUrl}/r/${link.tracking_code}`;
                       
@@ -390,7 +457,11 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
             </div>
           ) : (
             <div className="text-center py-6 border rounded-md">
-              <p className="text-muted-foreground">You haven't created any tracking links yet</p>
+              {filterOfferId !== "all" ? (
+                <p className="text-muted-foreground">No tracking links found for this offer</p>
+              ) : (
+                <p className="text-muted-foreground">You haven't created any tracking links yet</p>
+              )}
             </div>
           )}
         </CardContent>

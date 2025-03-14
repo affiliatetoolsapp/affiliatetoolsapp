@@ -48,7 +48,7 @@ BEGIN
   JOIN 
     users u ON ao.affiliate_id = u.id
   WHERE 
-    o.advertiser_id = advertiser_id
+    o.advertiser_id = get_advertiser_pending_applications.advertiser_id
     AND ao.status = 'pending';
 END;
 $$;

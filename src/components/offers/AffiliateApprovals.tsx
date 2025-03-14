@@ -1,5 +1,4 @@
 
-import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -47,42 +46,32 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Fetch pending applications
+  // Fetch pending applications using the database function
   const { data: applications, isLoading, error } = useQuery({
     queryKey: ['pending-affiliate-applications', user?.id],
     queryFn: async () => {
-      console.log('[AffiliateApprovals] Starting query with advertiser ID:', user?.id);
+      if (!user?.id) return [];
       
-      if (!user?.id) {
-        console.log('[AffiliateApprovals] No user ID available');
-        return [];
-      }
-      
-      // Use the database function - most reliable approach with RLS policies in place
-      const { data: functionData, error: functionError } = await supabase
+      // Use the database function with RLS policies now correctly in place
+      const { data, error } = await supabase
         .rpc('get_advertiser_pending_applications', { 
           advertiser_id: user.id 
         });
       
-      console.log('[DB Function] Results:', functionData);
-      
-      if (functionError) {
-        console.error('[DB Function] Error:', functionError);
-        throw functionError;
+      if (error) {
+        console.error('Error fetching pending applications:', error);
+        throw error;
       }
       
-      return (functionData || []) as PendingApplication[];
+      return (data || []) as PendingApplication[];
     },
-    refetchInterval: 15000,
-    refetchOnWindowFocus: true,
-    staleTime: 0
+    refetchInterval: 30000, // Check every 30 seconds
+    refetchOnWindowFocus: true
   });
   
   // Mutation to update application status
   const updateApplication = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: 'approved' | 'rejected' }) => {
-      console.log(`[AffiliateApprovals] Updating application ${id} to status: ${status}`);
-      
       const { data, error } = await supabase
         .from('affiliate_offers')
         .update({ 
@@ -93,7 +82,6 @@ export default function AffiliateApprovals() {
         .select();
       
       if (error) {
-        console.error('[AffiliateApprovals] Error updating application:', error);
         throw error;
       }
       
@@ -118,7 +106,6 @@ export default function AffiliateApprovals() {
         title: 'Error',
         description: `Failed to update application status: ${error.message}`,
       });
-      console.error('Error updating application:', error);
     },
   });
   

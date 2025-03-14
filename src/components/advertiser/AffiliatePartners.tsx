@@ -73,8 +73,8 @@ export default function AffiliatePartners() {
         
         const offerIds = advertiserOffers.map(offer => offer.id);
         
-        // Get approved affiliates for these offers with proper user data
-        const { data: approvedAffiliates, error: affiliatesError } = await supabase
+        // Use a join query to get complete affiliate data
+        const { data: approvedAffiliateOffers, error: affiliatesError } = await supabase
           .from('affiliate_offers')
           .select(`
             id,
@@ -82,14 +82,7 @@ export default function AffiliatePartners() {
             affiliate_id,
             applied_at,
             reviewed_at,
-            offers(id, name),
-            users:affiliate_id(
-              id, 
-              email, 
-              contact_name, 
-              company_name, 
-              website
-            )
+            offers(id, name)
           `)
           .eq('status', 'approved')
           .in('offer_id', offerIds);
@@ -99,18 +92,42 @@ export default function AffiliatePartners() {
           throw affiliatesError;
         }
         
-        console.log('Approved affiliates data:', approvedAffiliates);
+        console.log('Approved affiliate offers:', approvedAffiliateOffers);
         
-        if (!approvedAffiliates || approvedAffiliates.length === 0) {
+        if (!approvedAffiliateOffers || approvedAffiliateOffers.length === 0) {
           return [];
+        }
+        
+        // Get all unique affiliate IDs
+        const affiliateIds = [...new Set(approvedAffiliateOffers.map(ao => ao.affiliate_id))];
+        
+        // Get user details for these affiliates in a separate query
+        const { data: affiliateUsers, error: usersError } = await supabase
+          .from('users')
+          .select('id, email, contact_name, company_name, website')
+          .in('id', affiliateIds);
+          
+        if (usersError) {
+          console.error('Error fetching affiliate users:', usersError);
+          throw usersError;
+        }
+        
+        console.log('Affiliate users data:', affiliateUsers);
+        
+        // Create a map for quick lookup of user data
+        const usersMap = new Map();
+        if (affiliateUsers) {
+          for (const user of affiliateUsers) {
+            usersMap.set(user.id, user);
+          }
         }
         
         // Count stats for each affiliate
         const affiliateMap = new Map();
         
-        for (const affOffer of approvedAffiliates) {
+        for (const affOffer of approvedAffiliateOffers) {
           const affiliateId = affOffer.affiliate_id;
-          const userData = affOffer.users;
+          const userData = usersMap.get(affiliateId);
           
           console.log('Processing affiliate:', affiliateId, 'User data:', userData);
           

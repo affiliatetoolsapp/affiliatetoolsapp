@@ -16,12 +16,38 @@ import {
   TableRow
 } from '@/components/ui/table';
 
+// Define types for the applications
+type PendingApplication = {
+  id: string;
+  offer_id: string;
+  affiliate_id: string;
+  applied_at: string;
+  traffic_source: string | null;
+  notes: string | null;
+  status: string;
+  reviewed_at: string | null;
+  offers: {
+    id: string;
+    name: string;
+    description: string | null;
+    niche: string | null;
+    advertiser_id: string;
+  };
+  users: {
+    id: string;
+    email: string;
+    contact_name: string | null;
+    company_name: string | null;
+    website: string | null;
+  };
+};
+
 export default function AffiliateApprovals() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Fetch pending applications using a more direct approach with debug logging
+  // Fetch pending applications using the database function with fallback
   const { data: applications, isLoading, error } = useQuery({
     queryKey: ['pending-affiliate-applications', user?.id],
     queryFn: async () => {
@@ -32,16 +58,22 @@ export default function AffiliateApprovals() {
         return [];
       }
       
-      // Direct query to get all pending applications for this advertiser's offers
-      const { data, error } = await supabase
-        .rpc('get_advertiser_pending_applications', {
-          advertiser_id: user.id
-        });
-      
-      if (error) {
-        console.error('[AffiliateApprovals] Error calling RPC function:', error);
+      try {
+        // First attempt: Use the database function
+        console.log('[AffiliateApprovals] Trying to use RPC function');
+        const { data, error } = await supabase
+          .rpc('get_advertiser_pending_applications', {
+            advertiser_id: user.id
+          });
         
-        // Fallback to the two-step approach if the RPC fails
+        if (error) {
+          console.error('[AffiliateApprovals] Error calling RPC function:', error);
+          throw error; // This will trigger the catch block
+        }
+        
+        console.log('[AffiliateApprovals] Pending applications data from RPC:', data || []);
+        return data as PendingApplication[] || [];
+      } catch (rpcError) {
         console.log('[AffiliateApprovals] Falling back to two-step query approach');
         
         // Step 1: Get all offers from this advertiser
@@ -74,6 +106,7 @@ export default function AffiliateApprovals() {
             traffic_source,
             notes,
             status,
+            reviewed_at,
             offers(id, name, description, niche, advertiser_id),
             users!affiliate_id(id, email, contact_name, company_name, website)
           `)
@@ -86,11 +119,8 @@ export default function AffiliateApprovals() {
         }
         
         console.log('[AffiliateApprovals] Pending applications data:', apps || []);
-        return apps || [];
+        return apps as PendingApplication[] || [];
       }
-      
-      console.log('[AffiliateApprovals] Pending applications data from RPC:', data || []);
-      return data || [];
     },
     refetchInterval: 15000,
     refetchOnWindowFocus: true,

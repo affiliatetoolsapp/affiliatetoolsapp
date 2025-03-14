@@ -115,7 +115,7 @@ export default function AdvertiserDashboard() {
     enabled: !!user,
   });
   
-  // Add a specific query for pending applications count to display on the dashboard - Updated query
+  // Add a specific query for pending applications count to display on the dashboard - Simplified query
   const { data: pendingApplicationsCount, refetch: refetchApplications } = useQuery({
     queryKey: ['pending-applications-count', user?.id],
     queryFn: async () => {
@@ -124,23 +124,30 @@ export default function AdvertiserDashboard() {
       try {
         console.log('[AdvertiserDashboard] Fetching pending applications count for:', user.id);
         
-        // Direct count of pending applications for offers owned by this advertiser
-        const { count, error } = await supabase
+        // Get all affiliate offers with pending status
+        const { data, error } = await supabase
           .from('affiliate_offers')
           .select(`
             id, 
-            offers!inner(advertiser_id)
-          `, { count: 'exact', head: true })
-          .eq('status', 'pending')
-          .eq('offers.advertiser_id', user.id);
+            offer_id,
+            offers(advertiser_id)
+          `)
+          .eq('status', 'pending');
         
         if (error) {
-          console.error("[AdvertiserDashboard] Error counting applications:", error);
+          console.error("[AdvertiserDashboard] Error fetching applications:", error);
           throw error;
         }
         
-        console.log("[AdvertiserDashboard] Pending applications count:", count);
-        return count || 0;
+        // Filter for offers owned by this advertiser
+        const advertiserApplications = data?.filter(app => 
+          app.offers?.advertiser_id === user.id
+        ) || [];
+        
+        console.log("[AdvertiserDashboard] Pending applications data:", data);
+        console.log("[AdvertiserDashboard] Filtered applications count:", advertiserApplications.length);
+        
+        return advertiserApplications.length;
       } catch (err) {
         console.error("[AdvertiserDashboard] Error in applications count query:", err);
         throw err;

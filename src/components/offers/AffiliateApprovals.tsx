@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Check, X, AlertCircle } from 'lucide-react';
+import { Check, X, AlertCircle, ExternalLink } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -21,7 +21,7 @@ export default function AffiliateApprovals() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // More direct query approach for pending affiliate applications
+  // Simplified query for pending applications - using direct table joins
   const { data: applications, isLoading, error } = useQuery({
     queryKey: ['pending-affiliate-applications', user?.id],
     queryFn: async () => {
@@ -32,40 +32,41 @@ export default function AffiliateApprovals() {
       
       console.log('[AffiliateApprovals] Fetching pending applications for advertiser:', user.id);
       
-      try {
-        // Get all pending applications for offers owned by this advertiser
-        const { data, error } = await supabase
-          .from('affiliate_offers')
-          .select(`
-            id, 
-            offer_id,
-            affiliate_id,
-            applied_at,
-            traffic_source,
-            notes,
-            status,
-            offers!inner(id, name, description, niche, advertiser_id),
-            users!affiliate_id(id, email, contact_name, company_name, website)
-          `)
-          .eq('status', 'pending')
-          .eq('offers.advertiser_id', user.id);
-        
-        if (error) {
-          console.error('[AffiliateApprovals] Error fetching applications:', error);
-          throw error;
-        }
-        
-        console.log('[AffiliateApprovals] Pending applications found:', data);
-        return data || [];
-      } catch (err) {
-        console.error('[AffiliateApprovals] Error in affiliate applications query:', err);
-        throw err;
+      // Simple direct query joining affiliate_offers with offers and users
+      const { data, error } = await supabase
+        .from('affiliate_offers')
+        .select(`
+          id, 
+          offer_id,
+          affiliate_id,
+          applied_at,
+          traffic_source,
+          notes,
+          status,
+          offers(id, name, description, niche, advertiser_id),
+          users!affiliate_id(id, email, contact_name, company_name, website)
+        `)
+        .eq('status', 'pending');
+      
+      if (error) {
+        console.error('[AffiliateApprovals] Error fetching applications:', error);
+        throw error;
       }
+      
+      // Filter for offers owned by this advertiser
+      const advertiserApplications = data?.filter(app => 
+        app.offers?.advertiser_id === user.id
+      ) || [];
+      
+      console.log('[AffiliateApprovals] Raw data from query:', data);
+      console.log('[AffiliateApprovals] Filtered applications for advertiser:', advertiserApplications);
+      
+      return advertiserApplications;
     },
     enabled: !!user && user.role === 'advertiser',
-    refetchInterval: 15000, // Check for updates every 15 seconds
+    refetchInterval: 15000,
     refetchOnWindowFocus: true,
-    staleTime: 0, // Consider data stale immediately
+    staleTime: 0,
   });
   
   // Mutation to update application status
@@ -89,7 +90,7 @@ export default function AffiliateApprovals() {
       return { id, status };
     },
     onSuccess: (data) => {
-      // Invalidate all related queries to update all views
+      // Invalidate all related queries
       queryClient.invalidateQueries({ queryKey: ['pending-affiliate-applications'] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-applications'] });
       queryClient.invalidateQueries({ queryKey: ['affiliate-offers'] });
@@ -173,6 +174,17 @@ export default function AffiliateApprovals() {
               <TableRow key={app.id}>
                 <TableCell className="font-medium">
                   {app.users?.contact_name || 'Unknown Affiliate'}
+                  {app.users?.website && (
+                    <a 
+                      href={app.users.website.startsWith('http') ? app.users.website : `https://${app.users.website}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-xs text-muted-foreground hover:text-primary ml-2"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      Website
+                    </a>
+                  )}
                 </TableCell>
                 <TableCell>{app.users?.email}</TableCell>
                 <TableCell>{app.offers?.name}</TableCell>

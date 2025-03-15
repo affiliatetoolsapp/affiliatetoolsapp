@@ -16,11 +16,13 @@ serve(async (req) => {
   // Get URL and query parameters
   const url = new URL(req.url);
   const click_id = url.searchParams.get('click_id');
-  const goal = url.searchParams.get('goal') || 'conversion'; // Default to 'conversion' if no goal
-  const payout = url.searchParams.get('payout') ? parseFloat(url.searchParams.get('payout')!) : null;
+  const goal = url.searchParams.get('goal') || 'conversion';
+  
+  console.log(`Received postback request: click_id=${click_id}, goal=${goal}`)
   
   // Validate required fields
   if (!click_id) {
+    console.error('Missing required field: click_id')
     return new Response(JSON.stringify({ error: 'Missing required field: click_id' }), { 
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -31,95 +33,76 @@ serve(async (req) => {
     // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('Missing Supabase configuration')
+      return new Response(JSON.stringify({ error: 'Server configuration error' }), { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      })
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseKey)
     
     // Get click information
+    console.log(`Looking for click with ID: ${click_id}`)
     const { data: clickData, error: clickError } = await supabase
       .from('clicks')
       .select('*, offer:offers(*)')
       .eq('click_id', click_id)
-      .single()
+      .maybeSingle()
     
-    if (clickError || !clickData) {
+    if (clickError) {
+      console.error('Error fetching click:', clickError)
+      return new Response(JSON.stringify({ error: 'Error retrieving click data' }), { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      })
+    }
+    
+    if (!clickData) {
+      console.error('Click not found')
       return new Response(JSON.stringify({ error: 'Click not found' }), { 
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       })
     }
     
-    console.log(`Processing postback for click_id ${click_id}, goal ${goal}, affiliate_id ${clickData.affiliate_id}`)
+    console.log(`Found click data for affiliate_id ${clickData.affiliate_id}`)
     
-    // Map the goal to event_type for our database
+    // Map the goal to event_type
     let event_type = goal;
-    // If goal is numeric, map to appropriate event types
-    if (!isNaN(parseInt(goal))) {
-      const goalNum = parseInt(goal);
-      switch(goalNum) {
-        case 1: event_type = 'lead'; break;
-        case 2: event_type = 'sale'; break;
-        case 3: event_type = 'action'; break;
-        case 4: event_type = 'deposit'; break;
-        default: event_type = `goal_${goal}`; // For any other numeric goals
-      }
-    }
     
-    // Create conversion record using existing conversion function
-    const { data: conversion, error: conversionError } = await supabase.rpc(
-      'log_conversion',
-      {
-        p_click_id: click_id,
-        p_event_type: event_type,
-        p_revenue: payout || 0,
-        p_metadata: { source: 's2s_postback', goal: goal }
-      }
-    )
+    // Create basic conversion record
+    const { data: conversionData, error: conversionError } = await supabase
+      .from('conversions')
+      .insert({
+        click_id: click_id,
+        event_type: event_type,
+        revenue: 0,
+        commission: 0, // We'll handle commission later
+        status: 'pending',
+        metadata: { source: 's2s_postback', goal: goal },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single()
     
     if (conversionError) {
-      console.error('Error recording conversion:', conversionError)
-      return new Response(JSON.stringify({ error: 'Error recording conversion' }), { 
+      console.error('Error creating conversion:', conversionError)
+      return new Response(JSON.stringify({ error: 'Failed to create conversion record' }), { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       })
     }
     
-    // Get affiliate's postback URL if they have one
-    const { data: postbackData, error: postbackError } = await supabase
-      .from('custom_postbacks')
-      .select('*')
-      .eq('affiliate_id', clickData.affiliate_id)
-      .maybeSingle()
-    
-    if (postbackError) {
-      console.error('Error getting affiliate postback:', postbackError)
-    }
-    
-    // If affiliate has a postback URL and the event type is in their list of events to forward, call it
-    if (postbackData?.postback_url && (!postbackData.events || postbackData.events.includes(event_type))) {
-      try {
-        console.log(`Forwarding postback to affiliate URL: ${postbackData.postback_url}`)
-        
-        // Replace placeholders with actual values
-        let affiliateUrl = postbackData.postback_url
-          .replace(/{click_id}/g, click_id)
-          .replace(/{goal}/g, goal);
-          
-        if (payout !== null) {
-          affiliateUrl = affiliateUrl.replace(/{payout}/g, payout.toString());
-        }
-        
-        // Make HTTP request to affiliate's postback URL
-        const response = await fetch(affiliateUrl);
-        console.log(`Affiliate postback response status: ${response.status}`);
-      } catch (forwardError) {
-        console.error('Error forwarding to affiliate postback:', forwardError);
-        // Continue - don't fail the whole request if forwarding fails
-      }
-    }
+    console.log('Created conversion record:', conversionData)
     
     return new Response(JSON.stringify({ 
       success: true, 
       message: `Conversion recorded for click_id ${click_id}`,
-      conversionId: conversion
+      conversionId: conversionData.id
     }), { 
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -132,8 +131,15 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
         }
       });
       
-      // Generate a random tracking code (more secure than exposing database info)
-      const trackingCode = crypto.randomUUID().substring(0, 8);
+      // Generate a random tracking code (8 characters)
+      const randomBytes = new Uint8Array(4);
+      window.crypto.getRandomValues(randomBytes);
+      const trackingCode = Array.from(randomBytes)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('')
+        .slice(0, 8);
+      
+      console.log('Generated tracking code:', trackingCode);
       
       const { data, error } = await supabase
         .from('tracking_links')
@@ -147,8 +153,12 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
         })
         .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating tracking link:', error);
+        throw error;
+      }
       
+      console.log('Created tracking link:', data[0]);
       return data[0] as TrackingLink;
     },
     onSuccess: () => {
@@ -159,6 +169,7 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
       });
     },
     onError: (error: any) => {
+      console.error('Error in mutation:', error);
       toast({
         variant: "destructive",
         title: "Error",

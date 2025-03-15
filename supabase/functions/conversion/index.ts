@@ -24,9 +24,11 @@ serve(async (req) => {
   try {
     // Get request body
     const body = await req.json()
+    console.log('Received conversion request:', body)
     
     // Validate required fields
     if (!body.clickId || !body.eventType) {
+      console.error('Missing required fields')
       return new Response(JSON.stringify({ error: 'Missing required fields: clickId, eventType' }), { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -36,9 +38,19 @@ serve(async (req) => {
     // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('Missing Supabase configuration')
+      return new Response(JSON.stringify({ error: 'Server configuration error' }), { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      })
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseKey)
     
     // Get click information
+    console.log(`Looking for click with ID: ${body.clickId}`)
     const { data: clickData, error: clickError } = await supabase
       .from('clicks')
       .select(`
@@ -46,27 +58,25 @@ serve(async (req) => {
         offer:offers(*)
       `)
       .eq('click_id', body.clickId)
-      .single()
+      .maybeSingle()
     
-    if (clickError || !clickData) {
+    if (clickError) {
+      console.error('Error fetching click:', clickError)
+      return new Response(JSON.stringify({ error: 'Error retrieving click data' }), { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      })
+    }
+    
+    if (!clickData) {
+      console.error('Click not found')
       return new Response(JSON.stringify({ error: 'Click not found' }), { 
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       })
     }
     
-    // Calculate commission based on event type and offer commission model
-    let commission = 0
-    
-    if (clickData.offer.commission_type === 'RevShare' && body.revenue && clickData.offer.commission_percent) {
-      commission = (parseFloat(body.revenue) * clickData.offer.commission_percent) / 100
-    } else if (
-      (clickData.offer.commission_type === 'CPL' && body.eventType === 'lead') || 
-      (clickData.offer.commission_type === 'CPA' && body.eventType === 'action') || 
-      (clickData.offer.commission_type === 'CPS' && body.eventType === 'sale')
-    ) {
-      commission = clickData.offer.commission_amount || 0
-    }
+    console.log('Found click data:', clickData)
     
     // Create conversion record
     const { data: conversionData, error: conversionError } = await supabase
@@ -75,8 +85,8 @@ serve(async (req) => {
         click_id: body.clickId,
         event_type: body.eventType,
         revenue: body.revenue || null,
-        commission,
-        status: 'pending', // All conversions start as pending
+        commission: 0, // We'll handle commission calculations later
+        status: 'pending',
         metadata: body.metadata || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -85,43 +95,14 @@ serve(async (req) => {
       .single()
     
     if (conversionError) {
-      throw conversionError
+      console.error('Error creating conversion:', conversionError)
+      return new Response(JSON.stringify({ error: 'Failed to create conversion record' }), { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      })
     }
     
-    // Update affiliate wallet with pending commission
-    if (commission > 0) {
-      const { data: walletData, error: walletFetchError } = await supabase
-        .from('wallets')
-        .select('*')
-        .eq('user_id', clickData.affiliate_id)
-        .single()
-      
-      if (walletFetchError) {
-        console.error('Error fetching wallet:', walletFetchError)
-      } else if (walletData) {
-        const { error: walletUpdateError } = await supabase
-          .from('wallets')
-          .update({
-            pending: walletData.pending + commission,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', clickData.affiliate_id)
-        
-        if (walletUpdateError) {
-          console.error('Error updating wallet:', walletUpdateError)
-        }
-      }
-    }
-    
-    // Optional: Trigger custom postbacks for the affiliate
-    const { data: postbacks } = await supabase
-      .from('custom_postbacks')
-      .select('*')
-      .eq('affiliate_id', clickData.affiliate_id)
-      .contains('events', [body.eventType])
-    
-    // In a production environment, we would trigger external postbacks here
-    // using fetch() to call each postback URL with the relevant parameters
+    console.log('Created conversion record:', conversionData)
     
     return new Response(JSON.stringify({ 
       success: true, 

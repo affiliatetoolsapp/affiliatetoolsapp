@@ -155,7 +155,11 @@ export default function ClickRedirectPage() {
         
         // Build redirect URL with parameters
         const redirectUrl = new URL(offerUrl);
+        
+        // Add the clickId and IDs to help with tracking
         redirectUrl.searchParams.append('clickId', clickId);
+        redirectUrl.searchParams.append('affiliateId', linkData.affiliate_id);
+        redirectUrl.searchParams.append('offerId', linkData.offer_id);
         
         // Add custom parameters if available
         if (customParams) {

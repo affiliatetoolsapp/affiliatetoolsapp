@@ -190,8 +190,8 @@ export default function LinkRedirectPage() {
         // Add parameters separator if needed
         redirectUrl += redirectUrl.includes('?') ? '&' : '?';
         
-        // Add clickId as a parameter
-        redirectUrl += `clickId=${clickId}`;
+        // Add clickId and IDs to help with tracking
+        redirectUrl += `clickId=${clickId}&affiliateId=${typedLinkData.affiliate_id}&offerId=${typedLinkData.offer_id}`;
         
         // Add custom parameters
         Object.entries(customParams).forEach(([key, value]) => {

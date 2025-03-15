@@ -84,28 +84,28 @@ export default function ClickRedirectPage() {
         
         console.log('Attempting to insert click data:', clickData);
 
-        // Insert click data - Use RPC call to bypass RLS
-        // Use type assertion to bypass TypeScript error since we know insert_click is a valid function
-        const { error: clickError } = await supabase.rpc(
-          'insert_click' as any, 
-          clickData
-        );
-        
-        if (clickError) {
-          // Fallback to direct insert if RPC not available
-          console.warn('RPC insert failed, trying direct insert:', clickError);
-          const { error: directError } = await supabase
-            .from('clicks')
-            .insert(clickData);
-            
-          if (directError) {
-            console.error('Error logging click:', directError);
-            // Continue despite error to not block user experience
+        // First try: Direct insert approach (bypassing RPC initially)
+        const { error: directInsertError } = await supabase
+          .from('clicks')
+          .insert(clickData);
+          
+        if (directInsertError) {
+          console.warn('Direct insert failed, trying RPC method:', directInsertError);
+          
+          // Second try: Use RPC method with type assertion
+          const { error: rpcError } = await supabase.rpc(
+            'insert_click' as any, 
+            clickData
+          );
+          
+          if (rpcError) {
+            console.error('RPC insert also failed:', rpcError);
+            // Log but don't block the user experience
           } else {
-            console.log('Click successfully logged to database via direct insert');
+            console.log('Click successfully logged via RPC');
           }
         } else {
-          console.log('Click successfully logged to database via RPC');
+          console.log('Click successfully logged via direct insert');
         }
 
         // Build redirect URL with parameters

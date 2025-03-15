@@ -39,6 +39,7 @@ export default function LinkRedirectPage() {
         }
         
         if (!linkData) {
+          console.error('Tracking link not found for code:', trackingCode);
           setError('Tracking link not found');
           setIsLoading(false);
           return;
@@ -105,28 +106,28 @@ export default function LinkRedirectPage() {
         
         console.log('Attempting to insert click data:', clickData);
         
-        // Insert click data - Use RPC call to bypass RLS
-        // Use type assertion to bypass TypeScript error since we know insert_click is a valid function
-        const { error: clickInsertError } = await supabase.rpc(
-          'insert_click' as any, 
-          clickData
-        );
-          
-        if (clickInsertError) {
-          // Fallback to direct insert if RPC not available
-          console.warn('RPC insert failed, trying direct insert:', clickInsertError);
-          const { error: directError } = await supabase
-            .from('clicks')
-            .insert(clickData);
+        // First try: Direct insert approach
+        const { error: directError } = await supabase
+          .from('clicks')
+          .insert(clickData);
             
-          if (directError) {
-            console.error('Error inserting click data:', directError);
+        if (directError) {
+          console.warn('Direct insert failed, trying RPC method:', directError);
+          
+          // Second try: Use RPC call to bypass RLS
+          const { error: rpcError } = await supabase.rpc(
+            'insert_click' as any, 
+            clickData
+          );
+          
+          if (rpcError) {
+            console.error('RPC insert also failed:', rpcError);
             // Continue despite error to not block user experience
           } else {
-            console.log('Click successfully logged to database via direct insert');
+            console.log('Click successfully logged via RPC');
           }
         } else {
-          console.log('Click successfully logged to database via RPC');
+          console.log('Click successfully logged via direct insert');
         }
         
         // Build redirect URL

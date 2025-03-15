@@ -175,14 +175,14 @@ export default function AffiliateOffers() {
     cancelApplication.mutate(applicationId);
   };
   
-  // Format geo targets for display - IMPROVED to show actual country names
+  // Format geo targets for display - FIXED to properly reference offer.geo_targets
   const formatGeoTargets = (offer: Offer) => {
     if (!offer.geo_targets) return ["Worldwide"];
     
     try {
       // If geo_targets is a string, try to parse it
       const geoObj = typeof offer.geo_targets === 'string' 
-        ? JSON.parse(geo_targets) 
+        ? JSON.parse(offer.geo_targets) 
         : offer.geo_targets;
       
       // If it's an empty object or not actually containing country data

@@ -146,9 +146,10 @@ export default function LinkRedirectPage() {
         if (clickInsertError) {
           console.error('Error inserting click data:', clickInsertError);
           console.error('Error details:', JSON.stringify(clickInsertError));
-          // Continue the flow even if click logging fails - we don't want to block the user experience
+          toast.error('Failed to log click data, but continuing with redirect');
         } else {
           console.log('Click successfully logged to database');
+          toast.success('Click tracked successfully');
         }
         
         // Check if this is a CPC offer and credit the affiliate immediately

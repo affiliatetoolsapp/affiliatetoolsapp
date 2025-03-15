@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,18 +48,28 @@ export default function ReportsPage() {
   const endDate = new Date();
   const startDate = subDays(endDate, parseInt(dateRange));
   
-  // Get clicks
+  // Get clicks with better logging
   const { data: clicks, isLoading: isLoadingClicks } = useQuery({
     queryKey: ['report-clicks', user?.id, user?.role, dateRange],
     queryFn: async () => {
       if (!user) return [];
       
       try {
+        console.log('Fetching clicks with parameters:', {
+          userId: user.id,
+          userRole: user.role,
+          dateRange,
+          startDate: startOfDay(startDate).toISOString(),
+          endDate: endOfDay(endDate).toISOString()
+        });
+        
+        let query;
+        
         if (isAdvertiser) {
           // For advertisers - get clicks for offers they created
           console.log('Fetching clicks for advertiser:', user.id);
           
-          const { data, error } = await supabase
+          query = supabase
             .from('clicks')
             .select(`
               *,
@@ -67,19 +78,11 @@ export default function ReportsPage() {
             .gte('created_at', startOfDay(startDate).toISOString())
             .lte('created_at', endOfDay(endDate).toISOString())
             .eq('offers.advertiser_id', user.id);
-          
-          if (error) {
-            console.error('Error fetching clicks for advertiser:', error);
-            throw error;
-          }
-          
-          console.log(`Found ${data?.length || 0} clicks for advertiser`);
-          return data || [];
         } else {
           // For affiliates - get clicks for their tracking links
           console.log('Fetching clicks for affiliate:', user.id);
           
-          const { data, error } = await supabase
+          query = supabase
             .from('clicks')
             .select(`
               *,
@@ -88,15 +91,19 @@ export default function ReportsPage() {
             .gte('created_at', startOfDay(startDate).toISOString())
             .lte('created_at', endOfDay(endDate).toISOString())
             .eq('affiliate_id', user.id);
-          
-          if (error) {
-            console.error('Error fetching clicks for affiliate:', error);
-            throw error;
-          }
-          
-          console.log(`Found ${data?.length || 0} clicks for affiliate`);
-          return data || [];
         }
+        
+        const { data, error } = await query;
+        
+        if (error) {
+          console.error('Error fetching clicks:', error);
+          throw error;
+        }
+        
+        console.log(`Found ${data?.length || 0} clicks`);
+        console.log('Sample data:', data?.slice(0, 2));
+        
+        return data || [];
       } catch (error) {
         console.error('Error processing clicks:', error);
         return [];
@@ -166,6 +173,8 @@ export default function ReportsPage() {
         }
         
         console.log(`Found ${data?.length || 0} conversions`);
+        console.log('Sample conversion data:', data?.slice(0, 2));
+        
         return data || [];
       } catch (error) {
         console.error('Error processing conversions:', error);
@@ -175,7 +184,7 @@ export default function ReportsPage() {
     enabled: !!user,
   });
   
-  // Prepare data for charts - no change needed here
+  // Prepare data for charts
   const prepareChartData = () => {
     if (!clicks) return [];
     

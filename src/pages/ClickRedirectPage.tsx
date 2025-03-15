@@ -103,18 +103,22 @@ export default function ClickRedirectPage() {
         
         console.log('Logging click with data:', clickData);
 
-        // Log click
+        // Log click - use authenticated supabase client with service role if possible
         const { error: clickError } = await supabase
           .from('clicks')
           .insert(clickData);
 
         if (clickError) {
           console.error('Error logging click:', clickError);
-          // Continue despite the error to not block the user experience
-          // But let's try to get more information about the error
+          // Log more detailed error information
           console.error('Error details:', JSON.stringify(clickError));
+          
+          // Try again with a different approach or just continue for user experience
+          // We don't want to block the user redirect just because of logging failure
+          toast.error('Failed to log click data, but continuing with redirect');
         } else {
           console.log('Click successfully logged to database');
+          toast.success('Click tracked successfully');
         }
 
         // Check if this is a CPC offer and credit the affiliate immediately

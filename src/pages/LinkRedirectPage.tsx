@@ -54,7 +54,7 @@ export default function LinkRedirectPage() {
           .select('status')
           .eq('affiliate_id', typedLinkData.affiliate_id)
           .eq('offer_id', typedLinkData.offer_id)
-          .single();
+          .maybeSingle();
         
         if (approvalError) {
           console.error('Error checking affiliate approval:', approvalError);
@@ -153,34 +153,45 @@ export default function LinkRedirectPage() {
         
         // Check if this is a CPC offer and credit the affiliate immediately
         if (typedLinkData.offer.commission_type === 'CPC' && typedLinkData.offer.commission_amount) {
-          const { data: walletData } = await supabase
+          const { data: walletData, error: walletError } = await supabase
             .from('wallets')
             .select('*')
             .eq('user_id', typedLinkData.affiliate_id)
-            .single();
+            .maybeSingle();
           
-          if (walletData) {
+          if (walletError) {
+            console.error('Error fetching wallet:', walletError);
+          } else if (walletData) {
             // Update wallet with the CPC amount
-            await supabase
+            const { error: walletUpdateError } = await supabase
               .from('wallets')
               .update({
-                pending: walletData.pending + typedLinkData.offer.commission_amount
+                pending: walletData.pending + typedLinkData.offer.commission_amount,
+                updated_at: new Date().toISOString()
               })
               .eq('user_id', typedLinkData.affiliate_id);
             
-            // Create a conversion record for CPC
-            await supabase
-              .from('conversions')
-              .insert({
-                click_id: clickId,
-                event_type: 'click',
-                commission: typedLinkData.offer.commission_amount,
-                status: 'pending',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              });
-              
-            console.log('CPC commission credited:', typedLinkData.offer.commission_amount);
+            if (walletUpdateError) {
+              console.error('Error updating wallet:', walletUpdateError);
+            } else {
+              // Create a conversion record for CPC
+              const { error: conversionError } = await supabase
+                .from('conversions')
+                .insert({
+                  click_id: clickId,
+                  event_type: 'click',
+                  commission: typedLinkData.offer.commission_amount,
+                  status: 'pending',
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                });
+                
+              if (conversionError) {
+                console.error('Error creating conversion record:', conversionError);
+              } else {
+                console.log('CPC commission credited:', typedLinkData.offer.commission_amount);
+              }
+            }
           }
         }
         

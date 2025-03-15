@@ -24,7 +24,7 @@ export default function ClickRedirectPage() {
           .from('tracking_links')
           .select('*, affiliate_offers!inner(*), offers(*)')
           .eq('tracking_code', trackingCode)
-          .single();
+          .maybeSingle();
 
         if (linkError || !linkData) {
           console.error('Link fetch error:', linkError);
@@ -119,34 +119,45 @@ export default function ClickRedirectPage() {
 
         // Check if this is a CPC offer and credit the affiliate immediately
         if (linkData.offers.commission_type === 'CPC' && linkData.offers.commission_amount) {
-          const { data: walletData } = await supabase
+          const { data: walletData, error: walletError } = await supabase
             .from('wallets')
             .select('*')
             .eq('user_id', linkData.affiliate_id)
-            .single();
+            .maybeSingle();
           
-          if (walletData) {
+          if (walletError) {
+            console.error('Error fetching wallet:', walletError);
+          } else if (walletData) {
             // Update wallet with the CPC amount
-            await supabase
+            const { error: walletUpdateError } = await supabase
               .from('wallets')
               .update({
-                pending: walletData.pending + linkData.offers.commission_amount
+                pending: walletData.pending + linkData.offers.commission_amount,
+                updated_at: new Date().toISOString()
               })
               .eq('user_id', linkData.affiliate_id);
             
-            // Create a conversion record for CPC
-            await supabase
-              .from('conversions')
-              .insert({
-                click_id: clickId,
-                event_type: 'click',
-                commission: linkData.offers.commission_amount,
-                status: 'pending',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              });
+            if (walletUpdateError) {
+              console.error('Error updating wallet:', walletUpdateError);
+            } else {
+              // Create a conversion record for CPC
+              const { error: conversionError } = await supabase
+                .from('conversions')
+                .insert({
+                  click_id: clickId,
+                  event_type: 'click',
+                  commission: linkData.offers.commission_amount,
+                  status: 'pending',
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                });
               
-            console.log('CPC commission credited:', linkData.offers.commission_amount);
+              if (conversionError) {
+                console.error('Error creating conversion record:', conversionError);
+              } else {
+                console.log('CPC commission credited:', linkData.offers.commission_amount);
+              }
+            }
           }
         }
 

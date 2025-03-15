@@ -48,10 +48,18 @@ serve(async (req) => {
         offer:offers(*)
       `)
       .eq('click_id', body.clickId)
-      .single()
+      .maybeSingle()
     
-    if (clickError || !clickData) {
-      console.error('Click not found:', clickError)
+    if (clickError) {
+      console.error('Error retrieving click:', clickError)
+      return new Response(JSON.stringify({ error: 'Error retrieving click data' }), { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      })
+    }
+    
+    if (!clickData) {
+      console.error('Click not found for ID:', body.clickId)
       return new Response(JSON.stringify({ error: 'Click not found' }), { 
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -93,7 +101,10 @@ serve(async (req) => {
     
     if (conversionError) {
       console.error('Error creating conversion:', conversionError)
-      throw conversionError
+      return new Response(JSON.stringify({ error: 'Error creating conversion' }), { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      })
     }
     
     console.log('Created conversion record:', conversionData)
@@ -104,7 +115,7 @@ serve(async (req) => {
         .from('wallets')
         .select('*')
         .eq('user_id', clickData.affiliate_id)
-        .single()
+        .maybeSingle()
       
       if (walletFetchError) {
         console.error('Error fetching wallet:', walletFetchError)
@@ -122,22 +133,26 @@ serve(async (req) => {
         } else {
           console.log(`Updated wallet for affiliate ${clickData.affiliate_id} with ${commission} commission`)
         }
+      } else {
+        console.error('Wallet not found for affiliate', clickData.affiliate_id)
       }
     }
     
     // Optional: Trigger custom postbacks for the affiliate
-    const { data: postbacks } = await supabase
+    const { data: postbacks, error: postbackError } = await supabase
       .from('custom_postbacks')
       .select('*')
       .eq('affiliate_id', clickData.affiliate_id)
       .contains('events', [body.eventType])
     
-    if (postbacks && postbacks.length > 0) {
+    if (postbackError) {
+      console.error('Error fetching custom postbacks:', postbackError)
+    } else if (postbacks && postbacks.length > 0) {
       console.log(`Found ${postbacks.length} custom postbacks to trigger for affiliate ${clickData.affiliate_id}`)
+      
+      // In a production environment, we would trigger external postbacks here
+      // using fetch() to call each postback URL with the relevant parameters
     }
-    
-    // In a production environment, we would trigger external postbacks here
-    // using fetch() to call each postback URL with the relevant parameters
     
     return new Response(JSON.stringify({ 
       success: true, 
@@ -151,7 +166,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error processing conversion:', error)
     
-    return new Response(JSON.stringify({ error: 'Internal server error' }), { 
+    return new Response(JSON.stringify({ error: 'Internal server error', details: error.message }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     })

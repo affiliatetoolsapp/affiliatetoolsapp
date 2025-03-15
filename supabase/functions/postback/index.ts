@@ -40,10 +40,18 @@ serve(async (req) => {
       .from('clicks')
       .select('*, offer:offers(*)')
       .eq('click_id', click_id)
-      .single()
+      .maybeSingle()
     
-    if (clickError || !clickData) {
-      console.error('Click not found:', clickError)
+    if (clickError) {
+      console.error('Error retrieving click:', clickError)
+      return new Response(JSON.stringify({ error: 'Error retrieving click data' }), { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      })
+    }
+    
+    if (!clickData) {
+      console.error('Click not found for ID:', click_id)
       return new Response(JSON.stringify({ error: 'Click not found' }), { 
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -115,7 +123,7 @@ serve(async (req) => {
         .from('wallets')
         .select('*')
         .eq('user_id', clickData.affiliate_id)
-        .single()
+        .maybeSingle()
       
       if (walletFetchError) {
         console.error('Error fetching wallet:', walletFetchError)
@@ -133,6 +141,8 @@ serve(async (req) => {
         } else {
           console.log(`Updated wallet for affiliate ${clickData.affiliate_id} with ${commission} commission`)
         }
+      } else {
+        console.error('Wallet not found for affiliate', clickData.affiliate_id)
       }
     }
     
@@ -182,7 +192,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error processing postback:', error)
     
-    return new Response(JSON.stringify({ error: 'Internal server error' }), { 
+    return new Response(JSON.stringify({ error: 'Internal server error', details: error.message }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     })

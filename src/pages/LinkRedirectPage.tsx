@@ -146,56 +146,41 @@ export default function LinkRedirectPage() {
         if (clickInsertError) {
           console.error('Error inserting click data:', clickInsertError);
           console.error('Error details:', JSON.stringify(clickInsertError));
-          toast.error('Failed to log click data, but continuing with redirect');
+          // Continue the flow even if click logging fails - we don't want to block the user experience
         } else {
           console.log('Click successfully logged to database');
-          toast.success('Click tracked successfully');
         }
         
         // Check if this is a CPC offer and credit the affiliate immediately
         if (typedLinkData.offer.commission_type === 'CPC' && typedLinkData.offer.commission_amount) {
-          try {
-            const { data: walletData, error: walletError } = await supabase
+          const { data: walletData } = await supabase
+            .from('wallets')
+            .select('*')
+            .eq('user_id', typedLinkData.affiliate_id)
+            .single();
+          
+          if (walletData) {
+            // Update wallet with the CPC amount
+            await supabase
               .from('wallets')
-              .select('*')
-              .eq('user_id', typedLinkData.affiliate_id)
-              .single();
+              .update({
+                pending: walletData.pending + typedLinkData.offer.commission_amount
+              })
+              .eq('user_id', typedLinkData.affiliate_id);
+            
+            // Create a conversion record for CPC
+            await supabase
+              .from('conversions')
+              .insert({
+                click_id: clickId,
+                event_type: 'click',
+                commission: typedLinkData.offer.commission_amount,
+                status: 'pending',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
               
-            if (walletError) {
-              console.error('Error fetching wallet:', walletError);
-            } else if (walletData) {
-              // Update wallet with the CPC amount
-              const { error: updateError } = await supabase
-                .from('wallets')
-                .update({
-                  pending: walletData.pending + typedLinkData.offer.commission_amount
-                })
-                .eq('user_id', typedLinkData.affiliate_id);
-                
-              if (updateError) {
-                console.error('Error updating wallet:', updateError);
-              }
-              
-              // Create a conversion record for CPC
-              const { error: conversionError } = await supabase
-                .from('conversions')
-                .insert({
-                  click_id: clickId,
-                  event_type: 'click',
-                  commission: typedLinkData.offer.commission_amount,
-                  status: 'pending',
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                });
-                
-              if (conversionError) {
-                console.error('Error creating conversion:', conversionError);
-              } else {
-                console.log('CPC commission credited:', typedLinkData.offer.commission_amount);
-              }
-            }
-          } catch (cpcError) {
-            console.error('Error processing CPC commission:', cpcError);
+            console.log('CPC commission credited:', typedLinkData.offer.commission_amount);
           }
         }
         
@@ -210,7 +195,7 @@ export default function LinkRedirectPage() {
         
         // Add custom parameters
         Object.entries(customParams).forEach(([key, value]) => {
-          redirectUrl += `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+          redirectUrl += `&${key}=${encodeURIComponent(value)}`;
         });
         
         // If this is a short link or QR code, log additional analytics

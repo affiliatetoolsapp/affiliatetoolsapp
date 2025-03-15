@@ -59,36 +59,47 @@ export default function ReportsPage() {
         
         if (isAdvertiser) {
           // For advertisers - get clicks for offers they created
-          query = supabase
+          console.log('Fetching clicks for advertiser:', user.id);
+          
+          const { data, error } = await supabase
             .from('clicks')
             .select(`
               *,
-              offers!inner(id, name, advertiser_id, commission_type)
+              offers!inner(*)
             `)
             .gte('created_at', startOfDay(startDate).toISOString())
             .lte('created_at', endOfDay(endDate).toISOString())
             .eq('offers.advertiser_id', user.id);
+          
+          if (error) {
+            console.error('Error fetching clicks for advertiser:', error);
+            throw error;
+          }
+          
+          console.log(`Found ${data?.length || 0} clicks for advertiser`);
+          return data || [];
         } else {
           // For affiliates - get clicks for their tracking links
-          query = supabase
+          console.log('Fetching clicks for affiliate:', user.id);
+          
+          const { data, error } = await supabase
             .from('clicks')
             .select(`
               *,
-              offers(id, name, advertiser_id, commission_type)
+              offers(*)
             `)
             .gte('created_at', startOfDay(startDate).toISOString())
             .lte('created_at', endOfDay(endDate).toISOString())
             .eq('affiliate_id', user.id);
+          
+          if (error) {
+            console.error('Error fetching clicks for affiliate:', error);
+            throw error;
+          }
+          
+          console.log(`Found ${data?.length || 0} clicks for affiliate`);
+          return data || [];
         }
-        
-        const { data, error } = await query;
-        
-        if (error) {
-          console.error('Error fetching clicks:', error);
-          throw error;
-        }
-        
-        return data || [];
       } catch (error) {
         console.error('Error processing clicks:', error);
         return [];
@@ -99,12 +110,19 @@ export default function ReportsPage() {
   
   // Get conversions
   const { data: conversions, isLoading: isLoadingConversions } = useQuery({
-    queryKey: ['report-conversions', user?.id, user?.role, dateRange, clicks?.length],
+    queryKey: ['report-conversions', user?.id, user?.role, dateRange, selectedType],
     queryFn: async () => {
       if (!user) return [];
       
       try {
         // We need different approaches for advertisers vs affiliates
+        console.log('Fetching conversions with filters:', {
+          startDate: startOfDay(startDate).toISOString(),
+          endDate: endOfDay(endDate).toISOString(),
+          selectedType,
+          isAdvertiser
+        });
+        
         let query;
         
         if (isAdvertiser) {
@@ -150,6 +168,7 @@ export default function ReportsPage() {
           throw error;
         }
         
+        console.log(`Found ${data?.length || 0} conversions`);
         return data || [];
       } catch (error) {
         console.error('Error processing conversions:', error);
@@ -299,6 +318,11 @@ export default function ReportsPage() {
         const offerName = row.original.offers?.name || "Unknown";
         return <div className="font-medium">{offerName}</div>;
       },
+    },
+    {
+      accessorKey: "tracking_code",
+      header: "Tracking Code",
+      cell: ({ row }) => <div>{row.original.tracking_code || "N/A"}</div>,
     },
     {
       accessorKey: "conversions",
@@ -521,6 +545,7 @@ export default function ReportsPage() {
         </div>
       </div>
       
+      {/* Stats Cards */}
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">

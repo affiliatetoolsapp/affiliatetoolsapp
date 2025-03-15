@@ -8,6 +8,8 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  console.log('Postback function called with request:', req.url);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -19,8 +21,11 @@ serve(async (req) => {
   const goal = url.searchParams.get('goal') || 'conversion'; // Default to 'conversion' if no goal
   const payout = url.searchParams.get('payout') ? parseFloat(url.searchParams.get('payout')!) : null;
   
+  console.log(`Processing postback with parameters: click_id=${click_id}, goal=${goal}, payout=${payout}`);
+  
   // Validate required fields
   if (!click_id) {
+    console.error('Missing required field: click_id');
     return new Response(JSON.stringify({ error: 'Missing required field: click_id' }), { 
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -31,9 +36,18 @@ serve(async (req) => {
     // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('Missing Supabase credentials');
+      return new Response(JSON.stringify({ error: 'Server configuration error' }), { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseKey)
     
-    console.log(`Processing postback for click_id ${click_id}, goal ${goal}, payout ${payout}`)
+    console.log(`Processing postback for click_id ${click_id}, goal ${goal}, payout ${payout}`);
     
     // Get click information
     const { data: clickData, error: clickError } = await supabase
@@ -43,22 +57,22 @@ serve(async (req) => {
       .maybeSingle()
     
     if (clickError) {
-      console.error('Error retrieving click:', clickError)
-      return new Response(JSON.stringify({ error: 'Error retrieving click data' }), { 
+      console.error('Error retrieving click:', clickError);
+      return new Response(JSON.stringify({ error: 'Error retrieving click data', details: clickError.message }), { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       })
     }
     
     if (!clickData) {
-      console.error('Click not found for ID:', click_id)
-      return new Response(JSON.stringify({ error: 'Click not found' }), { 
+      console.error('Click not found for ID:', click_id);
+      return new Response(JSON.stringify({ error: 'Click not found', clickId: click_id }), { 
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       })
     }
     
-    console.log(`Processing postback for click_id ${click_id}, goal ${goal}, affiliate_id ${clickData.affiliate_id}`)
+    console.log(`Processing postback for click_id ${click_id}, goal ${goal}, affiliate_id ${clickData.affiliate_id}`, clickData);
     
     // Map the goal to event_type for our database
     let event_type = goal;
@@ -74,7 +88,7 @@ serve(async (req) => {
       }
     }
     
-    console.log(`Mapped goal ${goal} to event_type ${event_type}`)
+    console.log(`Mapped goal ${goal} to event_type ${event_type}`);
     
     // Calculate commission based on event type and offer commission model
     let commission = 0
@@ -89,7 +103,7 @@ serve(async (req) => {
       commission = clickData.offer.commission_amount || 0
     }
     
-    console.log(`Calculated commission: ${commission}`)
+    console.log(`Calculated commission: ${commission}`);
     
     // Create conversion record
     const { data: conversionData, error: conversionError } = await supabase
@@ -108,14 +122,14 @@ serve(async (req) => {
       .single()
     
     if (conversionError) {
-      console.error('Error recording conversion:', conversionError)
-      return new Response(JSON.stringify({ error: 'Error recording conversion' }), { 
+      console.error('Error recording conversion:', conversionError);
+      return new Response(JSON.stringify({ error: 'Error recording conversion', details: conversionError.message }), { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       })
     }
     
-    console.log('Created conversion record:', conversionData)
+    console.log('Created conversion record:', conversionData);
     
     // Update affiliate wallet with pending commission
     if (commission > 0) {
@@ -126,7 +140,7 @@ serve(async (req) => {
         .maybeSingle()
       
       if (walletFetchError) {
-        console.error('Error fetching wallet:', walletFetchError)
+        console.error('Error fetching wallet:', walletFetchError);
       } else if (walletData) {
         const { error: walletUpdateError } = await supabase
           .from('wallets')
@@ -137,12 +151,12 @@ serve(async (req) => {
           .eq('user_id', clickData.affiliate_id)
         
         if (walletUpdateError) {
-          console.error('Error updating wallet:', walletUpdateError)
+          console.error('Error updating wallet:', walletUpdateError);
         } else {
-          console.log(`Updated wallet for affiliate ${clickData.affiliate_id} with ${commission} commission`)
+          console.log(`Updated wallet for affiliate ${clickData.affiliate_id} with ${commission} commission`);
         }
       } else {
-        console.error('Wallet not found for affiliate', clickData.affiliate_id)
+        console.error('Wallet not found for affiliate', clickData.affiliate_id);
       }
     }
     
@@ -154,13 +168,13 @@ serve(async (req) => {
       .maybeSingle()
     
     if (postbackError) {
-      console.error('Error getting affiliate postback:', postbackError)
+      console.error('Error getting affiliate postback:', postbackError);
     }
     
     // If affiliate has a postback URL and the event type is in their list of events to forward, call it
     if (postbackData?.postback_url && (!postbackData.events || postbackData.events.includes(event_type))) {
       try {
-        console.log(`Forwarding postback to affiliate URL: ${postbackData.postback_url}`)
+        console.log(`Forwarding postback to affiliate URL: ${postbackData.postback_url}`);
         
         // Replace placeholders with actual values
         let affiliateUrl = postbackData.postback_url
@@ -190,7 +204,7 @@ serve(async (req) => {
     })
     
   } catch (error) {
-    console.error('Error processing postback:', error)
+    console.error('Error processing postback:', error);
     
     return new Response(JSON.stringify({ error: 'Internal server error', details: error.message }), { 
       status: 500,

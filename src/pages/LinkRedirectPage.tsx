@@ -30,14 +30,15 @@ export default function LinkRedirectPage() {
             offer:offers(*)
           `)
           .eq('tracking_code', trackingCode)
-          .single();
+          .maybeSingle();
         
         if (linkError) {
           console.error('Error fetching tracking link:', linkError);
-          throw linkError;
+          throw new Error(`Failed to fetch tracking link: ${linkError.message}`);
         }
         
         if (!linkData) {
+          console.error('Tracking link not found for code:', trackingCode);
           setError('Tracking link not found');
           setIsLoading(false);
           return;
@@ -58,10 +59,11 @@ export default function LinkRedirectPage() {
         
         if (approvalError) {
           console.error('Error checking affiliate approval:', approvalError);
-          throw approvalError;
+          throw new Error(`Failed to check affiliate approval: ${approvalError.message}`);
         }
         
         if (!approvalData || approvalData.status !== 'approved') {
+          console.error('Affiliate not approved for this offer. Status:', approvalData?.status);
           setError('Affiliate not approved for this offer');
           setIsLoading(false);
           return;
@@ -75,10 +77,16 @@ export default function LinkRedirectPage() {
         let ipInfo: any = null;
         try {
           const ipResponse = await fetch('https://ipapi.co/json/');
+          if (!ipResponse.ok) {
+            console.error('Failed to get IP info, status:', ipResponse.status);
+            throw new Error(`IP API returned ${ipResponse.status}`);
+          }
+          
           ipInfo = await ipResponse.json();
           console.log('IP info retrieved:', ipInfo);
         } catch (ipError) {
           console.error('Failed to get IP info:', ipError);
+          // Continue without IP info
         }
         
         // Get device info
@@ -146,13 +154,15 @@ export default function LinkRedirectPage() {
         if (clickInsertError) {
           console.error('Error inserting click data:', clickInsertError);
           console.error('Error details:', JSON.stringify(clickInsertError));
-          // Continue the flow even if click logging fails - we don't want to block the user experience
+          throw new Error(`Failed to log click: ${clickInsertError.message}`);
         } else {
           console.log('Click successfully logged to database');
         }
         
         // Check if this is a CPC offer and credit the affiliate immediately
         if (typedLinkData.offer.commission_type === 'CPC' && typedLinkData.offer.commission_amount) {
+          console.log('Processing CPC offer with commission amount:', typedLinkData.offer.commission_amount);
+          
           const { data: walletData, error: walletError } = await supabase
             .from('wallets')
             .select('*')

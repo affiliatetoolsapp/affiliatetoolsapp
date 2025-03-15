@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { TrackingLinkWithOffer } from '@/types';
 import { toast } from 'sonner';
 
 export default function LinkRedirectPage() {
@@ -57,6 +56,7 @@ export default function LinkRedirectPage() {
           const ipResponse = await fetch('https://api.ipify.org?format=json');
           const ipData = await ipResponse.json();
           ipAddress = ipData.ip;
+          console.log('Retrieved IP address:', ipAddress);
         } catch (ipError) {
           console.warn('Could not get IP address:', ipError);
         }
@@ -68,6 +68,7 @@ export default function LinkRedirectPage() {
             const geoResponse = await fetch(`https://ipapi.co/${ipAddress}/json/`);
             const geoData = await geoResponse.json();
             country = geoData.country_name;
+            console.log('Retrieved country information:', country);
           }
         } catch (geoError) {
           console.warn('Could not get geo information:', geoError);
@@ -102,18 +103,26 @@ export default function LinkRedirectPage() {
           created_at: new Date().toISOString()
         };
         
-        console.log('Logging click with data:', clickData);
+        console.log('Attempting to insert click data:', clickData);
         
-        // Log the click
-        const { error: clickInsertError } = await supabase
-          .from('clicks')
-          .insert(clickData);
+        // Insert click data - Use RPC call to bypass RLS
+        const { error: clickInsertError } = await supabase.rpc('insert_click', clickData);
           
         if (clickInsertError) {
-          console.error('Error inserting click data:', clickInsertError);
-          // Continue despite error to not block user experience
+          // Fallback to direct insert if RPC not available
+          console.warn('RPC insert failed, trying direct insert:', clickInsertError);
+          const { error: directError } = await supabase
+            .from('clicks')
+            .insert(clickData);
+            
+          if (directError) {
+            console.error('Error inserting click data:', directError);
+            // Continue despite error to not block user experience
+          } else {
+            console.log('Click successfully logged to database via direct insert');
+          }
         } else {
-          console.log('Click successfully logged to database');
+          console.log('Click successfully logged to database via RPC');
         }
         
         // Build redirect URL

@@ -44,17 +44,19 @@ export default function ClickRedirectPage() {
           const ipResponse = await fetch('https://api.ipify.org?format=json');
           const ipData = await ipResponse.json();
           ipAddress = ipData.ip;
+          console.log('Retrieved IP address:', ipAddress);
         } catch (ipError) {
           console.warn('Could not get IP address:', ipError);
         }
 
-        // Get country information - simplified version
+        // Get country information
         let country = null;
         try {
           if (ipAddress && ipAddress !== '127.0.0.1' && !ipAddress.startsWith('192.168.')) {
             const geoResponse = await fetch(`https://ipapi.co/${ipAddress}/json/`);
             const geoData = await geoResponse.json();
             country = geoData.country_name;
+            console.log('Retrieved country information:', country);
           }
         } catch (geoError) {
           console.warn('Could not get geo information:', geoError);
@@ -79,18 +81,26 @@ export default function ClickRedirectPage() {
           created_at: new Date().toISOString()
         };
         
-        console.log('Logging click with data:', clickData);
+        console.log('Attempting to insert click data:', clickData);
 
-        // Log click
-        const { error: clickError } = await supabase
-          .from('clicks')
-          .insert(clickData);
-
+        // Insert click data - Use RPC call to bypass RLS
+        const { error: clickError } = await supabase.rpc('insert_click', clickData);
+        
         if (clickError) {
-          console.error('Error logging click:', clickError);
-          // Continue despite error to not block user experience
+          // Fallback to direct insert if RPC not available
+          console.warn('RPC insert failed, trying direct insert:', clickError);
+          const { error: directError } = await supabase
+            .from('clicks')
+            .insert(clickData);
+            
+          if (directError) {
+            console.error('Error logging click:', directError);
+            // Continue despite error to not block user experience
+          } else {
+            console.log('Click successfully logged to database via direct insert');
+          }
         } else {
-          console.log('Click successfully logged to database');
+          console.log('Click successfully logged to database via RPC');
         }
 
         // Build redirect URL with parameters

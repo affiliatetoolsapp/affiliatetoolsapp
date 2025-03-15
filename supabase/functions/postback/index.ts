@@ -33,6 +33,8 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     const supabase = createClient(supabaseUrl, supabaseKey)
     
+    console.log(`Processing postback for click_id ${click_id}, goal ${goal}, payout ${payout}`)
+    
     // Get click information
     const { data: clickData, error: clickError } = await supabase
       .from('clicks')
@@ -41,6 +43,7 @@ serve(async (req) => {
       .single()
     
     if (clickError || !clickData) {
+      console.error('Click not found:', clickError)
       return new Response(JSON.stringify({ error: 'Click not found' }), { 
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -63,16 +66,38 @@ serve(async (req) => {
       }
     }
     
-    // Create conversion record using existing conversion function
-    const { data: conversion, error: conversionError } = await supabase.rpc(
-      'log_conversion',
-      {
-        p_click_id: click_id,
-        p_event_type: event_type,
-        p_revenue: payout || 0,
-        p_metadata: { source: 's2s_postback', goal: goal }
-      }
-    )
+    console.log(`Mapped goal ${goal} to event_type ${event_type}`)
+    
+    // Calculate commission based on event type and offer commission model
+    let commission = 0
+    
+    if (clickData.offer.commission_type === 'RevShare' && payout && clickData.offer.commission_percent) {
+      commission = (payout * clickData.offer.commission_percent) / 100
+    } else if (
+      (clickData.offer.commission_type === 'CPL' && event_type === 'lead') || 
+      (clickData.offer.commission_type === 'CPA' && event_type === 'action') || 
+      (clickData.offer.commission_type === 'CPS' && event_type === 'sale')
+    ) {
+      commission = clickData.offer.commission_amount || 0
+    }
+    
+    console.log(`Calculated commission: ${commission}`)
+    
+    // Create conversion record
+    const { data: conversionData, error: conversionError } = await supabase
+      .from('conversions')
+      .insert({
+        click_id: click_id,
+        event_type: event_type,
+        revenue: payout || 0,
+        commission,
+        status: 'pending', // All conversions start as pending
+        metadata: { source: 's2s_postback', goal: goal },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single()
     
     if (conversionError) {
       console.error('Error recording conversion:', conversionError)
@@ -80,6 +105,35 @@ serve(async (req) => {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       })
+    }
+    
+    console.log('Created conversion record:', conversionData)
+    
+    // Update affiliate wallet with pending commission
+    if (commission > 0) {
+      const { data: walletData, error: walletFetchError } = await supabase
+        .from('wallets')
+        .select('*')
+        .eq('user_id', clickData.affiliate_id)
+        .single()
+      
+      if (walletFetchError) {
+        console.error('Error fetching wallet:', walletFetchError)
+      } else if (walletData) {
+        const { error: walletUpdateError } = await supabase
+          .from('wallets')
+          .update({
+            pending: walletData.pending + commission,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', clickData.affiliate_id)
+        
+        if (walletUpdateError) {
+          console.error('Error updating wallet:', walletUpdateError)
+        } else {
+          console.log(`Updated wallet for affiliate ${clickData.affiliate_id} with ${commission} commission`)
+        }
+      }
     }
     
     // Get affiliate's postback URL if they have one
@@ -119,7 +173,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       success: true, 
       message: `Conversion recorded for click_id ${click_id}`,
-      conversionId: conversion
+      conversionId: conversionData.id
     }), { 
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,32 +49,64 @@ export default function ReportsPage() {
   const startDate = subDays(endDate, parseInt(dateRange));
   
   // Get clicks
-  const { data: clicks, isLoading: isLoadingClicks } = useQuery({
+  const { data: clicks, isLoading: isLoadingClicks, refetch: refetchClicks } = useQuery({
     queryKey: ['report-clicks', user?.id, user?.role, dateRange],
     queryFn: async () => {
       if (!user) return [];
       
       try {
+        console.log('Fetching clicks with parameters:', {
+          userId: user.id,
+          userRole: user.role,
+          dateRange,
+          startDate: startOfDay(startDate).toISOString(),
+          endDate: endOfDay(endDate).toISOString()
+        });
+        
         if (isAdvertiser) {
           // For advertisers - get clicks for offers they created
           console.log('Fetching clicks for advertiser:', user.id);
           
+          // First, get the offers created by this advertiser
+          const { data: advertiserOffers, error: offersError } = await supabase
+            .from('offers')
+            .select('id')
+            .eq('advertiser_id', user.id);
+            
+          if (offersError) {
+            console.error('Error fetching advertiser offers:', offersError);
+            throw offersError;
+          }
+          
+          if (!advertiserOffers || advertiserOffers.length === 0) {
+            console.log('No offers found for this advertiser');
+            return [];
+          }
+          
+          const offerIds = advertiserOffers.map(offer => offer.id);
+          console.log('Advertiser offer IDs:', offerIds);
+          
+          // Then get clicks for these offers
           const { data, error } = await supabase
             .from('clicks')
             .select(`
               *,
-              offers!inner(*)
+              offers(*)
             `)
+            .in('offer_id', offerIds)
             .gte('created_at', startOfDay(startDate).toISOString())
-            .lte('created_at', endOfDay(endDate).toISOString())
-            .eq('offers.advertiser_id', user.id);
+            .lte('created_at', endOfDay(endDate).toISOString());
           
           if (error) {
-            console.error('Error fetching clicks for advertiser:', error);
+            console.error('Error fetching clicks:', error);
             throw error;
           }
           
-          console.log(`Found ${data?.length || 0} clicks for advertiser`);
+          console.log(`Found ${data?.length || 0} clicks for advertiser offers`);
+          if (data && data.length > 0) {
+            console.log('Sample click data:', data[0]);
+          }
+          
           return data || [];
         } else {
           // For affiliates - get clicks for their tracking links
@@ -85,9 +118,9 @@ export default function ReportsPage() {
               *,
               offers(*)
             `)
+            .eq('affiliate_id', user.id)
             .gte('created_at', startOfDay(startDate).toISOString())
-            .lte('created_at', endOfDay(endDate).toISOString())
-            .eq('affiliate_id', user.id);
+            .lte('created_at', endOfDay(endDate).toISOString());
           
           if (error) {
             console.error('Error fetching clicks for affiliate:', error);
@@ -95,10 +128,15 @@ export default function ReportsPage() {
           }
           
           console.log(`Found ${data?.length || 0} clicks for affiliate`);
+          if (data && data.length > 0) {
+            console.log('Sample affiliate click data:', data[0]);
+          }
+          
           return data || [];
         }
       } catch (error) {
         console.error('Error processing clicks:', error);
+        toast.error('Failed to load click data');
         return [];
       }
     },
@@ -245,20 +283,26 @@ export default function ReportsPage() {
     {
       accessorKey: "click_id",
       header: "Click ID",
-      cell: ({ row }) => (
-        <div className="font-mono text-xs truncate max-w-[120px]" title={row.original.click_id}>
-          {row.original.click_id.substring(0, 8)}...
-        </div>
-      ),
+      cell: ({ row }) => {
+        const clickId = row.original.click_id;
+        return (
+          <div className="font-mono text-xs truncate max-w-[120px]" title={clickId}>
+            {typeof clickId === 'string' ? `${clickId.substring(0, 8)}...` : 'N/A'}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "created_at",
       header: "Date & Time",
-      cell: ({ row }) => (
-        <div className="whitespace-nowrap">
-          {format(parseISO(row.original.created_at), "MMM dd, yyyy HH:mm")}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const dateValue = row.original.created_at;
+        return (
+          <div className="whitespace-nowrap">
+            {dateValue ? format(parseISO(dateValue), "MMM dd, yyyy HH:mm") : "N/A"}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "ip_address",
@@ -497,6 +541,11 @@ export default function ReportsPage() {
     }
   };
   
+  const refreshData = () => {
+    refetchClicks();
+    toast.info('Refreshing data...');
+  };
+  
   if (!user) return null;
   
   return (
@@ -539,6 +588,15 @@ export default function ReportsPage() {
               <SelectItem value="deposit">Deposits</SelectItem>
             </SelectContent>
           </Select>
+          
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={refreshData}
+            title="Refresh data"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+          </Button>
         </div>
       </div>
       

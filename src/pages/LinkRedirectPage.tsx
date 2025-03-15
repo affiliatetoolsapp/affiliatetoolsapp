@@ -198,7 +198,7 @@ export default function LinkRedirectPage() {
           redirectUrl += `&${key}=${encodeURIComponent(value)}`;
         });
         
-        // If this is a short link or QR code, log additional analytics
+        // Log additional analytics for short links or QR codes
         if (typedLinkData.link_type === 'shortened' || typedLinkData.link_type === 'qr') {
           console.log(`Redirect from ${typedLinkData.link_type} link: ${trackingCode}`);
         }

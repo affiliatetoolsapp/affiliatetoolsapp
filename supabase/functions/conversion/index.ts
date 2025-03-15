@@ -38,6 +38,8 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     const supabase = createClient(supabaseUrl, supabaseKey)
     
+    console.log(`Processing conversion for click ID: ${body.clickId}, event type: ${body.eventType}`)
+    
     // Get click information
     const { data: clickData, error: clickError } = await supabase
       .from('clicks')
@@ -49,11 +51,14 @@ serve(async (req) => {
       .single()
     
     if (clickError || !clickData) {
+      console.error('Click not found:', clickError)
       return new Response(JSON.stringify({ error: 'Click not found' }), { 
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       })
     }
+    
+    console.log('Retrieved click data:', clickData)
     
     // Calculate commission based on event type and offer commission model
     let commission = 0
@@ -67,6 +72,8 @@ serve(async (req) => {
     ) {
       commission = clickData.offer.commission_amount || 0
     }
+    
+    console.log(`Calculated commission: ${commission}`)
     
     // Create conversion record
     const { data: conversionData, error: conversionError } = await supabase
@@ -85,8 +92,11 @@ serve(async (req) => {
       .single()
     
     if (conversionError) {
+      console.error('Error creating conversion:', conversionError)
       throw conversionError
     }
+    
+    console.log('Created conversion record:', conversionData)
     
     // Update affiliate wallet with pending commission
     if (commission > 0) {
@@ -109,6 +119,8 @@ serve(async (req) => {
         
         if (walletUpdateError) {
           console.error('Error updating wallet:', walletUpdateError)
+        } else {
+          console.log(`Updated wallet for affiliate ${clickData.affiliate_id} with ${commission} commission`)
         }
       }
     }
@@ -119,6 +131,10 @@ serve(async (req) => {
       .select('*')
       .eq('affiliate_id', clickData.affiliate_id)
       .contains('events', [body.eventType])
+    
+    if (postbacks && postbacks.length > 0) {
+      console.log(`Found ${postbacks.length} custom postbacks to trigger for affiliate ${clickData.affiliate_id}`)
+    }
     
     // In a production environment, we would trigger external postbacks here
     // using fetch() to call each postback URL with the relevant parameters

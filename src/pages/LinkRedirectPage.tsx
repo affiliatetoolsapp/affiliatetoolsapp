@@ -30,15 +30,14 @@ export default function LinkRedirectPage() {
             offer:offers(*)
           `)
           .eq('tracking_code', trackingCode)
-          .maybeSingle();
+          .single();
         
         if (linkError) {
           console.error('Error fetching tracking link:', linkError);
-          throw new Error(`Failed to fetch tracking link: ${linkError.message}`);
+          throw linkError;
         }
         
         if (!linkData) {
-          console.error('Tracking link not found for code:', trackingCode);
           setError('Tracking link not found');
           setIsLoading(false);
           return;
@@ -55,15 +54,14 @@ export default function LinkRedirectPage() {
           .select('status')
           .eq('affiliate_id', typedLinkData.affiliate_id)
           .eq('offer_id', typedLinkData.offer_id)
-          .maybeSingle();
+          .single();
         
         if (approvalError) {
           console.error('Error checking affiliate approval:', approvalError);
-          throw new Error(`Failed to check affiliate approval: ${approvalError.message}`);
+          throw approvalError;
         }
         
         if (!approvalData || approvalData.status !== 'approved') {
-          console.error('Affiliate not approved for this offer. Status:', approvalData?.status);
           setError('Affiliate not approved for this offer');
           setIsLoading(false);
           return;
@@ -77,16 +75,10 @@ export default function LinkRedirectPage() {
         let ipInfo: any = null;
         try {
           const ipResponse = await fetch('https://ipapi.co/json/');
-          if (!ipResponse.ok) {
-            console.error('Failed to get IP info, status:', ipResponse.status);
-            throw new Error(`IP API returned ${ipResponse.status}`);
-          }
-          
           ipInfo = await ipResponse.json();
           console.log('IP info retrieved:', ipInfo);
         } catch (ipError) {
           console.error('Failed to get IP info:', ipError);
-          // Continue without IP info
         }
         
         // Get device info
@@ -154,54 +146,41 @@ export default function LinkRedirectPage() {
         if (clickInsertError) {
           console.error('Error inserting click data:', clickInsertError);
           console.error('Error details:', JSON.stringify(clickInsertError));
-          throw new Error(`Failed to log click: ${clickInsertError.message}`);
+          // Continue the flow even if click logging fails - we don't want to block the user experience
         } else {
           console.log('Click successfully logged to database');
         }
         
         // Check if this is a CPC offer and credit the affiliate immediately
         if (typedLinkData.offer.commission_type === 'CPC' && typedLinkData.offer.commission_amount) {
-          console.log('Processing CPC offer with commission amount:', typedLinkData.offer.commission_amount);
-          
-          const { data: walletData, error: walletError } = await supabase
+          const { data: walletData } = await supabase
             .from('wallets')
             .select('*')
             .eq('user_id', typedLinkData.affiliate_id)
-            .maybeSingle();
+            .single();
           
-          if (walletError) {
-            console.error('Error fetching wallet:', walletError);
-          } else if (walletData) {
+          if (walletData) {
             // Update wallet with the CPC amount
-            const { error: walletUpdateError } = await supabase
+            await supabase
               .from('wallets')
               .update({
-                pending: walletData.pending + typedLinkData.offer.commission_amount,
-                updated_at: new Date().toISOString()
+                pending: walletData.pending + typedLinkData.offer.commission_amount
               })
               .eq('user_id', typedLinkData.affiliate_id);
             
-            if (walletUpdateError) {
-              console.error('Error updating wallet:', walletUpdateError);
-            } else {
-              // Create a conversion record for CPC
-              const { error: conversionError } = await supabase
-                .from('conversions')
-                .insert({
-                  click_id: clickId,
-                  event_type: 'click',
-                  commission: typedLinkData.offer.commission_amount,
-                  status: 'pending',
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                });
-                
-              if (conversionError) {
-                console.error('Error creating conversion record:', conversionError);
-              } else {
-                console.log('CPC commission credited:', typedLinkData.offer.commission_amount);
-              }
-            }
+            // Create a conversion record for CPC
+            await supabase
+              .from('conversions')
+              .insert({
+                click_id: clickId,
+                event_type: 'click',
+                commission: typedLinkData.offer.commission_amount,
+                status: 'pending',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
+              
+            console.log('CPC commission credited:', typedLinkData.offer.commission_amount);
           }
         }
         
@@ -219,7 +198,7 @@ export default function LinkRedirectPage() {
           redirectUrl += `&${key}=${encodeURIComponent(value)}`;
         });
         
-        // Log additional analytics for short links or QR codes
+        // If this is a short link or QR code, log additional analytics
         if (typedLinkData.link_type === 'shortened' || typedLinkData.link_type === 'qr') {
           console.log(`Redirect from ${typedLinkData.link_type} link: ${trackingCode}`);
         }

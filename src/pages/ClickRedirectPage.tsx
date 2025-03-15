@@ -26,8 +26,14 @@ export default function ClickRedirectPage() {
           .eq('tracking_code', trackingCode)
           .maybeSingle();
 
-        if (linkError || !linkData) {
+        if (linkError) {
           console.error('Link fetch error:', linkError);
+          setError('Error retrieving tracking link');
+          return;
+        }
+
+        if (!linkData) {
+          console.error('Tracking link not found for code:', trackingCode);
           setError('Link not found or expired');
           return;
         }
@@ -84,28 +90,35 @@ export default function ClickRedirectPage() {
         
         console.log('Attempting to insert click data:', clickData);
 
-        // First try: Direct insert approach (bypassing RPC initially)
-        const { error: directInsertError } = await supabase
-          .from('clicks')
-          .insert(clickData);
-          
-        if (directInsertError) {
-          console.warn('Direct insert failed, trying RPC method:', directInsertError);
-          
-          // Second try: Use RPC method with type assertion
-          const { error: rpcError } = await supabase.rpc(
-            'insert_click' as any, 
-            clickData
-          );
-          
-          if (rpcError) {
-            console.error('RPC insert also failed:', rpcError);
-            // Log but don't block the user experience
+        try {
+          // First try: Direct insert approach
+          const { data: insertData, error: directInsertError } = await supabase
+            .from('clicks')
+            .insert(clickData)
+            .select()
+            .single();
+            
+          if (directInsertError) {
+            console.warn('Direct insert failed, trying RPC method:', directInsertError);
+            
+            // Second try: Use RPC method with type assertion
+            const { data: rpcData, error: rpcError } = await supabase.rpc(
+              'insert_click', 
+              clickData as any
+            );
+            
+            if (rpcError) {
+              console.error('RPC insert also failed:', rpcError);
+              // Continue anyway to not block the user experience
+            } else {
+              console.log('Click successfully logged via RPC:', rpcData);
+            }
           } else {
-            console.log('Click successfully logged via RPC');
+            console.log('Click successfully logged via direct insert:', insertData);
           }
-        } else {
-          console.log('Click successfully logged via direct insert');
+        } catch (insertError) {
+          console.error('Error during click insertion:', insertError);
+          // Continue despite error to not block user experience
         }
 
         // Build redirect URL with parameters
@@ -120,7 +133,7 @@ export default function ClickRedirectPage() {
         console.log(`Redirecting to: ${redirectUrl}`);
 
         // Redirect to advertiser URL
-        window.location.href = redirectUrl.toString();
+        window.location.href = redirectUrl;
       } catch (error) {
         console.error('Error processing click:', error);
         setError('An unexpected error occurred');

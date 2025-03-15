@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -9,6 +9,7 @@ export default function LinkRedirectPage() {
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
   
   useEffect(() => {
     const processClick = async () => {
@@ -106,28 +107,35 @@ export default function LinkRedirectPage() {
         
         console.log('Attempting to insert click data:', clickData);
         
-        // First try: Direct insert approach
-        const { error: directError } = await supabase
-          .from('clicks')
-          .insert(clickData);
+        try {
+          // First try: Direct insert approach
+          const { data: insertData, error: directError } = await supabase
+            .from('clicks')
+            .insert(clickData)
+            .select()
+            .single();
+              
+          if (directError) {
+            console.warn('Direct insert failed, trying RPC method:', directError);
             
-        if (directError) {
-          console.warn('Direct insert failed, trying RPC method:', directError);
-          
-          // Second try: Use RPC call to bypass RLS
-          const { error: rpcError } = await supabase.rpc(
-            'insert_click' as any, 
-            clickData
-          );
-          
-          if (rpcError) {
-            console.error('RPC insert also failed:', rpcError);
-            // Continue despite error to not block user experience
+            // Second try: Use RPC call to bypass RLS
+            const { data: rpcData, error: rpcError } = await supabase.rpc(
+              'insert_click',
+              clickData as any
+            );
+            
+            if (rpcError) {
+              console.error('RPC insert also failed:', rpcError);
+              // Continue despite error to not block user experience
+            } else {
+              console.log('Click successfully logged via RPC:', rpcData);
+            }
           } else {
-            console.log('Click successfully logged via RPC');
+            console.log('Click successfully logged via direct insert:', insertData);
           }
-        } else {
-          console.log('Click successfully logged via direct insert');
+        } catch (insertError) {
+          console.error('Error during click insertion:', insertError);
+          // Continue despite error to not block user experience
         }
         
         // Build redirect URL
@@ -152,7 +160,7 @@ export default function LinkRedirectPage() {
     };
     
     processClick();
-  }, [trackingCode, searchParams]);
+  }, [trackingCode, searchParams, navigate]);
   
   if (error) {
     return (

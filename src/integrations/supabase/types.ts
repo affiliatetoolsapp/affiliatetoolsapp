@@ -608,6 +608,22 @@ export type Database = {
         }
         Returns: string
       }
+      insert_click: {
+        Args: {
+          click_id: string
+          tracking_code: string
+          affiliate_id: string
+          offer_id: string
+          ip_address: string
+          geo: string
+          user_agent: string
+          device: string
+          referrer: string
+          custom_params: Json
+          created_at: string
+        }
+        Returns: string
+      }
       log_conversion: {
         Args: {
           p_click_id: string

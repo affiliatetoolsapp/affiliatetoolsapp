@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,7 +33,7 @@ import {
 } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay, eachDayOfInterval, parseISO } from 'date-fns';
 import { DataTable } from '@/components/ui/data-table';
-import { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 
 export default function ReportsPage() {
@@ -54,22 +55,30 @@ export default function ReportsPage() {
       if (!user) return [];
       
       try {
-        let query = supabase
-          .from('clicks')
-          .select(`
-            *,
-            tracking_links(id, tracking_code, affiliate_id),
-            offers:offers(id, name, advertiser_id, commission_type)
-          `)
-          .gte('created_at', startOfDay(startDate).toISOString())
-          .lte('created_at', endOfDay(endDate).toISOString());
+        let query;
         
         if (isAdvertiser) {
-          // For advertisers, get clicks for their offers
-          query = query.eq('offers.advertiser_id', user.id);
+          // For advertisers - get clicks for offers they created
+          query = supabase
+            .from('clicks')
+            .select(`
+              *,
+              offers!inner(id, name, advertiser_id, commission_type)
+            `)
+            .gte('created_at', startOfDay(startDate).toISOString())
+            .lte('created_at', endOfDay(endDate).toISOString())
+            .eq('offers.advertiser_id', user.id);
         } else {
-          // For affiliates
-          query = query.eq('affiliate_id', user.id);
+          // For affiliates - get clicks for their tracking links
+          query = supabase
+            .from('clicks')
+            .select(`
+              *,
+              offers(id, name, advertiser_id, commission_type)
+            `)
+            .gte('created_at', startOfDay(startDate).toISOString())
+            .lte('created_at', endOfDay(endDate).toISOString())
+            .eq('affiliate_id', user.id);
         }
         
         const { data, error } = await query;
@@ -92,22 +101,43 @@ export default function ReportsPage() {
   const { data: conversions, isLoading: isLoadingConversions } = useQuery({
     queryKey: ['report-conversions', user?.id, user?.role, dateRange, clicks?.length],
     queryFn: async () => {
-      if (!user || !clicks || clicks.length === 0) return [];
+      if (!user) return [];
       
       try {
-        const clickIds = clicks.map(click => click.click_id);
+        // We need different approaches for advertisers vs affiliates
+        let query;
         
-        let query = supabase
-          .from('conversions')
-          .select(`
-            *,
-            click:clicks(
-              id, click_id, affiliate_id, offer_id, 
-              tracking_code, created_at, ip_address, device, geo,
-              offers:offers(id, name, advertiser_id, commission_type)
-            )
-          `)
-          .in('click_id', clickIds);
+        if (isAdvertiser) {
+          // For advertisers - get conversions for their offers via click's offer_id
+          query = supabase
+            .from('conversions')
+            .select(`
+              *,
+              click:clicks!inner(
+                id, click_id, affiliate_id, offer_id, 
+                tracking_code, created_at, ip_address, device, geo,
+                offers!inner(id, name, advertiser_id, commission_type)
+              )
+            `)
+            .gte('created_at', startOfDay(startDate).toISOString())
+            .lte('created_at', endOfDay(endDate).toISOString())
+            .eq('click.offers.advertiser_id', user.id);
+        } else {
+          // For affiliates - get conversions for their clicks
+          query = supabase
+            .from('conversions')
+            .select(`
+              *,
+              click:clicks!inner(
+                id, click_id, affiliate_id, offer_id, 
+                tracking_code, created_at, ip_address, device, geo,
+                offers(id, name, advertiser_id, commission_type)
+              )
+            `)
+            .gte('created_at', startOfDay(startDate).toISOString())
+            .lte('created_at', endOfDay(endDate).toISOString())
+            .eq('click.affiliate_id', user.id);
+        }
         
         if (selectedType !== 'all') {
           query = query.eq('event_type', selectedType);
@@ -120,26 +150,16 @@ export default function ReportsPage() {
           throw error;
         }
         
-        // Filter conversions based on user role
-        return data?.filter(conv => {
-          const clickData = conv.click as any;
-          if (!clickData) return false;
-          
-          if (isAdvertiser) {
-            return clickData.offers?.advertiser_id === user.id;
-          } else {
-            return clickData.affiliate_id === user.id;
-          }
-        }) || [];
+        return data || [];
       } catch (error) {
         console.error('Error processing conversions:', error);
         return [];
       }
     },
-    enabled: !!user && !!clicks && clicks.length > 0,
+    enabled: !!user,
   });
   
-  // Prepare data for charts
+  // Prepare data for charts - no change needed here
   const prepareChartData = () => {
     if (!clicks) return [];
     

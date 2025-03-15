@@ -47,7 +47,7 @@ export default function ReportsPage() {
   const endDate = new Date();
   const startDate = subDays(endDate, parseInt(dateRange));
   
-  // Get clicks
+  // Get clicks - Modified to ensure we get all data
   const { data: clicks, isLoading: isLoadingClicks } = useQuery({
     queryKey: ['report-clicks', user?.id, user?.role, dateRange],
     queryFn: async () => {
@@ -70,7 +70,8 @@ export default function ReportsPage() {
           
           if (error) {
             console.error('Error fetching clicks for advertiser:', error);
-            throw error;
+            toast.error(`Error fetching clicks: ${error.message}`);
+            return [];
           }
           
           console.log(`Found ${data?.length || 0} clicks for advertiser`);
@@ -91,7 +92,8 @@ export default function ReportsPage() {
           
           if (error) {
             console.error('Error fetching clicks for affiliate:', error);
-            throw error;
+            toast.error(`Error fetching clicks: ${error.message}`);
+            return [];
           }
           
           console.log(`Found ${data?.length || 0} clicks for affiliate`);
@@ -99,6 +101,7 @@ export default function ReportsPage() {
         }
       } catch (error) {
         console.error('Error processing clicks:', error);
+        toast.error('Error loading click data');
         return [];
       }
     },

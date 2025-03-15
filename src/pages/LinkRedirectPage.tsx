@@ -30,7 +30,7 @@ export default function LinkRedirectPage() {
             offer:offers(*)
           `)
           .eq('tracking_code', trackingCode)
-          .single();
+          .maybeSingle();
         
         if (linkError) {
           console.error('Error fetching tracking link:', linkError);
@@ -51,7 +51,29 @@ export default function LinkRedirectPage() {
         const clickId = crypto.randomUUID();
         console.log(`Generated click ID: ${clickId}`);
         
-        // Get basic device information
+        // Get client IP address - this will be null in development
+        let ipAddress = null;
+        try {
+          const ipResponse = await fetch('https://api.ipify.org?format=json');
+          const ipData = await ipResponse.json();
+          ipAddress = ipData.ip;
+        } catch (ipError) {
+          console.warn('Could not get IP address:', ipError);
+        }
+
+        // Get country information - simplified version
+        let country = null;
+        try {
+          if (ipAddress && ipAddress !== '127.0.0.1' && !ipAddress.startsWith('192.168.')) {
+            const geoResponse = await fetch(`https://ipapi.co/${ipAddress}/json/`);
+            const geoData = await geoResponse.json();
+            country = geoData.country_name;
+          }
+        } catch (geoError) {
+          console.warn('Could not get geo information:', geoError);
+        }
+        
+        // Get basic device info
         const userAgent = navigator.userAgent;
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
         const device = isMobile ? 'mobile' : 'desktop';
@@ -71,6 +93,8 @@ export default function LinkRedirectPage() {
           tracking_code: trackingCode,
           affiliate_id: linkData.affiliate_id,
           offer_id: linkData.offer_id,
+          ip_address: ipAddress,
+          geo: country,
           user_agent: userAgent,
           device,
           referrer: document.referrer || null,

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,8 +54,6 @@ export default function ReportsPage() {
       if (!user) return [];
       
       try {
-        let query;
-        
         if (isAdvertiser) {
           // For advertisers - get clicks for offers they created
           console.log('Fetching clicks for advertiser:', user.id);

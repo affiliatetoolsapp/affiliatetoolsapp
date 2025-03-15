@@ -122,36 +122,33 @@ export default function LinkRedirectPage() {
         customParams.browser = browser;
         customParams.os = os;
         
-        console.log('Logging click with params:', {
+        const clickData = {
           click_id: clickId,
           tracking_code: trackingCode,
           affiliate_id: typedLinkData.affiliate_id,
           offer_id: typedLinkData.offer_id,
           ip_address: ipInfo?.ip || null,
+          user_agent: userAgent,
           device,
           geo: ipInfo?.country || null,
-        });
+          referrer: document.referrer || null,
+          custom_params: Object.keys(customParams).length > 0 ? customParams : null,
+          created_at: new Date().toISOString()
+        };
+        
+        console.log('Logging click with data:', clickData);
         
         // Log the click
         const { error: clickInsertError } = await supabase
           .from('clicks')
-          .insert({
-            click_id: clickId,
-            tracking_code: trackingCode,
-            affiliate_id: typedLinkData.affiliate_id,
-            offer_id: typedLinkData.offer_id,
-            ip_address: ipInfo?.ip || null,
-            user_agent: userAgent,
-            device,
-            geo: ipInfo?.country || null,
-            referrer: document.referrer || null,
-            custom_params: Object.keys(customParams).length > 0 ? customParams : null,
-            created_at: new Date().toISOString()
-          });
+          .insert(clickData);
           
         if (clickInsertError) {
           console.error('Error inserting click data:', clickInsertError);
+          console.error('Error details:', JSON.stringify(clickInsertError));
           // Continue the flow even if click logging fails - we don't want to block the user experience
+        } else {
+          console.log('Click successfully logged to database');
         }
         
         // Check if this is a CPC offer and credit the affiliate immediately

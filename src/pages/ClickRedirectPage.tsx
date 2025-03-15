@@ -87,37 +87,34 @@ export default function ClickRedirectPage() {
           Object.assign(customParams, linkData.custom_params);
         }
         
-        console.log('Logging click with params:', {
+        const clickData = {
           click_id: clickId,
           tracking_code: trackingCode,
           affiliate_id: linkData.affiliate_id,
           offer_id: linkData.offer_id,
           ip_address: ipInfo?.ip || null,
+          user_agent: userAgent,
           device,
           geo: ipInfo?.country || null,
-        });
+          referrer: document.referrer,
+          custom_params: Object.keys(customParams).length > 0 ? customParams : null,
+          created_at: new Date().toISOString()
+        };
+        
+        console.log('Logging click with data:', clickData);
 
         // Log click
         const { error: clickError } = await supabase
           .from('clicks')
-          .insert({
-            click_id: clickId,
-            tracking_code: trackingCode,
-            affiliate_id: linkData.affiliate_id,
-            offer_id: linkData.offer_id,
-            ip_address: ipInfo?.ip || null,
-            user_agent: userAgent,
-            device,
-            geo: ipInfo?.country || null,
-            referrer: document.referrer,
-            custom_params: Object.keys(customParams).length > 0 ? customParams : null,
-            created_at: new Date().toISOString()
-          });
+          .insert(clickData);
 
         if (clickError) {
           console.error('Error logging click:', clickError);
-          setError('Failed to process click');
-          return;
+          // Continue despite the error to not block the user experience
+          // But let's try to get more information about the error
+          console.error('Error details:', JSON.stringify(clickError));
+        } else {
+          console.log('Click successfully logged to database');
         }
 
         // Check if this is a CPC offer and credit the affiliate immediately

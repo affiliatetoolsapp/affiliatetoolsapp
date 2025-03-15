@@ -2,16 +2,15 @@
 "use client";
 
 import {
-  ColumnDef,
   flexRender,
   getCoreRowModel,
   getPaginationRowModel,
   getSortedRowModel,
-  SortingState,
   useReactTable,
+  type ColumnDef,
+  type SortingState,
 } from "@tanstack/react-table";
 import { useState } from "react";
-
 import {
   Table,
   TableBody,
@@ -65,7 +64,10 @@ export function DataTable<TData, TValue>({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="font-medium">
+                  <TableHead
+                    key={header.id}
+                    className="font-medium"
+                  >
                     {header.isPlaceholder
                       ? null
                       : flexRender(
@@ -80,7 +82,10 @@ export function DataTable<TData, TValue>({
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
                   <div className="flex justify-center">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                   </div>

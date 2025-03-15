@@ -19,15 +19,21 @@ export default function ClickRedirectPage() {
       try {
         console.log(`Processing click for tracking code: ${trackingCode}`);
         
-        // Get tracking link details
+        // Get tracking link details with better error handling
         const { data: linkData, error: linkError } = await supabase
           .from('tracking_links')
           .select('*, affiliate_offers!inner(*), offers(*)')
           .eq('tracking_code', trackingCode)
           .single();
 
-        if (linkError || !linkData) {
+        if (linkError) {
           console.error('Link fetch error:', linkError);
+          setError('Link not found or expired');
+          return;
+        }
+
+        if (!linkData) {
+          console.error('No link data found');
           setError('Link not found or expired');
           return;
         }
@@ -103,7 +109,7 @@ export default function ClickRedirectPage() {
         
         console.log('Logging click with data:', clickData);
 
-        // Log click - use authenticated supabase client with service role if possible
+        // Log click - use authenticated supabase client
         const { error: clickError } = await supabase
           .from('clicks')
           .insert(clickData);
@@ -112,9 +118,6 @@ export default function ClickRedirectPage() {
           console.error('Error logging click:', clickError);
           // Log more detailed error information
           console.error('Error details:', JSON.stringify(clickError));
-          
-          // Try again with a different approach or just continue for user experience
-          // We don't want to block the user redirect just because of logging failure
           toast.error('Failed to log click data, but continuing with redirect');
         } else {
           console.log('Click successfully logged to database');
@@ -123,34 +126,51 @@ export default function ClickRedirectPage() {
 
         // Check if this is a CPC offer and credit the affiliate immediately
         if (linkData.offers.commission_type === 'CPC' && linkData.offers.commission_amount) {
-          const { data: walletData } = await supabase
-            .from('wallets')
-            .select('*')
-            .eq('user_id', linkData.affiliate_id)
-            .single();
-          
-          if (walletData) {
-            // Update wallet with the CPC amount
-            await supabase
+          try {
+            const { data: walletData, error: walletError } = await supabase
               .from('wallets')
-              .update({
-                pending: walletData.pending + linkData.offers.commission_amount
-              })
-              .eq('user_id', linkData.affiliate_id);
+              .select('*')
+              .eq('user_id', linkData.affiliate_id)
+              .single();
             
-            // Create a conversion record for CPC
-            await supabase
-              .from('conversions')
-              .insert({
-                click_id: clickId,
-                event_type: 'click',
-                commission: linkData.offers.commission_amount,
-                status: 'pending',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              });
+            if (walletError) {
+              console.error('Error fetching wallet:', walletError);
+              return;
+            }
+            
+            if (walletData) {
+              // Update wallet with the CPC amount
+              const { error: updateError } = await supabase
+                .from('wallets')
+                .update({
+                  pending: walletData.pending + linkData.offers.commission_amount
+                })
+                .eq('user_id', linkData.affiliate_id);
+                
+              if (updateError) {
+                console.error('Error updating wallet:', updateError);
+              }
               
-            console.log('CPC commission credited:', linkData.offers.commission_amount);
+              // Create a conversion record for CPC
+              const { error: conversionError } = await supabase
+                .from('conversions')
+                .insert({
+                  click_id: clickId,
+                  event_type: 'click',
+                  commission: linkData.offers.commission_amount,
+                  status: 'pending',
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                });
+                
+              if (conversionError) {
+                console.error('Error creating conversion:', conversionError);
+              } else {
+                console.log('CPC commission credited:', linkData.offers.commission_amount);
+              }
+            }
+          } catch (cpcError) {
+            console.error('Error processing CPC commission:', cpcError);
           }
         }
 

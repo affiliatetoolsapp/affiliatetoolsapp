@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -48,8 +47,38 @@ export default function ReportsPage() {
   const endDate = new Date();
   const startDate = subDays(endDate, parseInt(dateRange));
   
-  // Get clicks with better logging
-  const { data: clicks, isLoading: isLoadingClicks } = useQuery({
+  // Debugging function to show all clicks in the database (for development purposes)
+  useEffect(() => {
+    const debugClicksData = async () => {
+      if (!user) return;
+      
+      try {
+        console.log(`DEBUG: Fetching all clicks for user role: ${user.role}, user ID: ${user.id}`);
+        
+        // For debugging: get all clicks in the database without filtering
+        const { data: allClicks, error: allClicksError } = await supabase
+          .from('clicks')
+          .select('*')
+          .limit(50);
+          
+        if (allClicksError) {
+          console.error('DEBUG: Error fetching all clicks:', allClicksError);
+        } else {
+          console.log(`DEBUG: Total clicks in database (limited to 50): ${allClicks?.length || 0}`);
+          console.log('DEBUG: Sample clicks:', allClicks?.slice(0, 3));
+        }
+      } catch (err) {
+        console.error('DEBUG: Error in debug function:', err);
+      }
+    };
+    
+    if (process.env.NODE_ENV !== 'production') {
+      debugClicksData();
+    }
+  }, [user]);
+  
+  // Get clicks with better logging and improved query
+  const { data: clicks, isLoading: isLoadingClicks, refetch: refetchClicks } = useQuery({
     queryKey: ['report-clicks', user?.id, user?.role, dateRange],
     queryFn: async () => {
       if (!user) return [];
@@ -69,15 +98,35 @@ export default function ReportsPage() {
           // For advertisers - get clicks for offers they created
           console.log('Fetching clicks for advertiser:', user.id);
           
+          // First, get the offers created by this advertiser
+          const { data: advertiserOffers, error: offersError } = await supabase
+            .from('offers')
+            .select('id')
+            .eq('advertiser_id', user.id);
+            
+          if (offersError) {
+            console.error('Error fetching advertiser offers:', offersError);
+            throw offersError;
+          }
+          
+          if (!advertiserOffers || advertiserOffers.length === 0) {
+            console.log('No offers found for this advertiser');
+            return [];
+          }
+          
+          const offerIds = advertiserOffers.map(offer => offer.id);
+          console.log('Advertiser offer IDs:', offerIds);
+          
+          // Then get clicks for these offers
           query = supabase
             .from('clicks')
             .select(`
               *,
-              offers!inner(*)
+              offers(*)
             `)
+            .in('offer_id', offerIds)
             .gte('created_at', startOfDay(startDate).toISOString())
-            .lte('created_at', endOfDay(endDate).toISOString())
-            .eq('offers.advertiser_id', user.id);
+            .lte('created_at', endOfDay(endDate).toISOString());
         } else {
           // For affiliates - get clicks for their tracking links
           console.log('Fetching clicks for affiliate:', user.id);
@@ -88,9 +137,9 @@ export default function ReportsPage() {
               *,
               offers(*)
             `)
+            .eq('affiliate_id', user.id)
             .gte('created_at', startOfDay(startDate).toISOString())
-            .lte('created_at', endOfDay(endDate).toISOString())
-            .eq('affiliate_id', user.id);
+            .lte('created_at', endOfDay(endDate).toISOString());
         }
         
         const { data, error } = await query;
@@ -100,12 +149,17 @@ export default function ReportsPage() {
           throw error;
         }
         
-        console.log(`Found ${data?.length || 0} clicks`);
-        console.log('Sample data:', data?.slice(0, 2));
+        console.log(`Found ${data?.length || 0} clicks for the period`);
+        if (data && data.length > 0) {
+          console.log('Sample data:', data.slice(0, 2));
+        } else {
+          console.log('No clicks found for the selected period');
+        }
         
         return data || [];
       } catch (error) {
         console.error('Error processing clicks:', error);
+        toast.error('Failed to load click data');
         return [];
       }
     },
@@ -127,26 +181,46 @@ export default function ReportsPage() {
           isAdvertiser
         });
         
-        let query;
-        
         if (isAdvertiser) {
-          // For advertisers - get conversions for their offers via click's offer_id
-          query = supabase
-            .from('conversions')
-            .select(`
-              *,
-              click:clicks!inner(
-                id, click_id, affiliate_id, offer_id, 
-                tracking_code, created_at, ip_address, device, geo,
-                offers!inner(id, name, advertiser_id, commission_type)
-              )
-            `)
-            .gte('created_at', startOfDay(startDate).toISOString())
-            .lte('created_at', endOfDay(endDate).toISOString())
-            .eq('click.offers.advertiser_id', user.id);
-        } else {
-          // For affiliates - get conversions for their clicks
-          query = supabase
+          // For advertisers - get conversions for their offers
+          // First, get the offers created by this advertiser
+          const { data: advertiserOffers, error: offersError } = await supabase
+            .from('offers')
+            .select('id')
+            .eq('advertiser_id', user.id);
+            
+          if (offersError) {
+            console.error('Error fetching advertiser offers for conversions:', offersError);
+            throw offersError;
+          }
+          
+          if (!advertiserOffers || advertiserOffers.length === 0) {
+            console.log('No offers found for this advertiser when fetching conversions');
+            return [];
+          }
+          
+          const offerIds = advertiserOffers.map(offer => offer.id);
+          
+          // Get clicks for these offers
+          const { data: offerClicks, error: clicksError } = await supabase
+            .from('clicks')
+            .select('click_id')
+            .in('offer_id', offerIds);
+            
+          if (clicksError) {
+            console.error('Error fetching clicks for advertiser offers:', clicksError);
+            throw clicksError;
+          }
+          
+          if (!offerClicks || offerClicks.length === 0) {
+            console.log('No clicks found for this advertiser\'s offers');
+            return [];
+          }
+          
+          const clickIds = offerClicks.map(click => click.click_id);
+          
+          // Get conversions for these clicks
+          let query = supabase
             .from('conversions')
             .select(`
               *,
@@ -156,28 +230,75 @@ export default function ReportsPage() {
                 offers(id, name, advertiser_id, commission_type)
               )
             `)
+            .in('click_id', clickIds)
             .gte('created_at', startOfDay(startDate).toISOString())
-            .lte('created_at', endOfDay(endDate).toISOString())
-            .eq('click.affiliate_id', user.id);
+            .lte('created_at', endOfDay(endDate).toISOString());
+            
+          if (selectedType !== 'all') {
+            query = query.eq('event_type', selectedType);
+          }
+          
+          const { data, error } = await query;
+          
+          if (error) {
+            console.error('Error fetching conversions for advertiser:', error);
+            throw error;
+          }
+          
+          console.log(`Found ${data?.length || 0} conversions for advertiser`);
+          return data || [];
+        } else {
+          // For affiliates - get conversions for their clicks
+          // First get all clicks by this affiliate
+          const { data: affiliateClicks, error: clicksError } = await supabase
+            .from('clicks')
+            .select('click_id')
+            .eq('affiliate_id', user.id);
+            
+          if (clicksError) {
+            console.error('Error fetching affiliate clicks:', clicksError);
+            throw clicksError;
+          }
+          
+          if (!affiliateClicks || affiliateClicks.length === 0) {
+            console.log('No clicks found for this affiliate');
+            return [];
+          }
+          
+          const clickIds = affiliateClicks.map(click => click.click_id);
+          
+          // Get conversions for these clicks
+          let query = supabase
+            .from('conversions')
+            .select(`
+              *,
+              click:clicks!inner(
+                id, click_id, affiliate_id, offer_id, 
+                tracking_code, created_at, ip_address, device, geo,
+                offers(id, name, advertiser_id, commission_type)
+              )
+            `)
+            .in('click_id', clickIds)
+            .gte('created_at', startOfDay(startDate).toISOString())
+            .lte('created_at', endOfDay(endDate).toISOString());
+            
+          if (selectedType !== 'all') {
+            query = query.eq('event_type', selectedType);
+          }
+          
+          const { data, error } = await query;
+          
+          if (error) {
+            console.error('Error fetching conversions for affiliate:', error);
+            throw error;
+          }
+          
+          console.log(`Found ${data?.length || 0} conversions for affiliate`);
+          return data || [];
         }
-        
-        if (selectedType !== 'all') {
-          query = query.eq('event_type', selectedType);
-        }
-        
-        const { data, error } = await query;
-        
-        if (error) {
-          console.error('Error fetching conversions:', error);
-          throw error;
-        }
-        
-        console.log(`Found ${data?.length || 0} conversions`);
-        console.log('Sample conversion data:', data?.slice(0, 2));
-        
-        return data || [];
       } catch (error) {
         console.error('Error processing conversions:', error);
+        toast.error('Failed to load conversion data');
         return [];
       }
     },
@@ -255,8 +376,8 @@ export default function ReportsPage() {
       accessorKey: "click_id",
       header: "Click ID",
       cell: ({ row }) => (
-        <div className="font-mono text-xs truncate max-w-[120px]" title={row.original.click_id}>
-          {row.original.click_id.substring(0, 8)}...
+        <div className="font-mono text-xs truncate max-w-[120px]" title={row.getValue("click_id")}>
+          {row.getValue("click_id").substring(0, 8)}...
         </div>
       ),
     },
@@ -265,24 +386,24 @@ export default function ReportsPage() {
       header: "Date & Time",
       cell: ({ row }) => (
         <div className="whitespace-nowrap">
-          {format(parseISO(row.original.created_at), "MMM dd, yyyy HH:mm")}
+          {format(parseISO(row.getValue("created_at")), "MMM dd, yyyy HH:mm")}
         </div>
       ),
     },
     {
       accessorKey: "ip_address",
       header: "IP Address",
-      cell: ({ row }) => <div>{row.original.ip_address || "Unknown"}</div>,
+      cell: ({ row }) => <div>{row.getValue("ip_address") || "Unknown"}</div>,
     },
     {
       accessorKey: "geo",
       header: "Country",
-      cell: ({ row }) => <div>{row.original.geo || "Unknown"}</div>,
+      cell: ({ row }) => <div>{row.getValue("geo") || "Unknown"}</div>,
     },
     {
       accessorKey: "device",
       header: "Device",
-      cell: ({ row }) => <div className="capitalize">{row.original.device || "Unknown"}</div>,
+      cell: ({ row }) => <div className="capitalize">{row.getValue("device") || "Unknown"}</div>,
     },
     {
       accessorKey: "browser",
@@ -318,7 +439,7 @@ export default function ReportsPage() {
       },
     },
     {
-      accessorKey: "offer",
+      accessorKey: "offer_name",
       header: "Offer",
       cell: ({ row }) => {
         const offerName = row.original.offers?.name || "Unknown";
@@ -328,13 +449,13 @@ export default function ReportsPage() {
     {
       accessorKey: "tracking_code",
       header: "Tracking Code",
-      cell: ({ row }) => <div>{row.original.tracking_code || "N/A"}</div>,
+      cell: ({ row }) => <div>{row.getValue("tracking_code") || "N/A"}</div>,
     },
     {
       accessorKey: "conversions",
       header: "Conversions",
       cell: ({ row }) => {
-        const count = conversions?.filter(c => c.click_id === row.original.click_id).length || 0;
+        const count = conversions?.filter(c => c.click_id === row.getValue("click_id")).length || 0;
         return <div className="text-center">{count}</div>;
       },
     },
@@ -506,6 +627,11 @@ export default function ReportsPage() {
     }
   };
   
+  const refreshData = () => {
+    refetchClicks();
+    toast.info('Refreshing data...');
+  };
+  
   if (!user) return null;
   
   return (
@@ -548,6 +674,15 @@ export default function ReportsPage() {
               <SelectItem value="deposit">Deposits</SelectItem>
             </SelectContent>
           </Select>
+          
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={refreshData}
+            title="Refresh data"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+          </Button>
         </div>
       </div>
       
@@ -744,90 +879,3 @@ export default function ReportsPage() {
                         <div>Conversions</div>
                         <div>{totalConversions}</div>
                         <div>{(totalConversions / parseInt(dateRange)).toFixed(1)}</div>
-                      </div>
-                      <div className="grid grid-cols-3 p-3">
-                        <div>Conv. Rate</div>
-                        <div>{conversionRate.toFixed(2)}%</div>
-                        <div>-</div>
-                      </div>
-                      <div className="grid grid-cols-3 p-3">
-                        <div>{isAdvertiser ? 'Revenue' : 'Earnings'}</div>
-                        <div>${isAdvertiser ? totalRevenue.toFixed(2) : totalCommissions.toFixed(2)}</div>
-                        <div>${((isAdvertiser ? totalRevenue : totalCommissions) / parseInt(dateRange)).toFixed(2)}</div>
-                      </div>
-                      <div className="grid grid-cols-3 p-3">
-                        <div>EPC</div>
-                        <div>${totalClicks ? (totalCommissions / totalClicks).toFixed(2) : '0.00'}</div>
-                        <div>-</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="clicks">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Click Details</CardTitle>
-                <CardDescription>
-                  All traffic details for the selected period
-                </CardDescription>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => exportToCSV('clicks')}
-                disabled={!clicks || clicks.length === 0}
-              >
-                <DownloadIcon className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <DataTable 
-                columns={clickColumns} 
-                data={clicks || []} 
-                isLoading={isLoadingClicks}
-                emptyMessage="No click data for the selected period"
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="conversions">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Conversion Details</CardTitle>
-                <CardDescription>
-                  All conversion data for the selected period
-                </CardDescription>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => exportToCSV('conversions')}
-                disabled={!conversions || conversions.length === 0}
-              >
-                <DownloadIcon className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <DataTable 
-                columns={conversionColumns} 
-                data={conversions || []} 
-                isLoading={isLoadingConversions}
-                emptyMessage="No conversion data for the selected period"
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}

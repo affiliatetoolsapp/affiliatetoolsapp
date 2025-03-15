@@ -1,4 +1,3 @@
-
 import { DataTable } from '@/components/ui/data-table';
 import type { ColumnDef } from '@tanstack/react-table';
 import { format, parseISO } from 'date-fns';
@@ -17,11 +16,14 @@ export function ClicksTable({ clicks, conversions, isLoading, exportToCSV }: Cli
     {
       accessorKey: "click_id",
       header: "Click ID",
-      cell: ({ row }) => (
-        <div className="font-mono text-xs truncate max-w-[120px]" title={row.getValue("click_id")}>
-          {row.getValue("click_id").substring(0, 8)}...
-        </div>
-      ),
+      cell: ({ row }) => {
+        const clickId = row.getValue("click_id");
+        return (
+          <div className="font-mono text-xs truncate max-w-[120px]" title={clickId as string}>
+            {typeof clickId === 'string' ? `${clickId.substring(0, 8)}...` : 'N/A'}
+          </div>
+        );
+      },
     },
     {
       accessorKey: "created_at",

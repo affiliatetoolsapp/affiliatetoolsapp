@@ -1,7 +1,9 @@
+
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { TrackingLinkWithOffer } from '@/types';
+import { toast } from 'sonner';
 
 export default function LinkRedirectPage() {
   const { trackingCode } = useParams();
@@ -18,6 +20,8 @@ export default function LinkRedirectPage() {
       }
       
       try {
+        console.log(`Processing click for tracking code: ${trackingCode}`);
+        
         // Get the tracking link details
         const { data: linkData, error: linkError } = await supabase
           .from('tracking_links')
@@ -28,13 +32,19 @@ export default function LinkRedirectPage() {
           .eq('tracking_code', trackingCode)
           .single();
         
-        if (linkError) throw linkError;
+        if (linkError) {
+          console.error('Error fetching tracking link:', linkError);
+          throw linkError;
+        }
         
         if (!linkData) {
+          console.error('Tracking link not found');
           setError('Tracking link not found');
           setIsLoading(false);
           return;
         }
+
+        console.log('Tracking link found:', linkData);
 
         // Cast linkData to TrackingLinkWithOffer to include link_type
         const typedLinkData = linkData as TrackingLinkWithOffer;
@@ -47,9 +57,13 @@ export default function LinkRedirectPage() {
           .eq('offer_id', typedLinkData.offer_id)
           .single();
         
-        if (approvalError) throw approvalError;
+        if (approvalError) {
+          console.error('Error checking affiliate approval:', approvalError);
+          throw approvalError;
+        }
         
         if (!approvalData || approvalData.status !== 'approved') {
+          console.error('Affiliate not approved for this offer');
           setError('Affiliate not approved for this offer');
           setIsLoading(false);
           return;
@@ -57,12 +71,14 @@ export default function LinkRedirectPage() {
         
         // Generate a unique click ID using crypto for better security
         const clickId = crypto.randomUUID();
+        console.log('Generated click ID:', clickId);
         
         // Get IP info for geo tracking
         let ipInfo: any = null;
         try {
           const ipResponse = await fetch('https://ipapi.co/json/');
           ipInfo = await ipResponse.json();
+          console.log('Obtained IP info:', ipInfo);
         } catch (ipError) {
           console.error('Failed to get IP info:', ipError);
         }
@@ -72,6 +88,7 @@ export default function LinkRedirectPage() {
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
         const isTablet = /iPad|Android(?!.*Mobile)/i.test(userAgent);
         const device = isTablet ? 'tablet' : isMobile ? 'mobile' : 'desktop';
+        console.log('Device detected:', device);
         
         // Collect custom parameters from the URL
         const customParams: Record<string, string> = {};
@@ -88,8 +105,10 @@ export default function LinkRedirectPage() {
           }
         }
         
+        console.log('Logging click with custom params:', customParams);
+        
         // Log the click
-        await supabase
+        const { data: clickData, error: clickError } = await supabase
           .from('clicks')
           .insert({
             click_id: clickId,
@@ -104,26 +123,43 @@ export default function LinkRedirectPage() {
             custom_params: Object.keys(customParams).length > 0 ? customParams : null,
             created_at: new Date().toISOString()
           });
+          
+        if (clickError) {
+          console.error('Error logging click:', clickError);
+          throw clickError;
+        }
+        
+        console.log('Click logged successfully');
         
         // Check if this is a CPC offer and credit the affiliate immediately
         if (typedLinkData.offer.commission_type === 'CPC' && typedLinkData.offer.commission_amount) {
-          const { data: walletData } = await supabase
+          console.log('Processing CPC commission');
+          
+          const { data: walletData, error: walletError } = await supabase
             .from('wallets')
             .select('*')
             .eq('user_id', typedLinkData.affiliate_id)
             .single();
           
-          if (walletData) {
+          if (walletError) {
+            console.error('Error fetching wallet:', walletError);
+          } else if (walletData) {
+            console.log('Updating wallet with CPC amount');
+            
             // Update wallet with the CPC amount
-            await supabase
+            const { error: updateError } = await supabase
               .from('wallets')
               .update({
                 pending: walletData.pending + typedLinkData.offer.commission_amount
               })
               .eq('user_id', typedLinkData.affiliate_id);
+              
+            if (updateError) {
+              console.error('Error updating wallet:', updateError);
+            }
             
             // Create a conversion record for CPC
-            await supabase
+            const { error: conversionError } = await supabase
               .from('conversions')
               .insert({
                 click_id: clickId,
@@ -133,6 +169,12 @@ export default function LinkRedirectPage() {
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
               });
+              
+            if (conversionError) {
+              console.error('Error creating CPC conversion:', conversionError);
+            } else {
+              console.log('CPC conversion recorded');
+            }
           }
         }
         
@@ -154,6 +196,8 @@ export default function LinkRedirectPage() {
         if (typedLinkData.link_type === 'shortened' || typedLinkData.link_type === 'qr') {
           console.log(`Redirect from ${typedLinkData.link_type} link: ${trackingCode}`);
         }
+        
+        console.log('Redirecting to:', redirectUrl);
         
         // Redirect to the offer URL
         window.location.href = redirectUrl;

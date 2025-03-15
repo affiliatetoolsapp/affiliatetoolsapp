@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export default function ClickRedirectPage() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
@@ -16,6 +17,8 @@ export default function ClickRedirectPage() {
       }
 
       try {
+        console.log(`Processing click for tracking code: ${trackingCode}`);
+        
         // Get tracking link details
         const { data: linkData, error: linkError } = await supabase
           .from('tracking_links')
@@ -24,9 +27,12 @@ export default function ClickRedirectPage() {
           .single();
 
         if (linkError || !linkData) {
+          console.error('Link fetch error:', linkError);
           setError('Link not found or expired');
           return;
         }
+
+        console.log('Retrieved tracking link data:', linkData);
 
         // Check if affiliate is approved for this offer
         if (linkData.affiliate_offers.status !== 'approved') {
@@ -36,6 +42,60 @@ export default function ClickRedirectPage() {
 
         // Generate a unique click ID using crypto for better security
         const clickId = crypto.randomUUID();
+        console.log(`Generated click ID: ${clickId}`);
+
+        // Get IP info for geo tracking
+        let ipInfo: any = null;
+        try {
+          const ipResponse = await fetch('https://ipapi.co/json/');
+          ipInfo = await ipResponse.json();
+          console.log('IP info retrieved:', ipInfo);
+        } catch (ipError) {
+          console.error('Failed to get IP info:', ipError);
+        }
+        
+        // Get device info
+        const userAgent = navigator.userAgent;
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+        const isTablet = /iPad|Android(?!.*Mobile)/i.test(userAgent);
+        const device = isTablet ? 'tablet' : isMobile ? 'mobile' : 'desktop';
+        
+        // Extract browser and OS info for detailed reporting
+        let browser = 'Unknown';
+        if (userAgent.includes('Chrome')) browser = 'Chrome';
+        else if (userAgent.includes('Firefox')) browser = 'Firefox';
+        else if (userAgent.includes('Safari')) browser = 'Safari';
+        else if (userAgent.includes('Edge')) browser = 'Edge';
+        else if (userAgent.includes('MSIE') || userAgent.includes('Trident')) browser = 'Internet Explorer';
+        
+        let os = 'Unknown';
+        if (userAgent.includes('Windows')) os = 'Windows';
+        else if (userAgent.includes('Mac')) os = 'MacOS';
+        else if (userAgent.includes('iPhone')) os = 'iOS';
+        else if (userAgent.includes('iPad')) os = 'iPadOS';
+        else if (userAgent.includes('Android')) os = 'Android';
+        else if (userAgent.includes('Linux')) os = 'Linux';
+        
+        // Custom params
+        const customParams: Record<string, string> = {
+          browser,
+          os
+        };
+        
+        // Add custom parameters if available
+        if (linkData.custom_params) {
+          Object.assign(customParams, linkData.custom_params);
+        }
+        
+        console.log('Logging click with params:', {
+          click_id: clickId,
+          tracking_code: trackingCode,
+          affiliate_id: linkData.affiliate_id,
+          offer_id: linkData.offer_id,
+          ip_address: ipInfo?.ip || null,
+          device,
+          geo: ipInfo?.country || null,
+        });
 
         // Log click
         const { error: clickError } = await supabase
@@ -45,16 +105,52 @@ export default function ClickRedirectPage() {
             tracking_code: trackingCode,
             affiliate_id: linkData.affiliate_id,
             offer_id: linkData.offer_id,
-            ip_address: '', // We'd need server-side code to get this
-            user_agent: navigator.userAgent,
-            device: navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop',
+            ip_address: ipInfo?.ip || null,
+            user_agent: userAgent,
+            device,
+            geo: ipInfo?.country || null,
             referrer: document.referrer,
+            custom_params: Object.keys(customParams).length > 0 ? customParams : null,
+            created_at: new Date().toISOString()
           });
 
         if (clickError) {
           console.error('Error logging click:', clickError);
           setError('Failed to process click');
           return;
+        }
+
+        // Check if this is a CPC offer and credit the affiliate immediately
+        if (linkData.offers.commission_type === 'CPC' && linkData.offers.commission_amount) {
+          const { data: walletData } = await supabase
+            .from('wallets')
+            .select('*')
+            .eq('user_id', linkData.affiliate_id)
+            .single();
+          
+          if (walletData) {
+            // Update wallet with the CPC amount
+            await supabase
+              .from('wallets')
+              .update({
+                pending: walletData.pending + linkData.offers.commission_amount
+              })
+              .eq('user_id', linkData.affiliate_id);
+            
+            // Create a conversion record for CPC
+            await supabase
+              .from('conversions')
+              .insert({
+                click_id: clickId,
+                event_type: 'click',
+                commission: linkData.offers.commission_amount,
+                status: 'pending',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
+              
+            console.log('CPC commission credited:', linkData.offers.commission_amount);
+          }
         }
 
         // Get offer URL for redirect
@@ -65,11 +161,13 @@ export default function ClickRedirectPage() {
         redirectUrl.searchParams.append('clickId', clickId);
         
         // Add custom parameters if available
-        if (linkData.custom_params) {
-          Object.entries(linkData.custom_params).forEach(([key, value]) => {
+        if (customParams) {
+          Object.entries(customParams).forEach(([key, value]) => {
             redirectUrl.searchParams.append(key, value as string);
           });
         }
+
+        console.log(`Redirecting to: ${redirectUrl.toString()}`);
 
         // Redirect to advertiser URL
         window.location.href = redirectUrl.toString();

@@ -25,8 +25,16 @@ import {
   Legend, 
   ResponsiveContainer 
 } from 'recharts';
-import { DownloadIcon, FilterIcon } from 'lucide-react';
-import { format, subDays, startOfDay, endOfDay, eachDayOfInterval } from 'date-fns';
+import { 
+  DownloadIcon, 
+  FilterIcon,
+  ChevronDown,
+  Calendar as CalendarIcon
+} from 'lucide-react';
+import { format, subDays, startOfDay, endOfDay, eachDayOfInterval, parseISO } from 'date-fns';
+import { DataTable } from '@/components/ui/data-table';
+import { ColumnDef } from '@tanstack/react-table';
+import { toast } from 'sonner';
 
 export default function ReportsPage() {
   const { user } = useAuth();
@@ -46,57 +54,88 @@ export default function ReportsPage() {
     queryFn: async () => {
       if (!user) return [];
       
-      let query = supabase
-        .from('clicks')
-        .select('*')
-        .gte('created_at', startOfDay(startDate).toISOString())
-        .lte('created_at', endOfDay(endDate).toISOString());
-      
-      if (isAdvertiser) {
-        // For advertisers, get clicks for their offers
-        const { data: offers } = await supabase
-          .from('offers')
-          .select('id')
-          .eq('advertiser_id', user.id);
+      try {
+        let query = supabase
+          .from('clicks')
+          .select(`
+            *,
+            tracking_links(id, tracking_code, affiliate_id),
+            offers:offers(id, name, advertiser_id, commission_type)
+          `)
+          .gte('created_at', startOfDay(startDate).toISOString())
+          .lte('created_at', endOfDay(endDate).toISOString());
         
-        if (offers && offers.length > 0) {
-          const offerIds = offers.map(o => o.id);
-          query = query.in('offer_id', offerIds);
+        if (isAdvertiser) {
+          // For advertisers, get clicks for their offers
+          query = query.eq('offers.advertiser_id', user.id);
         } else {
-          return [];
+          // For affiliates
+          query = query.eq('affiliate_id', user.id);
         }
-      } else {
-        // For affiliates
-        query = query.eq('affiliate_id', user.id);
+        
+        const { data, error } = await query;
+        
+        if (error) {
+          console.error('Error fetching clicks:', error);
+          throw error;
+        }
+        
+        return data || [];
+      } catch (error) {
+        console.error('Error processing clicks:', error);
+        return [];
       }
-      
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
     },
     enabled: !!user,
   });
   
   // Get conversions
   const { data: conversions, isLoading: isLoadingConversions } = useQuery({
-    queryKey: ['report-conversions', user?.id, user?.role, dateRange, clicks],
+    queryKey: ['report-conversions', user?.id, user?.role, dateRange, clicks?.length],
     queryFn: async () => {
       if (!user || !clicks || clicks.length === 0) return [];
       
-      const clickIds = clicks.map(click => click.click_id);
-      
-      let query = supabase
-        .from('conversions')
-        .select('*')
-        .in('click_id', clickIds);
+      try {
+        const clickIds = clicks.map(click => click.click_id);
         
-      if (selectedType !== 'all') {
-        query = query.eq('event_type', selectedType);
+        let query = supabase
+          .from('conversions')
+          .select(`
+            *,
+            click:clicks(
+              id, click_id, affiliate_id, offer_id, 
+              tracking_code, created_at, ip_address, device, geo,
+              offers:offers(id, name, advertiser_id, commission_type)
+            )
+          `)
+          .in('click_id', clickIds);
+        
+        if (selectedType !== 'all') {
+          query = query.eq('event_type', selectedType);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) {
+          console.error('Error fetching conversions:', error);
+          throw error;
+        }
+        
+        // Filter conversions based on user role
+        return data?.filter(conv => {
+          const clickData = conv.click as any;
+          if (!clickData) return false;
+          
+          if (isAdvertiser) {
+            return clickData.offers?.advertiser_id === user.id;
+          } else {
+            return clickData.affiliate_id === user.id;
+          }
+        }) || [];
+      } catch (error) {
+        console.error('Error processing conversions:', error);
+        return [];
       }
-      
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
     },
     enabled: !!user && !!clicks && clicks.length > 0,
   });
@@ -122,7 +161,7 @@ export default function ReportsPage() {
     
     // Count clicks by day
     clicks.forEach(click => {
-      const clickDate = format(new Date(click.created_at), 'yyyy-MM-dd');
+      const clickDate = format(parseISO(click.created_at), 'yyyy-MM-dd');
       const dataPoint = data.find(d => d.date === clickDate);
       if (dataPoint) {
         dataPoint.clicks += 1;
@@ -133,9 +172,9 @@ export default function ReportsPage() {
     if (conversions) {
       conversions.forEach(conv => {
         // Find associated click to get date
-        const click = clicks.find(c => c.click_id === conv.click_id);
-        if (click) {
-          const clickDate = format(new Date(click.created_at), 'yyyy-MM-dd');
+        const clickData = conv.click as any;
+        if (clickData) {
+          const clickDate = format(parseISO(clickData.created_at), 'yyyy-MM-dd');
           const dataPoint = data.find(d => d.date === clickDate);
           if (dataPoint) {
             dataPoint.conversions += 1;
@@ -165,6 +204,258 @@ export default function ReportsPage() {
   const totalCommissions = conversions?.reduce((sum, conv) => sum + (conv.commission || 0), 0) || 0;
   
   const isLoading = isLoadingClicks || isLoadingConversions;
+
+  // Define columns for clicks table
+  const clickColumns: ColumnDef<any>[] = [
+    {
+      accessorKey: "click_id",
+      header: "Click ID",
+      cell: ({ row }) => (
+        <div className="font-mono text-xs truncate max-w-[120px]" title={row.original.click_id}>
+          {row.original.click_id.substring(0, 8)}...
+        </div>
+      ),
+    },
+    {
+      accessorKey: "created_at",
+      header: "Date & Time",
+      cell: ({ row }) => (
+        <div className="whitespace-nowrap">
+          {format(parseISO(row.original.created_at), "MMM dd, yyyy HH:mm")}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "ip_address",
+      header: "IP Address",
+      cell: ({ row }) => <div>{row.original.ip_address || "Unknown"}</div>,
+    },
+    {
+      accessorKey: "geo",
+      header: "Country",
+      cell: ({ row }) => <div>{row.original.geo || "Unknown"}</div>,
+    },
+    {
+      accessorKey: "device",
+      header: "Device",
+      cell: ({ row }) => <div className="capitalize">{row.original.device || "Unknown"}</div>,
+    },
+    {
+      accessorKey: "browser",
+      header: "Browser",
+      cell: ({ row }) => {
+        const userAgent = row.original.user_agent || "";
+        let browser = "Unknown";
+        
+        if (userAgent.includes("Chrome")) browser = "Chrome";
+        else if (userAgent.includes("Firefox")) browser = "Firefox";
+        else if (userAgent.includes("Safari")) browser = "Safari";
+        else if (userAgent.includes("Edge")) browser = "Edge";
+        else if (userAgent.includes("MSIE") || userAgent.includes("Trident")) browser = "Internet Explorer";
+        
+        return <div>{browser}</div>;
+      },
+    },
+    {
+      accessorKey: "os",
+      header: "OS",
+      cell: ({ row }) => {
+        const userAgent = row.original.user_agent || "";
+        let os = "Unknown";
+        
+        if (userAgent.includes("Windows")) os = "Windows";
+        else if (userAgent.includes("Mac")) os = "MacOS";
+        else if (userAgent.includes("iPhone")) os = "iOS";
+        else if (userAgent.includes("iPad")) os = "iPadOS";
+        else if (userAgent.includes("Android")) os = "Android";
+        else if (userAgent.includes("Linux")) os = "Linux";
+        
+        return <div>{os}</div>;
+      },
+    },
+    {
+      accessorKey: "offer",
+      header: "Offer",
+      cell: ({ row }) => {
+        const offerName = row.original.offers?.name || "Unknown";
+        return <div className="font-medium">{offerName}</div>;
+      },
+    },
+    {
+      accessorKey: "conversions",
+      header: "Conversions",
+      cell: ({ row }) => {
+        const count = conversions?.filter(c => c.click_id === row.original.click_id).length || 0;
+        return <div className="text-center">{count}</div>;
+      },
+    },
+  ];
+
+  // Define columns for conversions table
+  const conversionColumns: ColumnDef<any>[] = [
+    {
+      accessorKey: "id",
+      header: "Conversion ID",
+      cell: ({ row }) => (
+        <div className="font-mono text-xs truncate max-w-[120px]" title={row.original.id}>
+          {row.original.id.substring(0, 8)}...
+        </div>
+      ),
+    },
+    {
+      accessorKey: "click_id",
+      header: "Click ID",
+      cell: ({ row }) => (
+        <div className="font-mono text-xs truncate max-w-[120px]" title={row.original.click_id}>
+          {row.original.click_id.substring(0, 8)}...
+        </div>
+      ),
+    },
+    {
+      accessorKey: "created_at",
+      header: "Date & Time",
+      cell: ({ row }) => (
+        <div className="whitespace-nowrap">
+          {format(parseISO(row.original.created_at), "MMM dd, yyyy HH:mm")}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "offer",
+      header: "Offer",
+      cell: ({ row }) => {
+        const clickData = row.original.click as any;
+        const offerName = clickData?.offers?.name || "Unknown";
+        return <div className="font-medium">{offerName}</div>;
+      },
+    },
+    {
+      accessorKey: "event_type",
+      header: "Type",
+      cell: ({ row }) => (
+        <div className="capitalize">{row.original.event_type}</div>
+      ),
+    },
+    {
+      accessorKey: "commission_type",
+      header: "Commission Type",
+      cell: ({ row }) => {
+        const clickData = row.original.click as any;
+        const commissionType = clickData?.offers?.commission_type || "Unknown";
+        return <div>{commissionType}</div>;
+      },
+    },
+    {
+      accessorKey: "revenue",
+      header: "Revenue",
+      cell: ({ row }) => (
+        <div>${(row.original.revenue || 0).toFixed(2)}</div>
+      ),
+    },
+    {
+      accessorKey: "commission",
+      header: "Commission",
+      cell: ({ row }) => (
+        <div>${(row.original.commission || 0).toFixed(2)}</div>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => (
+        <div className="capitalize">{row.original.status}</div>
+      ),
+    },
+  ];
+
+  // Export data to CSV
+  const exportToCSV = (dataType: 'clicks' | 'conversions') => {
+    try {
+      const data = dataType === 'clicks' ? clicks : conversions;
+      if (!data || data.length === 0) {
+        toast.error(`No ${dataType} data to export`);
+        return;
+      }
+      
+      let csvContent = '';
+      let headers = [];
+      let rows = [];
+      
+      if (dataType === 'clicks') {
+        headers = ['Click ID', 'Date', 'IP Address', 'Country', 'Device', 'Browser', 'OS', 'Offer', 'Conversions'];
+        
+        rows = data.map(click => {
+          const userAgent = click.user_agent || '';
+          let browser = 'Unknown';
+          let os = 'Unknown';
+          
+          if (userAgent.includes('Chrome')) browser = 'Chrome';
+          else if (userAgent.includes('Firefox')) browser = 'Firefox';
+          else if (userAgent.includes('Safari')) browser = 'Safari';
+          else if (userAgent.includes('Edge')) browser = 'Edge';
+          
+          if (userAgent.includes('Windows')) os = 'Windows';
+          else if (userAgent.includes('Mac')) os = 'MacOS';
+          else if (userAgent.includes('iPhone')) os = 'iOS';
+          else if (userAgent.includes('Android')) os = 'Android';
+          
+          const convCount = conversions?.filter(c => c.click_id === click.click_id).length || 0;
+          
+          return [
+            click.click_id,
+            format(parseISO(click.created_at), 'yyyy-MM-dd HH:mm:ss'),
+            click.ip_address || 'Unknown',
+            click.geo || 'Unknown',
+            click.device || 'Unknown',
+            browser,
+            os,
+            click.offers?.name || 'Unknown',
+            convCount
+          ];
+        });
+      } else {
+        headers = ['Conversion ID', 'Click ID', 'Date', 'Offer', 'Type', 'Commission Type', 'Revenue', 'Commission', 'Status'];
+        
+        rows = data.map(conv => {
+          const clickData = conv.click as any;
+          return [
+            conv.id,
+            conv.click_id,
+            format(parseISO(conv.created_at), 'yyyy-MM-dd HH:mm:ss'),
+            clickData?.offers?.name || 'Unknown',
+            conv.event_type,
+            clickData?.offers?.commission_type || 'Unknown',
+            (conv.revenue || 0).toFixed(2),
+            (conv.commission || 0).toFixed(2),
+            conv.status
+          ];
+        });
+      }
+      
+      // Add headers
+      csvContent += headers.join(',') + '\n';
+      
+      // Add rows
+      rows.forEach(row => {
+        csvContent += row.map(value => `"${value}"`).join(',') + '\n';
+      });
+      
+      // Create download link
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `${dataType}_report_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`${dataType} data exported successfully`);
+    } catch (error) {
+      console.error(`Error exporting ${dataType}:`, error);
+      toast.error(`Failed to export ${dataType} data`);
+    }
+  };
   
   if (!user) return null;
   
@@ -209,11 +500,6 @@ export default function ReportsPage() {
             </SelectContent>
           </Select>
         </div>
-        
-        <Button variant="outline">
-          <DownloadIcon className="h-4 w-4 mr-2" />
-          Export CSV
-        </Button>
       </div>
       
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
@@ -434,124 +720,60 @@ export default function ReportsPage() {
         
         <TabsContent value="clicks">
           <Card>
-            <CardHeader>
-              <CardTitle>Click Details</CardTitle>
-              <CardDescription>
-                All traffic details for the selected period
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Click Details</CardTitle>
+                <CardDescription>
+                  All traffic details for the selected period
+                </CardDescription>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => exportToCSV('clicks')}
+                disabled={!clicks || clicks.length === 0}
+              >
+                <DownloadIcon className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <div className="flex justify-center p-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : clicks && clicks.length > 0 ? (
-                <div className="rounded-md border">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b bg-muted/50">
-                          <th className="p-2 text-left font-medium">Date</th>
-                          <th className="p-2 text-left font-medium">Offer</th>
-                          <th className="p-2 text-left font-medium">GEO</th>
-                          <th className="p-2 text-left font-medium">Device</th>
-                          <th className="p-2 text-left font-medium">Conversions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {clicks.slice(0, 10).map(click => {
-                          const clickConversions = conversions?.filter(
-                            c => c.click_id === click.click_id
-                          ).length || 0;
-                          
-                          return (
-                            <tr key={click.id} className="border-b hover:bg-muted/50">
-                              <td className="p-2">
-                                {format(new Date(click.created_at), 'MMM dd, yyyy HH:mm')}
-                              </td>
-                              <td className="p-2">
-                                {click.offer_id.slice(0, 8)}...
-                              </td>
-                              <td className="p-2">{click.geo || 'Unknown'}</td>
-                              <td className="p-2">{click.device || 'Unknown'}</td>
-                              <td className="p-2">{clickConversions}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                  {clicks.length > 10 && (
-                    <div className="p-2 text-center">
-                      <Button variant="link" size="sm">
-                        View all {clicks.length} clicks
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-8 border rounded-md">
-                  <p className="text-muted-foreground">No click data for the selected period</p>
-                </div>
-              )}
+              <DataTable 
+                columns={clickColumns} 
+                data={clicks || []} 
+                isLoading={isLoadingClicks}
+                emptyMessage="No click data for the selected period"
+              />
             </CardContent>
           </Card>
         </TabsContent>
         
         <TabsContent value="conversions">
           <Card>
-            <CardHeader>
-              <CardTitle>Conversion Details</CardTitle>
-              <CardDescription>
-                All conversion data for the selected period
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Conversion Details</CardTitle>
+                <CardDescription>
+                  All conversion data for the selected period
+                </CardDescription>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => exportToCSV('conversions')}
+                disabled={!conversions || conversions.length === 0}
+              >
+                <DownloadIcon className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <div className="flex justify-center p-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : conversions && conversions.length > 0 ? (
-                <div className="rounded-md border">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b bg-muted/50">
-                          <th className="p-2 text-left font-medium">Date</th>
-                          <th className="p-2 text-left font-medium">Type</th>
-                          <th className="p-2 text-left font-medium">Revenue</th>
-                          <th className="p-2 text-left font-medium">Commission</th>
-                          <th className="p-2 text-left font-medium">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {conversions.slice(0, 10).map(conv => (
-                          <tr key={conv.id} className="border-b hover:bg-muted/50">
-                            <td className="p-2">
-                              {format(new Date(conv.created_at), 'MMM dd, yyyy HH:mm')}
-                            </td>
-                            <td className="p-2 capitalize">{conv.event_type}</td>
-                            <td className="p-2">${conv.revenue?.toFixed(2) || '0.00'}</td>
-                            <td className="p-2">${conv.commission?.toFixed(2) || '0.00'}</td>
-                            <td className="p-2 capitalize">{conv.status}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {conversions.length > 10 && (
-                    <div className="p-2 text-center">
-                      <Button variant="link" size="sm">
-                        View all {conversions.length} conversions
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-8 border rounded-md">
-                  <p className="text-muted-foreground">No conversion data for the selected period</p>
-                </div>
-              )}
+              <DataTable 
+                columns={conversionColumns} 
+                data={conversions || []} 
+                isLoading={isLoadingConversions}
+                emptyMessage="No conversion data for the selected period"
+              />
             </CardContent>
           </Card>
         </TabsContent>

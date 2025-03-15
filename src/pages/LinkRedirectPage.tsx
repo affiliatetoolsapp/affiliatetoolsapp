@@ -1,7 +1,9 @@
+
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { TrackingLinkWithOffer } from '@/types';
+import { toast } from 'sonner';
 
 export default function LinkRedirectPage() {
   const { trackingCode } = useParams();
@@ -18,6 +20,8 @@ export default function LinkRedirectPage() {
       }
       
       try {
+        console.log(`Processing click for tracking code: ${trackingCode}`);
+        
         // Get the tracking link details
         const { data: linkData, error: linkError } = await supabase
           .from('tracking_links')
@@ -28,13 +32,18 @@ export default function LinkRedirectPage() {
           .eq('tracking_code', trackingCode)
           .single();
         
-        if (linkError) throw linkError;
+        if (linkError) {
+          console.error('Error fetching tracking link:', linkError);
+          throw linkError;
+        }
         
         if (!linkData) {
           setError('Tracking link not found');
           setIsLoading(false);
           return;
         }
+
+        console.log('Retrieved tracking link data:', linkData);
 
         // Cast linkData to TrackingLinkWithOffer to include link_type
         const typedLinkData = linkData as TrackingLinkWithOffer;
@@ -47,7 +56,10 @@ export default function LinkRedirectPage() {
           .eq('offer_id', typedLinkData.offer_id)
           .single();
         
-        if (approvalError) throw approvalError;
+        if (approvalError) {
+          console.error('Error checking affiliate approval:', approvalError);
+          throw approvalError;
+        }
         
         if (!approvalData || approvalData.status !== 'approved') {
           setError('Affiliate not approved for this offer');
@@ -57,12 +69,14 @@ export default function LinkRedirectPage() {
         
         // Generate a unique click ID using crypto for better security
         const clickId = crypto.randomUUID();
+        console.log(`Generated click ID: ${clickId}`);
         
         // Get IP info for geo tracking
         let ipInfo: any = null;
         try {
           const ipResponse = await fetch('https://ipapi.co/json/');
           ipInfo = await ipResponse.json();
+          console.log('IP info retrieved:', ipInfo);
         } catch (ipError) {
           console.error('Failed to get IP info:', ipError);
         }
@@ -72,6 +86,22 @@ export default function LinkRedirectPage() {
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
         const isTablet = /iPad|Android(?!.*Mobile)/i.test(userAgent);
         const device = isTablet ? 'tablet' : isMobile ? 'mobile' : 'desktop';
+        
+        // Extract browser and OS info for detailed reporting
+        let browser = 'Unknown';
+        if (userAgent.includes('Chrome')) browser = 'Chrome';
+        else if (userAgent.includes('Firefox')) browser = 'Firefox';
+        else if (userAgent.includes('Safari')) browser = 'Safari';
+        else if (userAgent.includes('Edge')) browser = 'Edge';
+        else if (userAgent.includes('MSIE') || userAgent.includes('Trident')) browser = 'Internet Explorer';
+        
+        let os = 'Unknown';
+        if (userAgent.includes('Windows')) os = 'Windows';
+        else if (userAgent.includes('Mac')) os = 'MacOS';
+        else if (userAgent.includes('iPhone')) os = 'iOS';
+        else if (userAgent.includes('iPad')) os = 'iPadOS';
+        else if (userAgent.includes('Android')) os = 'Android';
+        else if (userAgent.includes('Linux')) os = 'Linux';
         
         // Collect custom parameters from the URL
         const customParams: Record<string, string> = {};
@@ -88,8 +118,22 @@ export default function LinkRedirectPage() {
           }
         }
         
+        // Add browser and OS info to custom params for detailed reporting
+        customParams.browser = browser;
+        customParams.os = os;
+        
+        console.log('Logging click with params:', {
+          click_id: clickId,
+          tracking_code: trackingCode,
+          affiliate_id: typedLinkData.affiliate_id,
+          offer_id: typedLinkData.offer_id,
+          ip_address: ipInfo?.ip || null,
+          device,
+          geo: ipInfo?.country || null,
+        });
+        
         // Log the click
-        await supabase
+        const { error: clickInsertError } = await supabase
           .from('clicks')
           .insert({
             click_id: clickId,
@@ -104,6 +148,11 @@ export default function LinkRedirectPage() {
             custom_params: Object.keys(customParams).length > 0 ? customParams : null,
             created_at: new Date().toISOString()
           });
+          
+        if (clickInsertError) {
+          console.error('Error inserting click data:', clickInsertError);
+          // Continue the flow even if click logging fails - we don't want to block the user experience
+        }
         
         // Check if this is a CPC offer and credit the affiliate immediately
         if (typedLinkData.offer.commission_type === 'CPC' && typedLinkData.offer.commission_amount) {
@@ -133,6 +182,8 @@ export default function LinkRedirectPage() {
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
               });
+              
+            console.log('CPC commission credited:', typedLinkData.offer.commission_amount);
           }
         }
         
@@ -154,6 +205,8 @@ export default function LinkRedirectPage() {
         if (typedLinkData.link_type === 'shortened' || typedLinkData.link_type === 'qr') {
           console.log(`Redirect from ${typedLinkData.link_type} link: ${trackingCode}`);
         }
+        
+        console.log(`Redirecting to: ${redirectUrl}`);
         
         // Redirect to the offer URL
         window.location.href = redirectUrl;

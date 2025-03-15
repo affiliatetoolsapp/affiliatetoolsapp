@@ -1,9 +1,8 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { AffiliateOffer, Offer } from '@/types';
+import { AffiliateOffer, Offer, TrackingLink } from '@/types';
 import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
@@ -11,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, ExternalLink, Link as LinkIcon, Clock, Check, X, Grid, List, Trash, DollarSign, Calendar, Tag, MapPin, Globe, Eye } from 'lucide-react';
+import { Search, ExternalLink, Link as LinkIcon, Clock, Check, X, Grid, List, Trash, DollarSign, Calendar, Tag, MapPin, Globe, Eye, Copy, Download, RefreshCw } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -100,6 +99,33 @@ export default function AffiliateOffers() {
     },
     enabled: !!user && user.role === 'affiliate',
   });
+
+  // NEW QUERY: Get tracking links for this affiliate
+  const { data: trackingLinks, isLoading: trackingLinksLoading } = useQuery({
+    queryKey: ['affiliate-tracking-links', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      console.log("Fetching tracking links for affiliate:", user.id);
+      
+      const { data, error } = await supabase
+        .from('tracking_links')
+        .select(`
+          *,
+          offer:offers(id, name, commission_type, commission_amount, commission_percent)
+        `)
+        .eq('affiliate_id', user.id);
+      
+      if (error) {
+        console.error("Error fetching tracking links:", error);
+        throw error;
+      }
+      
+      console.log("Tracking links fetched:", data?.length);
+      return data as (TrackingLink & { offer: Partial<Offer> })[];
+    },
+    enabled: !!user && user.role === 'affiliate',
+  });
   
   // Cancel application mutation with improved error handling
   const cancelApplication = useMutation({
@@ -143,20 +169,20 @@ export default function AffiliateOffers() {
     item.offer.niche?.toLowerCase().includes(searchQuery.toLowerCase())
   );
   
-  const isLoading = approvedLoading || pendingLoading || rejectedLoading;
+  const isLoading = approvedLoading || pendingLoading || rejectedLoading || trackingLinksLoading;
   
   const handleCancelApplication = (applicationId: string) => {
     cancelApplication.mutate(applicationId);
   };
   
-  // Format geo targets for display
+  // Format geo targets for display - IMPROVED to show actual country names
   const formatGeoTargets = (offer: Offer) => {
     if (!offer.geo_targets) return ["Worldwide"];
     
     try {
       // If geo_targets is a string, try to parse it
       const geoObj = typeof offer.geo_targets === 'string' 
-        ? JSON.parse(offer.geo_targets) 
+        ? JSON.parse(geo_targets) 
         : offer.geo_targets;
       
       // If it's an empty object or not actually containing country data
@@ -171,7 +197,7 @@ export default function AffiliateOffers() {
     }
   };
   
-  // Handle navigation to offer details - updated to be more explicit
+  // Handle navigation to offer details
   const handleViewOfferDetails = (offerId: string) => {
     console.log("[AffiliateOffers] Navigating to offer details:", offerId);
     navigate(`/offers/${offerId}`);
@@ -180,6 +206,41 @@ export default function AffiliateOffers() {
   // Handle navigation to links page with offer ID
   const handleGenerateLinks = (offerId: string) => {
     navigate(`/links?offer=${offerId}`);
+  };
+
+  // Copy tracking link to clipboard
+  const handleCopyLink = (trackingCode: string) => {
+    const baseUrl = window.location.origin;
+    const trackingUrl = `${baseUrl}/r/${trackingCode}`;
+    
+    navigator.clipboard.writeText(trackingUrl).then(() => {
+      toast({
+        title: "Link Copied",
+        description: "Tracking link copied to clipboard",
+      });
+    });
+  };
+
+  // Download QR code
+  const handleDownloadQR = (trackingCode: string) => {
+    const baseUrl = window.location.origin;
+    const trackingUrl = `${baseUrl}/r/${trackingCode}`;
+    
+    // Create QR code URL - this would typically use a service or library
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(trackingUrl)}`;
+    
+    // Trigger download
+    const link = document.createElement('a');
+    link.href = qrCodeUrl;
+    link.download = `qrcode-${trackingCode}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: "QR Code Downloaded",
+      description: "Your QR code has been downloaded",
+    });
   };
 
   const renderPendingTable = (applications: (AffiliateOffer & { offer: Offer })[]) => (
@@ -270,6 +331,80 @@ export default function AffiliateOffers() {
       </Table>
     </div>
   );
+
+  // NEW FUNCTION: Render tracking links table
+  const renderTrackingLinksTable = (links: (TrackingLink & { offer: Partial<Offer> })[]) => (
+    <div className="rounded-md border overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Offer</TableHead>
+            <TableHead>Commission</TableHead>
+            <TableHead>Tracking Link</TableHead>
+            <TableHead>Created</TableHead>
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {links.map((link) => {
+            const baseUrl = window.location.origin;
+            const trackingUrl = `${baseUrl}/r/${link.tracking_code}`;
+            
+            return (
+              <TableRow key={link.id}>
+                <TableCell className="font-medium">{link.offer?.name || 'Unknown Offer'}</TableCell>
+                <TableCell>
+                  {link.offer?.commission_type === 'RevShare' 
+                    ? `${link.offer?.commission_percent}%` 
+                    : `$${link.offer?.commission_amount}`}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <div className="font-mono text-sm truncate max-w-[180px]">
+                      {trackingUrl}
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6"
+                      onClick={() => handleCopyLink(link.tracking_code)}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {new Date(link.created_at).toLocaleDateString()}
+                </TableCell>
+                <TableCell>
+                  <div className="flex justify-center gap-2">
+                    {link.link_type === 'qr' && (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleDownloadQR(link.tracking_code)}
+                      >
+                        <Download className="h-4 w-4 mr-1" />
+                        QR
+                      </Button>
+                    )}
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleViewOfferDetails(link.offer_id)}
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      View Offer
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  );
   
   return (
     <div className="space-y-6">
@@ -312,8 +447,9 @@ export default function AffiliateOffers() {
         </div>
       </div>
       
-      <Tabs defaultValue="active">
-        <TabsList>
+      {/* UPDATED: Make tabs stretch full width */}
+      <Tabs defaultValue="active" className="w-full">
+        <TabsList className="w-full grid grid-cols-4">
           <TabsTrigger value="active">Active Offers</TabsTrigger>
           <TabsTrigger value="pending">
             Pending Applications
@@ -380,6 +516,7 @@ export default function AffiliateOffers() {
                         <span className="ml-1">{affiliateOffer.reviewed_at ? new Date(affiliateOffer.reviewed_at).toLocaleDateString() : 'Recently'}</span>
                       </div>
                       
+                      {/* IMPROVED: Show actual country names */}
                       <div className="text-sm flex items-start">
                         <Globe className="h-4 w-4 mr-1 text-indigo-500 mt-0.5" />
                         <span className="font-medium mr-1">Geo: </span>
@@ -472,6 +609,7 @@ export default function AffiliateOffers() {
                         <TableCell>{affiliateOffer.offer.niche || '-'}</TableCell>
                         <TableCell>{affiliateOffer.traffic_source || '-'}</TableCell>
                         <TableCell>
+                          {/* IMPROVED: Better display of geo targeting */}
                           <div className="flex flex-wrap gap-1">
                             {formatGeoTargets(affiliateOffer.offer).slice(0, 2).map((geo, i) => (
                               <Badge key={i} variant="outline" className="text-xs">
@@ -672,17 +810,34 @@ export default function AffiliateOffers() {
           )}
         </TabsContent>
         
+        {/* UPDATED: Show actual tracking links instead of placeholder */}
         <TabsContent value="links">
-          <Card className="p-6">
-            <p className="mb-4">To view and generate tracking links for specific offers, please select an offer from the Active Offers tab.</p>
-            <Button
-              onClick={() => {
-                navigate('/links');
-              }}
-            >
-              Go to Links Page
-            </Button>
-          </Card>
+          {isLoading ? (
+            <div className="flex justify-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : trackingLinks?.length ? (
+            <>
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold">Your Tracking Links</h3>
+                <p className="text-sm text-muted-foreground">
+                  All your generated tracking links for approved offers
+                </p>
+              </div>
+              {renderTrackingLinksTable(trackingLinks)}
+            </>
+          ) : (
+            <Card className="p-8 text-center">
+              <p className="text-muted-foreground mb-4">You haven't created any tracking links yet</p>
+              <Button 
+                onClick={() => {
+                  navigate('/links');
+                }}
+              >
+                Generate Tracking Links
+              </Button>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

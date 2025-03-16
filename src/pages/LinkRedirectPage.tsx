@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { formatTrackingUrl } from '@/components/affiliate/utils/offerUtils';
 
 export default function LinkRedirectPage() {
   const { trackingCode } = useParams();
@@ -121,7 +122,7 @@ export default function LinkRedirectPage() {
             // Second try: Use RPC call to bypass RLS
             const { data: rpcData, error: rpcError } = await supabase.rpc(
               'insert_click',
-              clickData as any
+              clickData
             );
             
             if (rpcError) {

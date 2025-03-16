@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { formatTrackingUrl } from '@/components/affiliate/utils/offerUtils';
 
 export default function ClickRedirectPage() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
@@ -101,10 +102,10 @@ export default function ClickRedirectPage() {
           if (directInsertError) {
             console.warn('Direct insert failed, trying RPC method:', directInsertError);
             
-            // Second try: Use RPC method with type assertion
+            // Second try: Use RPC method without type assertion
             const { data: rpcData, error: rpcError } = await supabase.rpc(
               'insert_click', 
-              clickData as any
+              clickData
             );
             
             if (rpcError) {

@@ -39,6 +39,12 @@ export default function ClickRedirectPage() {
 
         if (!linkData) {
           console.error('Tracking link not found for code:', trackingCode);
+          // Log the actual query structure for debugging
+          console.error('Query attempted:', {
+            trackingCode,
+            isExactMatch: typeof trackingCode === 'string',
+            trackingCodeLength: trackingCode ? trackingCode.length : 0
+          });
           setError('Link not found or expired');
           return;
         }
@@ -74,12 +80,11 @@ export default function ClickRedirectPage() {
           console.warn('Could not get geo information:', geoError);
         }
 
-        // Get basic device info
+        // Get device info directly from user agent
         const userAgent = navigator.userAgent;
         const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i;
-        const isMobileDevice = mobileRegex.test(userAgent);
-        const device = isMobileDevice ? 'mobile' : 'desktop';
-        console.log('Detected device type:', device, 'from userAgent');
+        const device = mobileRegex.test(userAgent) ? 'mobile' : 'desktop';
+        console.log('Detected device type directly from userAgent:', device);
         
         // Simplified click data
         const clickData = {

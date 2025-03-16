@@ -26,8 +26,10 @@ export default function LinkRedirectPage() {
         console.log(`Processing click for tracking code: ${trackingCode}`);
         console.log(`Device detection: isMobile=${isMobile}, userAgent=${navigator.userAgent}`);
         
-        // Get the tracking link details
+        // Get the tracking link details - with detailed logging
         console.log(`Fetching tracking link with code: ${trackingCode}`);
+        console.log(`TrackingCode type: ${typeof trackingCode}, length: ${trackingCode.length}`);
+        
         const { data: linkData, error: linkError } = await supabase
           .from('tracking_links')
           .select(`
@@ -36,6 +38,8 @@ export default function LinkRedirectPage() {
           `)
           .eq('tracking_code', trackingCode)
           .maybeSingle();
+        
+        console.log('Raw query response:', { data: linkData, error: linkError });
         
         if (linkError) {
           console.error('Error fetching tracking link:', linkError);
@@ -46,9 +50,34 @@ export default function LinkRedirectPage() {
         
         if (!linkData) {
           console.error('Tracking link not found for code:', trackingCode);
-          setError('Tracking link not found or expired');
-          setIsLoading(false);
-          return;
+          console.error('Query attempted:', {
+            trackingCode,
+            isExactMatch: typeof trackingCode === 'string',
+            trackingCodeLength: trackingCode ? trackingCode.length : 0
+          });
+          
+          // Try a double-check query with trimmed tracking code
+          const trimmedCode = trackingCode.trim();
+          if (trimmedCode !== trackingCode) {
+            console.log(`Attempting with trimmed code: '${trimmedCode}'`);
+            const { data: retryData } = await supabase
+              .from('tracking_links')
+              .select('*')
+              .eq('tracking_code', trimmedCode)
+              .maybeSingle();
+              
+            if (retryData) {
+              console.log('Found with trimmed code!', retryData);
+              // Continue with this data instead
+              linkData = retryData;
+            }
+          }
+          
+          if (!linkData) {
+            setError('Tracking link not found or expired');
+            setIsLoading(false);
+            return;
+          }
         }
 
         console.log('Retrieved tracking link data:', linkData);
@@ -82,12 +111,11 @@ export default function LinkRedirectPage() {
           console.warn('Could not get geo information:', geoError);
         }
         
-        // Get basic device info
+        // Get device info directly from user agent
         const userAgent = navigator.userAgent;
         const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i;
-        const isMobileDevice = mobileRegex.test(userAgent);
-        const device = isMobileDevice ? 'mobile' : 'desktop';
-        console.log('Detected device type:', device, 'from userAgent');
+        const device = mobileRegex.test(userAgent) ? 'mobile' : 'desktop';
+        console.log('Detected device type directly from userAgent:', device);
         
         // Simplified custom parameters
         const customParams: Record<string, string> = {};

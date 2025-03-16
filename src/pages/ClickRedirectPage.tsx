@@ -25,7 +25,9 @@ export default function ClickRedirectPage() {
         
         // Get tracking link details
         console.log(`Fetching tracking link with code: ${trackingCode}`);
-        const { data: linkData, error: linkError } = await supabase
+        
+        // Use let instead of const for linkData
+        let { data: linkData, error: linkError } = await supabase
           .from('tracking_links')
           .select('*, offers(*)')
           .eq('tracking_code', trackingCode)
@@ -45,8 +47,27 @@ export default function ClickRedirectPage() {
             isExactMatch: typeof trackingCode === 'string',
             trackingCodeLength: trackingCode ? trackingCode.length : 0
           });
-          setError('Link not found or expired');
-          return;
+          
+          // Try with trimmed tracking code
+          const trimmedCode = trackingCode.trim();
+          if (trimmedCode !== trackingCode) {
+            console.log(`Attempting with trimmed code: '${trimmedCode}'`);
+            const { data: retryData } = await supabase
+              .from('tracking_links')
+              .select('*, offers(*)')
+              .eq('tracking_code', trimmedCode)
+              .maybeSingle();
+              
+            if (retryData) {
+              console.log('Found with trimmed code!', retryData);
+              linkData = retryData;
+            }
+          }
+          
+          if (!linkData) {
+            setError('Link not found or expired');
+            return;
+          }
         }
 
         console.log('Retrieved tracking link data:', linkData);

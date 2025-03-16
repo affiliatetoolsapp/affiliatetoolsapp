@@ -30,7 +30,8 @@ export default function LinkRedirectPage() {
         console.log(`Fetching tracking link with code: ${trackingCode}`);
         console.log(`TrackingCode type: ${typeof trackingCode}, length: ${trackingCode.length}`);
         
-        const { data: linkData, error: linkError } = await supabase
+        // Use let instead of const for linkData since we might need to reassign it later
+        let { data: linkData, error: linkError } = await supabase
           .from('tracking_links')
           .select(`
             *,
@@ -68,7 +69,7 @@ export default function LinkRedirectPage() {
               
             if (retryData) {
               console.log('Found with trimmed code!', retryData);
-              // Continue with this data instead
+              // Now we can reassign linkData because it's declared with let
               linkData = retryData;
             }
           }

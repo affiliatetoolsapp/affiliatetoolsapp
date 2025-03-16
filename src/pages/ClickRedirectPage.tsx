@@ -117,7 +117,7 @@ export default function ClickRedirectPage() {
               
               // Use Promise.race to avoid waiting too long for geo data
               const timeoutPromise = new Promise<string | null>(resolve => 
-                setTimeout(() => resolve(null), 500) // 500ms timeout (increased from 300ms)
+                setTimeout(() => resolve(null), 300) // 300ms timeout
               );
               
               country = await Promise.race([geoPromise, timeoutPromise]);
@@ -153,11 +153,14 @@ export default function ClickRedirectPage() {
         console.log('Recording click with data:', clickData);
         
         // Log click asynchronously - don't wait for completion to redirect
+        // FIX: Use .then().catch() properly to handle the promise
         supabase.rpc('insert_click', clickData)
           .then(({ error }) => {
             if (error) console.error('Failed to record click:', error);
           })
-          .catch(err => console.error('Error during click insertion:', err));
+          .catch(err => {
+            console.error('Error during click insertion:', err);
+          });
         
         // Build redirect URL
         let redirectUrl = linkData.offers.url;

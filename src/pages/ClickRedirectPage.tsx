@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -9,7 +9,7 @@ import { Toaster } from 'sonner';
 export default function ClickRedirectPage() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -17,6 +17,7 @@ export default function ClickRedirectPage() {
       if (!trackingCode) {
         console.error('No tracking code provided in URL');
         setError('Invalid tracking link');
+        setIsLoading(false);
         return;
       }
 
@@ -35,9 +36,7 @@ export default function ClickRedirectPage() {
         
         // Try each code variation until we find a match
         let linkData = null;
-        let querySuccess = false;
         let queryError = null;
-        let lastQueryResult = null;
         
         for (const code of codeVariations) {
           console.log(`Trying tracking code: '${code}'`);
@@ -51,7 +50,6 @@ export default function ClickRedirectPage() {
             .eq('tracking_code', code)
             .maybeSingle();
           
-          lastQueryResult = { data, error, code };
           console.log(`Query result for code '${code}':`, { 
             success: !!data && !error, 
             hasError: !!error,
@@ -66,7 +64,6 @@ export default function ClickRedirectPage() {
           
           if (data) {
             linkData = data;
-            querySuccess = true;
             console.log(`Found matching tracking link with code '${code}'`);
             break;
           }
@@ -78,7 +75,6 @@ export default function ClickRedirectPage() {
             originalCode,
             cleanedCode,
             decodedCode,
-            attemptedVariations: codeVariations,
             userAgent: navigator.userAgent,
             isMobile
           });
@@ -89,6 +85,7 @@ export default function ClickRedirectPage() {
           } else {
             setError('Tracking link not found or expired');
           }
+          setIsLoading(false);
           return;
         }
 
@@ -96,8 +93,9 @@ export default function ClickRedirectPage() {
         
         // Make sure offers data is accessible
         if (!linkData.offers) {
-          console.error('Offers data not found in query result:', lastQueryResult);
+          console.error('Offers data not found in query result');
           setError('Invalid offer configuration: missing offer data');
+          setIsLoading(false);
           return;
         }
         
@@ -179,6 +177,7 @@ export default function ClickRedirectPage() {
         if (!linkData.offers || !linkData.offers.url) {
           console.error('Offer URL is missing');
           setError('Invalid offer configuration');
+          setIsLoading(false);
           return;
         }
 
@@ -198,11 +197,12 @@ export default function ClickRedirectPage() {
       } catch (error) {
         console.error('Error processing click:', error);
         setError('An unexpected error occurred: ' + (error instanceof Error ? error.message : String(error)));
+        setIsLoading(false);
       }
     };
 
     processClick();
-  }, [trackingCode, navigate, isMobile]);
+  }, [trackingCode, isMobile]);
 
   return (
     <div className="flex items-center justify-center min-h-screen flex-col p-4 text-center">
@@ -210,12 +210,12 @@ export default function ClickRedirectPage() {
         <div>
           <h1 className="text-2xl font-bold text-red-500 mb-4">Error</h1>
           <p className="mb-4">{error}</p>
-          <button 
-            onClick={() => navigate('/')}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md"
+          <a 
+            href="/"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md inline-block"
           >
             Return Home
-          </button>
+          </a>
         </div>
       ) : (
         <div>

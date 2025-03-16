@@ -1,17 +1,16 @@
 
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Toaster } from '@/components/ui/toaster';
+import { Toaster } from 'sonner';
 
 export default function LinkRedirectPage() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
   const isMobile = useIsMobile();
   
   useEffect(() => {
@@ -38,9 +37,7 @@ export default function LinkRedirectPage() {
         
         // Try each code variation until we find a match
         let linkData = null;
-        let querySuccess = false;
         let queryError = null;
-        let lastQueryResult = null;
         
         for (const code of codeVariations) {
           console.log(`Trying tracking code: '${code}'`);
@@ -54,7 +51,6 @@ export default function LinkRedirectPage() {
             .eq('tracking_code', code)
             .maybeSingle();
           
-          lastQueryResult = { data, error, code };
           console.log(`Query result for code '${code}':`, { 
             success: !!data && !error, 
             hasError: !!error,
@@ -69,7 +65,6 @@ export default function LinkRedirectPage() {
           
           if (data) {
             linkData = data;
-            querySuccess = true;
             console.log(`Found matching tracking link with code '${code}'`);
             break;
           }
@@ -81,7 +76,6 @@ export default function LinkRedirectPage() {
             originalCode,
             cleanedCode,
             decodedCode,
-            attemptedVariations: codeVariations,
             userAgent: navigator.userAgent,
             isMobile
           });
@@ -101,7 +95,7 @@ export default function LinkRedirectPage() {
         
         // Make sure offers data is accessible
         if (!linkData.offers) {
-          console.error('Offers data not found in query result:', lastQueryResult);
+          console.error('Offers data not found in query result');
           setError('Invalid offer configuration: missing offer data');
           setIsLoading(false);
           return;
@@ -182,11 +176,7 @@ export default function LinkRedirectPage() {
           
           if (rpcError) {
             console.error('RPC insert failed:', rpcError);
-            toast({
-              title: "Error",
-              description: "Failed to record click",
-              variant: "destructive"
-            });
+            toast.error('Failed to record click');
           } else {
             console.log('Click successfully logged via RPC:', rpcData);
           }
@@ -224,7 +214,7 @@ export default function LinkRedirectPage() {
     };
     
     processClick();
-  }, [trackingCode, searchParams, navigate, isMobile]);
+  }, [trackingCode, searchParams, isMobile]);
   
   if (error) {
     return (

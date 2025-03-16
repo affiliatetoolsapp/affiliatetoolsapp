@@ -787,6 +787,7 @@ export default function ReportsPage() {
                 data={clicks || []} 
                 isLoading={isLoadingClicks}
                 emptyMessage="No click data for the selected period"
+                defaultSorting={[{ id: 'created_at', desc: true }]}
               />
             </CardContent>
           </Card>
@@ -817,6 +818,7 @@ export default function ReportsPage() {
                 data={conversions || []} 
                 isLoading={isLoadingConversions}
                 emptyMessage="No conversion data for the selected period"
+                defaultSorting={[{ id: 'created_at', desc: true }]}
               />
             </CardContent>
           </Card>

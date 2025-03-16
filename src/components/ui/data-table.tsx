@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -28,6 +28,7 @@ interface DataTableProps<TData, TValue> {
   pageSize?: number;
   isLoading?: boolean;
   emptyMessage?: string;
+  defaultSorting?: { id: string; desc: boolean }[];
 }
 
 export function DataTable<TData, TValue>({
@@ -36,8 +37,9 @@ export function DataTable<TData, TValue>({
   pageSize = 10,
   isLoading = false,
   emptyMessage = "No data available",
+  defaultSorting = [],
 }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sorting, setSorting] = useState<SortingState>(defaultSorting);
 
   const table = useReactTable({
     data,
@@ -67,13 +69,27 @@ export function DataTable<TData, TValue>({
                   <TableHead
                     key={header.id}
                     className="font-medium"
+                    onClick={header.column.getCanSort() ? header.column.getToggleSortingHandler() : undefined}
                   >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
+                    {header.isPlaceholder ? null : (
+                      <div className="flex items-center gap-1">
+                        {flexRender(
                           header.column.columnDef.header,
                           header.getContext()
                         )}
+                        {header.column.getCanSort() && (
+                          <div className="ml-1">
+                            {header.column.getIsSorted() === "asc" ? (
+                              <ArrowUp className="h-4 w-4" />
+                            ) : header.column.getIsSorted() === "desc" ? (
+                              <ArrowDown className="h-4 w-4" />
+                            ) : (
+                              <ArrowUpDown className="h-4 w-4 opacity-50" />
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </TableHead>
                 ))}
               </TableRow>

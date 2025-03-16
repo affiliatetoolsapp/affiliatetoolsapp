@@ -39,7 +39,7 @@ export default function AdvertiserPostbackSetup() {
   const testPostback = () => {
     const testUrl = postbackUrl
       .replace('{click_id}', 'test_click_123')
-      .replace('{goal}', '1')
+      .replace('{goal}', 'lead')
       .replace('{payout}', '10');
       
     toast({
@@ -115,7 +115,7 @@ export default function AdvertiserPostbackSetup() {
           <div className="space-y-2">
             <Badge variant="outline">{'{goal}'}</Badge>
             <p className="text-sm text-muted-foreground">
-              Optional. Specify conversion type (1=lead, 2=sale, 3=action, 4=deposit).
+              Optional. Specify conversion type (lead, sale, action, deposit).
             </p>
           </div>
           <div className="space-y-2">
@@ -130,11 +130,11 @@ export default function AdvertiserPostbackSetup() {
           <p className="text-sm font-medium">Example postbacks:</p>
           <div className="mt-2 space-y-2">
             <div className="text-xs font-mono p-2 bg-background rounded border">
-              {postbackUrl.replace('{click_id}', 'abc123').replace('{goal}', '1').replace('{payout}', '5')}
+              {postbackUrl.replace('{click_id}', 'abc123').replace('{goal}', 'lead').replace('{payout}', '5')}
               <span className="text-muted-foreground ml-2">← Lead conversion ($5)</span>
             </div>
             <div className="text-xs font-mono p-2 bg-background rounded border">
-              {postbackUrl.replace('{click_id}', 'abc123').replace('{goal}', '2').replace('{payout}', '25')}
+              {postbackUrl.replace('{click_id}', 'abc123').replace('{goal}', 'sale').replace('{payout}', '25')}
               <span className="text-muted-foreground ml-2">← Sale conversion ($25)</span>
             </div>
           </div>
@@ -156,6 +156,24 @@ export default function AdvertiserPostbackSetup() {
           <div className="text-sm">
             <p>Make sure your system sends a postback request for each conversion. Test thoroughly to ensure tracking works properly.</p>
           </div>
+        </div>
+        
+        <div className="mt-6 p-4 border rounded-md">
+          <h3 className="font-medium mb-2">Integration Instructions</h3>
+          <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
+            <li>
+              <strong>Capture the clickId</strong>: When a user clicks on an affiliate link to your offer, we'll append a clickId parameter to your URL (or replace {'{clickId}'} if you included it in your offer URL).
+            </li>
+            <li>
+              <strong>Store this clickId</strong>: Your system should capture and store this clickId to associate it with user actions.
+            </li>
+            <li>
+              <strong>Send postback on conversion</strong>: When a conversion happens (lead, sale, etc.), send a postback to our URL with the clickId and goal type.
+            </li>
+            <li>
+              <strong>Optional: Include payout</strong>: For revenue share models, you can include the payout amount.
+            </li>
+          </ol>
         </div>
       </CardContent>
     </Card>

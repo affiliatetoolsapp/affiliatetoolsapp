@@ -104,6 +104,46 @@ serve(async (req) => {
     
     console.log('Created conversion record:', conversionData)
     
+    // Check if we need to forward this conversion to the affiliate's custom postback
+    try {
+      // Check if affiliate has a custom postback URL
+      const { data: postbackData } = await supabase
+        .from('custom_postbacks')
+        .select('postback_url, events')
+        .eq('affiliate_id', clickData.affiliate_id)
+        .maybeSingle();
+      
+      if (postbackData?.postback_url && postbackData.events && postbackData.events.includes(body.eventType)) {
+        console.log(`Forwarding conversion to affiliate postback URL: ${postbackData.postback_url}`);
+        
+        // Create the forward URL by replacing placeholders
+        let forwardUrl = postbackData.postback_url
+          .replace(/\{click_id\}/g, body.clickId)
+          .replace(/\{goal\}/g, body.eventType);
+        
+        if (body.revenue !== null && body.revenue !== undefined) {
+          forwardUrl = forwardUrl.replace(/\{payout\}/g, body.revenue.toString());
+        }
+        
+        // Send the request asynchronously
+        try {
+          const forwardRes = await Promise.race([
+            fetch(forwardUrl),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Postback forward timeout')), 5000)
+            )
+          ]);
+          
+          console.log(`Forwarded postback result: ${forwardRes.status}`);
+        } catch (forwardErr) {
+          console.error('Error forwarding postback:', forwardErr);
+        }
+      }
+    } catch (postbackErr) {
+      // Don't fail if postback forwarding fails
+      console.error('Error checking affiliate postback:', postbackErr);
+    }
+    
     return new Response(JSON.stringify({ 
       success: true, 
       conversionId: conversionData.id,

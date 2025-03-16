@@ -17,8 +17,9 @@ serve(async (req) => {
   const url = new URL(req.url);
   const click_id = url.searchParams.get('click_id');
   const goal = url.searchParams.get('goal') || 'conversion';
+  const payout = url.searchParams.get('payout');
   
-  console.log(`Received postback request: click_id=${click_id}, goal=${goal}`)
+  console.log(`Received postback request: click_id=${click_id}, goal=${goal}, payout=${payout || 'not provided'}`)
   
   // Validate required fields
   if (!click_id) {
@@ -70,19 +71,32 @@ serve(async (req) => {
     
     console.log(`Found click data for affiliate_id ${clickData.affiliate_id}`)
     
-    // Map the goal to event_type
-    let event_type = goal;
+    // Parse payout if provided
+    let revenue = null;
+    if (payout) {
+      const parsedPayout = parseFloat(payout);
+      if (!isNaN(parsedPayout)) {
+        revenue = parsedPayout;
+        console.log(`Parsed payout: ${revenue}`);
+      } else {
+        console.warn(`Invalid payout value: ${payout}`);
+      }
+    }
     
-    // Create basic conversion record
+    // Create conversion record
     const { data: conversionData, error: conversionError } = await supabase
       .from('conversions')
       .insert({
         click_id: click_id,
-        event_type: event_type,
-        revenue: 0,
-        commission: 0, // We'll handle commission later
+        event_type: goal,
+        revenue: revenue,
+        commission: 0, // We'll handle commission calculation in a trigger or function
         status: 'pending',
-        metadata: { source: 's2s_postback', goal: goal },
+        metadata: { 
+          source: 's2s_postback', 
+          goal: goal,
+          payout: payout || null
+        },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -99,10 +113,51 @@ serve(async (req) => {
     
     console.log('Created conversion record:', conversionData)
     
+    // Check if we need to forward this conversion to the affiliate's custom postback
+    try {
+      // Check if affiliate has a custom postback URL
+      const { data: postbackData } = await supabase
+        .from('custom_postbacks')
+        .select('postback_url, events')
+        .eq('affiliate_id', clickData.affiliate_id)
+        .maybeSingle();
+      
+      if (postbackData?.postback_url && postbackData.events && postbackData.events.includes(goal)) {
+        console.log(`Forwarding conversion to affiliate postback URL: ${postbackData.postback_url}`);
+        
+        // Create the forward URL by replacing placeholders
+        let forwardUrl = postbackData.postback_url
+          .replace(/\{click_id\}/g, click_id)
+          .replace(/\{goal\}/g, goal);
+        
+        if (revenue !== null) {
+          forwardUrl = forwardUrl.replace(/\{payout\}/g, revenue.toString());
+        }
+        
+        // Send the request asynchronously
+        try {
+          const forwardRes = await Promise.race([
+            fetch(forwardUrl),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Postback forward timeout')), 5000)
+            )
+          ]);
+          
+          console.log(`Forwarded postback result: ${forwardRes.status}`);
+        } catch (forwardErr) {
+          console.error('Error forwarding postback:', forwardErr);
+        }
+      }
+    } catch (postbackErr) {
+      // Don't fail if postback forwarding fails
+      console.error('Error checking affiliate postback:', postbackErr);
+    }
+    
     return new Response(JSON.stringify({ 
       success: true, 
       message: `Conversion recorded for click_id ${click_id}`,
-      conversionId: conversionData.id
+      conversionId: conversionData.id,
+      goal: goal
     }), { 
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

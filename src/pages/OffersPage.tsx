@@ -1,3 +1,4 @@
+
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -13,6 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import OfferDetailView from '@/components/affiliate/OfferDetailView';
 import AffiliatePostbackSetup from '@/components/affiliate/AffiliatePostbackSetup';
+import AdvertiserPostbackSetup from '@/components/advertiser/AdvertiserPostbackSetup';
 import { Offer } from '@/types';
 
 export default function OffersPage() {
@@ -104,6 +106,12 @@ export default function OffersPage() {
   if (id === 'postback' && user.role === 'affiliate') {
     console.log("[OffersPage] Loading postback setup interface for affiliate");
     return <AffiliatePostbackSetup />;
+  }
+  
+  // If we have "postback" in the URL, show the postback setup interface (only for advertisers)
+  if (id === 'postback' && user.role === 'advertiser') {
+    console.log("[OffersPage] Loading postback setup interface for advertiser");
+    return <AdvertiserPostbackSetup />;
   }
   
   // If we have an ID, we show the offer details based on user role

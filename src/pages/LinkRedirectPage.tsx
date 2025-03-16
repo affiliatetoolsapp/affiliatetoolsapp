@@ -205,10 +205,19 @@ export default function LinkRedirectPage() {
           console.error('Error during click insertion:', err);
         }
         
-        // Build redirect URL
+        // Build redirect URL with proper clickId parameter replacement
         let redirectUrl = linkData.offers.url;
-        redirectUrl += redirectUrl.includes('?') ? '&' : '?';
-        redirectUrl += `clickId=${clickId}`;
+        
+        // Check if URL contains placeholders like {clickId} in any parameter
+        if (redirectUrl.includes('{clickId}')) {
+          // Replace all instances of {clickId} with the actual clickId
+          redirectUrl = redirectUrl.replace(/\{clickId\}/g, clickId);
+          console.log('Replaced {clickId} placeholder in URL:', redirectUrl);
+        } else {
+          // If no placeholder exists, append clickId as a regular parameter
+          redirectUrl += redirectUrl.includes('?') ? '&' : '?';
+          redirectUrl += `clickId=${clickId}`;
+        }
         
         console.log('Redirecting to:', redirectUrl);
         

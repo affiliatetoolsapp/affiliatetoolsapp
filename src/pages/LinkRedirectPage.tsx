@@ -3,10 +3,9 @@ import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { formatTrackingUrl } from '@/components/affiliate/utils/offerUtils';
 
 export default function LinkRedirectPage() {
-  const { trackingCode } = useParams();
+  const { trackingCode } = useParams<{ trackingCode: string }>();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -81,6 +80,7 @@ export default function LinkRedirectPage() {
         const userAgent = navigator.userAgent;
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
         const device = isMobile ? 'mobile' : 'desktop';
+        console.log('Detected device type:', device);
         
         // Simplified custom parameters
         const customParams: Record<string, string> = {};
@@ -102,14 +102,14 @@ export default function LinkRedirectPage() {
           user_agent: userAgent,
           device,
           referrer: document.referrer || null,
-          custom_params: Object.keys(customParams).length > 0 ? customParams : null,
+          custom_params: Object.keys(customParams).length > 0 ? customParams : linkData.custom_params,
           created_at: new Date().toISOString()
         };
         
         console.log('Attempting to insert click data:', clickData);
         
         try {
-          // Use RPC call directly without trying direct insert first
+          // Use RPC call directly
           console.log('Using RPC method to insert click');
           const { data: rpcData, error: rpcError } = await supabase.rpc(
             'insert_click',

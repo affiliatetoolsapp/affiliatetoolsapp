@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { formatTrackingUrl } from '@/components/affiliate/utils/offerUtils';
 
 export default function ClickRedirectPage() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
@@ -73,6 +72,7 @@ export default function ClickRedirectPage() {
         const userAgent = navigator.userAgent;
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
         const device = isMobile ? 'mobile' : 'desktop';
+        console.log('Detected device type:', device);
         
         // Simplified click data
         const clickData = {
@@ -85,14 +85,14 @@ export default function ClickRedirectPage() {
           user_agent: userAgent,
           device,
           referrer: document.referrer || null,
-          custom_params: null,
+          custom_params: linkData.custom_params || null,
           created_at: new Date().toISOString()
         };
         
         console.log('Attempting to insert click data:', clickData);
 
         try {
-          // Use the insert_click RPC function directly
+          // Use the insert_click RPC function
           console.log('Using RPC method to insert click');
           const { data: rpcData, error: rpcError } = await supabase.rpc(
             'insert_click', 

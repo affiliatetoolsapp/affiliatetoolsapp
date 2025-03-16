@@ -1,4 +1,3 @@
-
 import { Offer } from '@/types';
 
 /**
@@ -32,9 +31,11 @@ export const formatGeoTargets = (offer: Offer) => {
 };
 
 /**
- * Format a tracking URL
+ * Format a tracking URL with proper encoding
  */
 export const formatTrackingUrl = (trackingCode: string) => {
   const baseUrl = window.location.origin;
-  return `${baseUrl}/r/${trackingCode}`;
+  // Ensure the tracking code is properly encoded for URLs
+  const encodedCode = encodeURIComponent(trackingCode.trim());
+  return `${baseUrl}/r/${encodedCode}`;
 };

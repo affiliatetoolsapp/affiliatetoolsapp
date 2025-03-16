@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,66 +22,68 @@ export default function LinkRedirectPage() {
       }
       
       try {
-        console.log(`Processing click for tracking code: ${trackingCode}`);
+        // First decode the tracking code in case it's URL encoded
+        const decodedCode = decodeURIComponent(trackingCode);
+        console.log(`Processing click for tracking code: ${decodedCode}`);
         console.log(`Device detection: isMobile=${isMobile}, userAgent=${navigator.userAgent}`);
         
-        // Clean the tracking code first to remove any whitespace
-        const cleanedCode = trackingCode.trim();
-        console.log(`Original tracking code: '${trackingCode}', Cleaned code: '${cleanedCode}'`);
+        // Clean the tracking code to remove any whitespace
+        const cleanedCode = decodedCode.trim();
+        console.log(`Original tracking code: '${decodedCode}', Cleaned code: '${cleanedCode}'`);
         
-        // Always use the cleaned tracking code for consistency
-        let { data: linkData, error: linkError } = await supabase
-          .from('tracking_links')
-          .select(`
-            *,
-            offers(*)
-          `)
-          .eq('tracking_code', cleanedCode)
-          .maybeSingle();
+        // Try all possible variations of the code
+        const codeVariations = [
+          cleanedCode,
+          decodedCode,
+          trackingCode,
+          encodeURIComponent(cleanedCode)
+        ].filter((code, index, self) => self.indexOf(code) === index); // Remove duplicates
         
-        console.log('Query response:', { 
-          data: linkData, 
-          error: linkError,
-          queryParams: { trackingCode: cleanedCode }
-        });
+        console.log('Trying code variations:', codeVariations);
         
-        if (linkError) {
-          console.error('Error fetching tracking link:', linkError);
-          setError('Error retrieving tracking link: ' + linkError.message);
+        let linkData = null;
+        let lastError = null;
+        
+        // Try each variation until we find a match
+        for (const code of codeVariations) {
+          const { data, error } = await supabase
+            .from('tracking_links')
+            .select(`
+              *,
+              offers(*)
+            `)
+            .eq('tracking_code', code)
+            .maybeSingle();
+            
+          console.log(`Query result for code '${code}':`, { data, error });
+          
+          if (data) {
+            linkData = data;
+            break;
+          }
+          
+          if (error) {
+            lastError = error;
+            console.error(`Error querying with code '${code}':`, error);
+          }
+        }
+        
+        if (lastError && !linkData) {
+          console.error('Final error fetching tracking link:', lastError);
+          setError('Error retrieving tracking link: ' + lastError.message);
           setIsLoading(false);
           return;
         }
         
         if (!linkData) {
-          console.error('Tracking link not found for cleaned code:', cleanedCode);
-          
-          // Try original code if different from cleaned
-          if (cleanedCode !== trackingCode) {
-            console.log(`Fallback - trying original unmodified code: '${trackingCode}'`);
-            const { data: retryData, error: retryError } = await supabase
-              .from('tracking_links')
-              .select(`
-                *,
-                offers(*)
-              `)
-              .eq('tracking_code', trackingCode)
-              .maybeSingle();
-              
-            if (retryData) {
-              console.log('Found with original code!', retryData);
-              linkData = retryData;
-            } else if (retryError) {
-              console.error('Error in fallback query:', retryError);
-            } else {
-              console.log('No results found with original code either');
-            }
-          }
-          
-          if (!linkData) {
-            setError('Tracking link not found or expired');
-            setIsLoading(false);
-            return;
-          }
+          console.error('Tracking link not found for any code variation:', {
+            original: trackingCode,
+            decoded: decodedCode,
+            cleaned: cleanedCode
+          });
+          setError('Tracking link not found or expired');
+          setIsLoading(false);
+          return;
         }
 
         console.log('Retrieved tracking link data:', linkData);
@@ -184,8 +185,8 @@ export default function LinkRedirectPage() {
         // Add parameters separator if needed
         redirectUrl += redirectUrl.includes('?') ? '&' : '?';
         
-        // Add clickId to help with tracking
-        redirectUrl += `clickId=${clickId}`;
+        // Add clickId and device type to help with tracking
+        redirectUrl += `clickId=${clickId}&device=${device}`;
         
         console.log(`Redirecting to: ${redirectUrl}`);
         

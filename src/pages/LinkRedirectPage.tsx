@@ -2,17 +2,23 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Toaster } from 'sonner';
 
 export default function LinkRedirectPage() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const isMobile = useIsMobile();
   
   useEffect(() => {
     const processClick = async () => {
       if (!trackingCode) {
         console.error('No tracking code provided in URL');
         setError('Invalid tracking link');
+        setIsLoading(false);
         return;
       }
       
@@ -27,6 +33,7 @@ export default function LinkRedirectPage() {
         if (decodedCode !== cleanedCode) codeVariations.push(decodedCode);
         
         console.log(`Processing click with tracking code variations:`, codeVariations);
+        console.log(`Device detection: isMobile=${isMobile}, userAgent=${navigator.userAgent}`);
         
         // Try each code variation until we find a match
         let linkData = null;
@@ -68,7 +75,9 @@ export default function LinkRedirectPage() {
           console.error('Tracking link not found after trying all variations:', { 
             originalCode,
             cleanedCode,
-            decodedCode
+            decodedCode,
+            userAgent: navigator.userAgent,
+            isMobile
           });
           
           if (queryError) {
@@ -77,6 +86,8 @@ export default function LinkRedirectPage() {
           } else {
             setError('Tracking link not found or expired');
           }
+          
+          setIsLoading(false);
           return;
         }
 
@@ -86,6 +97,7 @@ export default function LinkRedirectPage() {
         if (!linkData.offers) {
           console.error('Offers data not found in query result');
           setError('Invalid offer configuration: missing offer data');
+          setIsLoading(false);
           return;
         }
         
@@ -119,36 +131,11 @@ export default function LinkRedirectPage() {
           console.warn('Could not get geo information:', geoError);
         }
         
-        // Improved device and OS detection
+        // Get device info directly from user agent
         const userAgent = navigator.userAgent;
-        
-        // Detect device type (mobile, tablet, desktop)
-        let deviceType = 'Desktop';
-        if (/Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
-          deviceType = 'Mobile';
-          // Further classify tablets
-          if (/iPad|tablet|Tablet/i.test(userAgent)) {
-            deviceType = 'Tablet';
-          }
-        }
-        
-        // Detect operating system
-        let operatingSystem = 'Unknown';
-        if (/iPhone|iPad|iPod/i.test(userAgent)) {
-          operatingSystem = 'iOS';
-        } else if (/Android/i.test(userAgent)) {
-          operatingSystem = 'Android';
-        } else if (/Windows Phone|IEMobile/i.test(userAgent)) {
-          operatingSystem = 'Windows Phone';
-        } else if (/Macintosh|MacIntel|MacPPC|Mac68K/i.test(userAgent)) {
-          operatingSystem = 'macOS';
-        } else if (/Win/i.test(userAgent)) {
-          operatingSystem = 'Windows';
-        } else if (/Linux/i.test(userAgent)) {
-          operatingSystem = 'Linux';
-        }
-        
-        console.log('Detected device type:', deviceType, 'Operating system:', operatingSystem, 'User agent:', userAgent);
+        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i;
+        const device = mobileRegex.test(userAgent) ? 'mobile' : 'desktop';
+        console.log('Detected device type directly from userAgent:', device);
         
         // Simplified custom parameters
         const customParams: Record<string, string> = {};
@@ -171,7 +158,7 @@ export default function LinkRedirectPage() {
           ip_address: ipAddress,
           geo: country,
           user_agent: userAgent,
-          device: operatingSystem, // Use OS for device field as per current implementation
+          device,
           referrer: document.referrer || null,
           custom_params: Object.keys(customParams).length > 0 ? customParams : linkData.custom_params,
           created_at: new Date().toISOString()
@@ -189,7 +176,7 @@ export default function LinkRedirectPage() {
           
           if (rpcError) {
             console.error('RPC insert failed:', rpcError);
-            // No toast message here
+            toast.error('Failed to record click');
           } else {
             console.log('Click successfully logged via RPC:', rpcData);
           }
@@ -201,6 +188,7 @@ export default function LinkRedirectPage() {
         if (!linkData.offers || !linkData.offers.url) {
           console.error('Offer URL is missing');
           setError('Invalid offer configuration');
+          setIsLoading(false);
           return;
         }
         
@@ -215,20 +203,19 @@ export default function LinkRedirectPage() {
         
         console.log(`Redirecting to: ${redirectUrl}`);
         
-        // Immediate redirect
+        // Redirect to the offer URL
         window.location.href = redirectUrl;
         
       } catch (error) {
         console.error('Error processing click:', error);
         setError('Failed to process tracking link: ' + (error instanceof Error ? error.message : String(error)));
+        setIsLoading(false);
       }
     };
     
-    // Start processing immediately
     processClick();
-  }, [trackingCode, searchParams]);
+  }, [trackingCode, searchParams, isMobile]);
   
-  // Only show error state if there's an error
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-screen text-center p-4">
@@ -240,10 +227,16 @@ export default function LinkRedirectPage() {
         >
           Return Home
         </a>
+        <Toaster />
       </div>
     );
   }
   
-  // Blank loading screen - users won't see this as redirect happens immediately
-  return <div></div>;
+  return (
+    <div className="flex flex-col items-center justify-center h-screen">
+      <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary"></div>
+      <p className="mt-4 text-muted-foreground">Redirecting to destination...</p>
+      <Toaster />
+    </div>
+  );
 }

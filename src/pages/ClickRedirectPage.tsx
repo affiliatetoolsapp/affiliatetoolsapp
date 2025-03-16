@@ -2,16 +2,22 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Toaster } from 'sonner';
 
 export default function ClickRedirectPage() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const processClick = async () => {
       if (!trackingCode) {
         console.error('No tracking code provided in URL');
         setError('Invalid tracking link');
+        setIsLoading(false);
         return;
       }
 
@@ -26,6 +32,7 @@ export default function ClickRedirectPage() {
         if (decodedCode !== cleanedCode) codeVariations.push(decodedCode);
         
         console.log(`Processing click with tracking code variations:`, codeVariations);
+        console.log(`Device detection: isMobile=${isMobile}, userAgent=${navigator.userAgent}`);
         
         // Try each code variation until we find a match
         let linkData = null;
@@ -67,7 +74,9 @@ export default function ClickRedirectPage() {
           console.error('Tracking link not found after trying all variations:', { 
             originalCode,
             cleanedCode,
-            decodedCode
+            decodedCode,
+            userAgent: navigator.userAgent,
+            isMobile
           });
           
           if (queryError) {
@@ -76,6 +85,7 @@ export default function ClickRedirectPage() {
           } else {
             setError('Tracking link not found or expired');
           }
+          setIsLoading(false);
           return;
         }
 
@@ -85,8 +95,11 @@ export default function ClickRedirectPage() {
         if (!linkData.offers) {
           console.error('Offers data not found in query result');
           setError('Invalid offer configuration: missing offer data');
+          setIsLoading(false);
           return;
         }
+        
+        console.log('Offer data:', linkData.offers);
 
         // Generate a unique click ID
         const clickId = crypto.randomUUID();
@@ -116,36 +129,11 @@ export default function ClickRedirectPage() {
           console.warn('Could not get geo information:', geoError);
         }
 
-        // Improved device and OS detection
+        // Get device info directly from user agent
         const userAgent = navigator.userAgent;
-        
-        // Detect device type (mobile, tablet, desktop)
-        let deviceType = 'Desktop';
-        if (/Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
-          deviceType = 'Mobile';
-          // Further classify tablets
-          if (/iPad|tablet|Tablet/i.test(userAgent)) {
-            deviceType = 'Tablet';
-          }
-        }
-        
-        // Detect operating system
-        let operatingSystem = 'Unknown';
-        if (/iPhone|iPad|iPod/i.test(userAgent)) {
-          operatingSystem = 'iOS';
-        } else if (/Android/i.test(userAgent)) {
-          operatingSystem = 'Android';
-        } else if (/Windows Phone|IEMobile/i.test(userAgent)) {
-          operatingSystem = 'Windows Phone';
-        } else if (/Macintosh|MacIntel|MacPPC|Mac68K/i.test(userAgent)) {
-          operatingSystem = 'macOS';
-        } else if (/Win/i.test(userAgent)) {
-          operatingSystem = 'Windows';
-        } else if (/Linux/i.test(userAgent)) {
-          operatingSystem = 'Linux';
-        }
-        
-        console.log('Detected device type:', deviceType, 'Operating system:', operatingSystem, 'User agent:', userAgent);
+        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i;
+        const device = mobileRegex.test(userAgent) ? 'mobile' : 'desktop';
+        console.log('Detected device type directly from userAgent:', device);
         
         // Use the same code that matched in the database for consistency
         const finalTrackingCode = linkData.tracking_code;
@@ -159,7 +147,7 @@ export default function ClickRedirectPage() {
           ip_address: ipAddress,
           geo: country,
           user_agent: userAgent,
-          device: operatingSystem, // Use OS for device field as per current implementation
+          device,
           referrer: document.referrer || null,
           custom_params: linkData.custom_params || null,
           created_at: new Date().toISOString()
@@ -177,7 +165,7 @@ export default function ClickRedirectPage() {
           
           if (rpcError) {
             console.error('RPC insert failed:', rpcError);
-            // No toast message here
+            toast.error('Failed to record click');
           } else {
             console.log('Click successfully logged via RPC:', rpcData);
           }
@@ -189,6 +177,7 @@ export default function ClickRedirectPage() {
         if (!linkData.offers || !linkData.offers.url) {
           console.error('Offer URL is missing');
           setError('Invalid offer configuration');
+          setIsLoading(false);
           return;
         }
 
@@ -203,34 +192,38 @@ export default function ClickRedirectPage() {
 
         console.log(`Redirecting to: ${redirectUrl}`);
 
-        // Immediate redirect
+        // Redirect to advertiser URL
         window.location.href = redirectUrl;
       } catch (error) {
         console.error('Error processing click:', error);
         setError('An unexpected error occurred: ' + (error instanceof Error ? error.message : String(error)));
+        setIsLoading(false);
       }
     };
 
-    // Start processing immediately
     processClick();
-  }, [trackingCode]);
+  }, [trackingCode, isMobile]);
 
-  // Only show error if something goes wrong
-  return error ? (
+  return (
     <div className="flex items-center justify-center min-h-screen flex-col p-4 text-center">
-      <div>
-        <h1 className="text-2xl font-bold text-red-500 mb-4">Error</h1>
-        <p className="mb-4">{error}</p>
-        <a 
-          href="/"
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-md inline-block"
-        >
-          Return Home
-        </a>
-      </div>
+      {error ? (
+        <div>
+          <h1 className="text-2xl font-bold text-red-500 mb-4">Error</h1>
+          <p className="mb-4">{error}</p>
+          <a 
+            href="/"
+            className="px-4 py-2 bg-primary text-primary-foreground rounded-md inline-block"
+          >
+            Return Home
+          </a>
+        </div>
+      ) : (
+        <div>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+          <p>Redirecting you to the advertiser...</p>
+        </div>
+      )}
+      <Toaster />
     </div>
-  ) : (
-    // Blank loading screen - users won't see this as redirect happens immediately
-    <div></div>
   );
 }

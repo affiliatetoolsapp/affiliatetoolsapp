@@ -20,4 +20,4 @@ ENV PORT=8000
 ENV HOST=0.0.0.0
 
 # Run the server
-CMD ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "--allow-hrtime", "--allow-ffi", "src/main.tsx"]
+CMD ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "--allow-hrtime", "--allow-ffi", "--unstable-sloppy-imports", "src/main.tsx"]

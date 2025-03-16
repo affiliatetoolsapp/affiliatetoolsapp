@@ -116,9 +116,9 @@ export default function ClickRedirectPage() {
           if (ipAddress && ipAddress !== '127.0.0.1' && !ipAddress.startsWith('192.168.')) {
             try {
               // Now try to get geo data with increased timeout
-              const geoResponse = await Promise.race([
+              const geoResponse = await Promise.race<Response>([
                 fetch(`https://ipapi.co/${ipAddress}/json/`),
-                new Promise((_, reject) => 
+                new Promise<never>((_, reject) => 
                   setTimeout(() => reject(new Error('Geo lookup timeout')), 1000) // Increased timeout to 1000ms
                 )
               ]);
@@ -145,9 +145,9 @@ export default function ClickRedirectPage() {
               console.warn('Geo detection error:', geoErr);
               // Try alternate geo service if the first one fails
               try {
-                const altGeoResponse = await Promise.race([
+                const altGeoResponse = await Promise.race<Response>([
                   fetch(`https://ip-api.com/json/${ipAddress}`),
-                  new Promise((_, reject) => 
+                  new Promise<never>((_, reject) => 
                     setTimeout(() => reject(new Error('Alternate geo lookup timeout')), 1000)
                   )
                 ]);

@@ -5,7 +5,19 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://jruzfpymzkzegdhmzwsr.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpydXpmcHltemt6ZWdkaG16d3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE4NjM4MTIsImV4cCI6MjA1NzQzOTgxMn0.fo7-t2T6wbPAyzezvZgFjOmu4hEy3T9f4EpR4JxltL0";
 
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
+// Create a client with specific configuration for public operations
+export const publicSupabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    persistSession: false, // Don't persist auth state
+    autoRefreshToken: false, // Don't try to refresh tokens
+    detectSessionInUrl: false // Don't look for tokens in URL
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'tracking-link' // Add identifier for tracking
+    }
+  }
+});
 
+// Regular client for authenticated operations
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);

@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { publicSupabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second
 
 export default function LinkRedirectPage() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
@@ -11,6 +14,70 @@ export default function LinkRedirectPage() {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  
+  // Helper function to delay execution
+  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  // Helper function to check Supabase connection
+  const checkSupabaseConnection = async () => {
+    try {
+      const { data, error } = await publicSupabase.from('tracking_links').select('count').limit(1);
+      return !error;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  // Helper function to attempt database query with retries
+  const attemptDatabaseQuery = async (code: string, attempt: number = 1): Promise<any> => {
+    try {
+      console.log(`Query attempt ${attempt} for code: ${code}`);
+      
+      // Check connection before query
+      const isConnected = await checkSupabaseConnection();
+      console.log('Supabase connection status:', { isConnected, attempt });
+      
+      if (!isConnected) {
+        throw new Error('Database connection check failed');
+      }
+
+      const { data, error } = await publicSupabase
+        .from('tracking_links')
+        .select(`
+          *,
+          offers(*)
+        `)
+        .eq('tracking_code', code)
+        .maybeSingle();
+
+      console.log(`Query result for attempt ${attempt}:`, {
+        success: !!data,
+        hasError: !!error,
+        data: data ? {
+          id: data.id,
+          tracking_code: data.tracking_code,
+          created_at: data.created_at
+        } : 'Not found',
+        error: error || 'None',
+        environment: process.env.NODE_ENV,
+        queryTimestamp: new Date().toISOString()
+      });
+
+      if (error) throw error;
+      return { data, error: null };
+
+    } catch (error) {
+      console.error(`Query attempt ${attempt} failed:`, error);
+      
+      if (attempt < MAX_RETRIES) {
+        console.log(`Retrying in ${RETRY_DELAY}ms...`);
+        await delay(RETRY_DELAY);
+        return attemptDatabaseQuery(code, attempt + 1);
+      }
+      
+      return { data: null, error };
+    }
+  };
   
   useEffect(() => {
     const processClick = async () => {
@@ -62,13 +129,7 @@ export default function LinkRedirectPage() {
         const codeVariations = [
           cleanedCode,
           decodedCode,
-          trackingCode,
-          encodeURIComponent(cleanedCode),
-          // Add more variations to handle potential mobile encoding issues
-          decodeURIComponent(encodeURIComponent(cleanedCode)), // Handle double encoding
-          cleanedCode.toLowerCase(), // Try lowercase
-          decodedCode.toLowerCase(), // Try lowercase decoded
-          trackingCode.toLowerCase(), // Try lowercase original
+          trackingCode
         ].filter((code, index, self) => 
           // Remove duplicates and empty/null values
           code && self.indexOf(code) === index
@@ -84,40 +145,9 @@ export default function LinkRedirectPage() {
         let lastError = null;
         let successfulCode = null;
         
-        // Try each variation until we find a match
+        // Try each variation with retry logic
         for (const code of codeVariations) {
-          console.log(`Attempting database query with code: '${code}'`);
-          
-          // Log the exact query parameters
-          console.log('Query details:', {
-            table: 'tracking_links',
-            trackingCode: code,
-            trackingCodeType: typeof code,
-            trackingCodeLength: code.length,
-            trackingCodeChars: Array.from(code).map(c => ({ char: c, code: c.charCodeAt(0) }))
-          });
-          
-          const { data, error } = await supabase
-            .from('tracking_links')
-            .select(`
-              *,
-              offers(*)
-            `)
-            .eq('tracking_code', code)
-            .maybeSingle();
-            
-          console.log(`Query result for code '${code}':`, {
-            success: !!data,
-            hasError: !!error,
-            data: data ? {
-              id: data.id,
-              tracking_code: data.tracking_code,
-              created_at: data.created_at
-            } : 'Not found',
-            error: error || 'None',
-            environment: process.env.NODE_ENV,
-            queryTimestamp: new Date().toISOString()
-          });
+          const { data, error } = await attemptDatabaseQuery(code);
           
           if (data) {
             linkData = data;
@@ -225,9 +255,9 @@ export default function LinkRedirectPage() {
         console.log('Attempting to insert click data:', clickData);
         
         try {
-          // Use RPC call directly
+          // Use RPC call with public client
           console.log('Using RPC method to insert click');
-          const { data: rpcData, error: rpcError } = await supabase.rpc(
+          const { data: rpcData, error: rpcError } = await publicSupabase.rpc(
             'insert_click',
             clickData
           );

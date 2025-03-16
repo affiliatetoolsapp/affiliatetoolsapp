@@ -2,22 +2,16 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Toaster } from 'sonner';
 
 export default function ClickRedirectPage() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const isMobile = useIsMobile();
 
   useEffect(() => {
     const processClick = async () => {
       if (!trackingCode) {
         console.error('No tracking code provided in URL');
         setError('Invalid tracking link');
-        setIsLoading(false);
         return;
       }
 
@@ -32,7 +26,6 @@ export default function ClickRedirectPage() {
         if (decodedCode !== cleanedCode) codeVariations.push(decodedCode);
         
         console.log(`Processing click with tracking code variations:`, codeVariations);
-        console.log(`Device detection: isMobile=${isMobile}, userAgent=${navigator.userAgent}`);
         
         // Try each code variation until we find a match
         let linkData = null;
@@ -74,9 +67,7 @@ export default function ClickRedirectPage() {
           console.error('Tracking link not found after trying all variations:', { 
             originalCode,
             cleanedCode,
-            decodedCode,
-            userAgent: navigator.userAgent,
-            isMobile
+            decodedCode
           });
           
           if (queryError) {
@@ -85,7 +76,6 @@ export default function ClickRedirectPage() {
           } else {
             setError('Tracking link not found or expired');
           }
-          setIsLoading(false);
           return;
         }
 
@@ -95,11 +85,8 @@ export default function ClickRedirectPage() {
         if (!linkData.offers) {
           console.error('Offers data not found in query result');
           setError('Invalid offer configuration: missing offer data');
-          setIsLoading(false);
           return;
         }
-        
-        console.log('Offer data:', linkData.offers);
 
         // Generate a unique click ID
         const clickId = crypto.randomUUID();
@@ -129,11 +116,26 @@ export default function ClickRedirectPage() {
           console.warn('Could not get geo information:', geoError);
         }
 
-        // Get device info directly from user agent
+        // Improved device detection
         const userAgent = navigator.userAgent;
-        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i;
-        const device = mobileRegex.test(userAgent) ? 'mobile' : 'desktop';
-        console.log('Detected device type directly from userAgent:', device);
+        let device = 'desktop';
+        
+        // More accurate mobile device detection
+        if (/iPhone|iPad|iPod/i.test(userAgent)) {
+          device = 'iOS';
+        } else if (/Android/i.test(userAgent)) {
+          device = 'Android';
+        } else if (/Windows Phone|IEMobile/i.test(userAgent)) {
+          device = 'Windows Phone';
+        } else if (/Macintosh|MacIntel|MacPPC|Mac68K/i.test(userAgent)) {
+          device = 'macOS';
+        } else if (/Win/i.test(userAgent)) {
+          device = 'Windows';
+        } else if (/Linux/i.test(userAgent)) {
+          device = 'Linux';
+        }
+        
+        console.log('Detected device type:', device, 'User agent:', userAgent);
         
         // Use the same code that matched in the database for consistency
         const finalTrackingCode = linkData.tracking_code;
@@ -165,7 +167,7 @@ export default function ClickRedirectPage() {
           
           if (rpcError) {
             console.error('RPC insert failed:', rpcError);
-            toast.error('Failed to record click');
+            // No toast message here
           } else {
             console.log('Click successfully logged via RPC:', rpcData);
           }
@@ -177,7 +179,6 @@ export default function ClickRedirectPage() {
         if (!linkData.offers || !linkData.offers.url) {
           console.error('Offer URL is missing');
           setError('Invalid offer configuration');
-          setIsLoading(false);
           return;
         }
 
@@ -192,38 +193,34 @@ export default function ClickRedirectPage() {
 
         console.log(`Redirecting to: ${redirectUrl}`);
 
-        // Redirect to advertiser URL
+        // Immediate redirect
         window.location.href = redirectUrl;
       } catch (error) {
         console.error('Error processing click:', error);
         setError('An unexpected error occurred: ' + (error instanceof Error ? error.message : String(error)));
-        setIsLoading(false);
       }
     };
 
+    // Start processing immediately
     processClick();
-  }, [trackingCode, isMobile]);
+  }, [trackingCode]);
 
-  return (
+  // Only show error if something goes wrong
+  return error ? (
     <div className="flex items-center justify-center min-h-screen flex-col p-4 text-center">
-      {error ? (
-        <div>
-          <h1 className="text-2xl font-bold text-red-500 mb-4">Error</h1>
-          <p className="mb-4">{error}</p>
-          <a 
-            href="/"
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md inline-block"
-          >
-            Return Home
-          </a>
-        </div>
-      ) : (
-        <div>
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
-          <p>Redirecting you to the advertiser...</p>
-        </div>
-      )}
-      <Toaster />
+      <div>
+        <h1 className="text-2xl font-bold text-red-500 mb-4">Error</h1>
+        <p className="mb-4">{error}</p>
+        <a 
+          href="/"
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md inline-block"
+        >
+          Return Home
+        </a>
+      </div>
     </div>
+  ) : (
+    // Blank loading screen - users won't see this as redirect happens immediately
+    <div></div>
   );
 }

@@ -2,23 +2,17 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Toaster } from 'sonner';
 
 export default function LinkRedirectPage() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const isMobile = useIsMobile();
   
   useEffect(() => {
     const processClick = async () => {
       if (!trackingCode) {
         console.error('No tracking code provided in URL');
         setError('Invalid tracking link');
-        setIsLoading(false);
         return;
       }
       
@@ -33,7 +27,6 @@ export default function LinkRedirectPage() {
         if (decodedCode !== cleanedCode) codeVariations.push(decodedCode);
         
         console.log(`Processing click with tracking code variations:`, codeVariations);
-        console.log(`Device detection: isMobile=${isMobile}, userAgent=${navigator.userAgent}`);
         
         // Try each code variation until we find a match
         let linkData = null;
@@ -75,9 +68,7 @@ export default function LinkRedirectPage() {
           console.error('Tracking link not found after trying all variations:', { 
             originalCode,
             cleanedCode,
-            decodedCode,
-            userAgent: navigator.userAgent,
-            isMobile
+            decodedCode
           });
           
           if (queryError) {
@@ -86,8 +77,6 @@ export default function LinkRedirectPage() {
           } else {
             setError('Tracking link not found or expired');
           }
-          
-          setIsLoading(false);
           return;
         }
 
@@ -97,7 +86,6 @@ export default function LinkRedirectPage() {
         if (!linkData.offers) {
           console.error('Offers data not found in query result');
           setError('Invalid offer configuration: missing offer data');
-          setIsLoading(false);
           return;
         }
         
@@ -131,11 +119,26 @@ export default function LinkRedirectPage() {
           console.warn('Could not get geo information:', geoError);
         }
         
-        // Get device info directly from user agent
+        // Improved device detection
         const userAgent = navigator.userAgent;
-        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i;
-        const device = mobileRegex.test(userAgent) ? 'mobile' : 'desktop';
-        console.log('Detected device type directly from userAgent:', device);
+        let device = 'desktop';
+        
+        // More accurate mobile device detection
+        if (/iPhone|iPad|iPod/i.test(userAgent)) {
+          device = 'iOS';
+        } else if (/Android/i.test(userAgent)) {
+          device = 'Android';
+        } else if (/Windows Phone|IEMobile/i.test(userAgent)) {
+          device = 'Windows Phone';
+        } else if (/Macintosh|MacIntel|MacPPC|Mac68K/i.test(userAgent)) {
+          device = 'macOS';
+        } else if (/Win/i.test(userAgent)) {
+          device = 'Windows';
+        } else if (/Linux/i.test(userAgent)) {
+          device = 'Linux';
+        }
+        
+        console.log('Detected device type:', device, 'User agent:', userAgent);
         
         // Simplified custom parameters
         const customParams: Record<string, string> = {};
@@ -176,7 +179,7 @@ export default function LinkRedirectPage() {
           
           if (rpcError) {
             console.error('RPC insert failed:', rpcError);
-            toast.error('Failed to record click');
+            // No toast message here
           } else {
             console.log('Click successfully logged via RPC:', rpcData);
           }
@@ -188,7 +191,6 @@ export default function LinkRedirectPage() {
         if (!linkData.offers || !linkData.offers.url) {
           console.error('Offer URL is missing');
           setError('Invalid offer configuration');
-          setIsLoading(false);
           return;
         }
         
@@ -203,19 +205,20 @@ export default function LinkRedirectPage() {
         
         console.log(`Redirecting to: ${redirectUrl}`);
         
-        // Redirect to the offer URL
+        // Immediate redirect
         window.location.href = redirectUrl;
         
       } catch (error) {
         console.error('Error processing click:', error);
         setError('Failed to process tracking link: ' + (error instanceof Error ? error.message : String(error)));
-        setIsLoading(false);
       }
     };
     
+    // Start processing immediately
     processClick();
-  }, [trackingCode, searchParams, isMobile]);
+  }, [trackingCode, searchParams]);
   
+  // Only show error state if there's an error
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-screen text-center p-4">
@@ -227,16 +230,10 @@ export default function LinkRedirectPage() {
         >
           Return Home
         </a>
-        <Toaster />
       </div>
     );
   }
   
-  return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary"></div>
-      <p className="mt-4 text-muted-foreground">Redirecting to destination...</p>
-      <Toaster />
-    </div>
-  );
+  // Blank loading screen - users won't see this as redirect happens immediately
+  return <div></div>;
 }

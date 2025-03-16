@@ -23,49 +23,53 @@ export default function ClickRedirectPage() {
         console.log(`Processing click for tracking code: ${trackingCode}`);
         console.log(`Device detection: isMobile=${isMobile}, userAgent=${navigator.userAgent}`);
         
-        // First, try with exact tracking code
+        // Clean the tracking code first to remove any whitespace
+        const cleanedCode = trackingCode.trim();
+        console.log(`Original tracking code: '${trackingCode}', Cleaned code: '${cleanedCode}'`);
+        
+        // Always use the cleaned tracking code first
         let { data: linkData, error: linkError } = await supabase
           .from('tracking_links')
           .select('*, offers(*)')
-          .eq('tracking_code', trackingCode)
+          .eq('tracking_code', cleanedCode)
           .maybeSingle();
 
-        console.log('Initial query response:', { data: linkData, error: linkError });
+        console.log('Query response:', { 
+          data: linkData, 
+          error: linkError,
+          queryParams: { trackingCode: cleanedCode }
+        });
         
-        // If no data found and code might have whitespace, try with trimmed code
-        if (!linkData && trackingCode.trim() !== trackingCode) {
-          const trimmedCode = trackingCode.trim();
-          console.log(`Attempting with trimmed code: '${trimmedCode}'`);
-          
-          // Make the SAME query but with trimmed code (including offers relationship)
-          const { data: retryData, error: retryError } = await supabase
-            .from('tracking_links')
-            .select('*, offers(*)')
-            .eq('tracking_code', trimmedCode)
-            .maybeSingle();
-            
-          if (retryData) {
-            console.log('Found with trimmed code!', retryData);
-            linkData = retryData;
-          } else if (retryError) {
-            console.error('Error when retrying with trimmed code:', retryError);
-          }
-        }
-
         if (linkError) {
           console.error('Link fetch error:', linkError);
           setError('Error retrieving tracking link: ' + linkError.message);
           return;
         }
 
+        // Try original code if cleaned didn't find anything and they're different
+        if (!linkData && cleanedCode !== trackingCode) {
+          console.log(`Fallback - trying original unmodified code: '${trackingCode}'`);
+          const { data: retryData, error: retryError } = await supabase
+            .from('tracking_links')
+            .select('*, offers(*)')
+            .eq('tracking_code', trackingCode)
+            .maybeSingle();
+            
+          if (retryData) {
+            console.log('Found with original code!', retryData);
+            linkData = retryData;
+          } else if (retryError) {
+            console.error('Error in fallback query:', retryError);
+          } else {
+            console.log('No results found with original code either');
+          }
+        }
+
         if (!linkData) {
-          console.error('Tracking link not found for code:', trackingCode);
-          console.error('Query attempted:', {
-            trackingCode,
-            isExactMatch: typeof trackingCode === 'string',
-            trackingCodeLength: trackingCode ? trackingCode.length : 0
+          console.error('Tracking link not found for any code attempt:', {
+            original: trackingCode,
+            cleaned: cleanedCode
           });
-          
           setError('Link not found or expired');
           return;
         }
@@ -110,7 +114,7 @@ export default function ClickRedirectPage() {
         // Simplified click data
         const clickData = {
           click_id: clickId,
-          tracking_code: trackingCode,
+          tracking_code: cleanedCode, // Use cleaned code for consistency
           affiliate_id: linkData.affiliate_id,
           offer_id: linkData.offer_id,
           ip_address: ipAddress,

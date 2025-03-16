@@ -9,7 +9,7 @@ export function useIsMobile() {
   React.useEffect(() => {
     // Check if this is running in a browser environment
     if (typeof window !== 'undefined') {
-      // Check user agent for mobile devices - enhanced detection
+      // Comprehensive mobile device detection
       const checkUserAgent = () => {
         if (!navigator) return false;
         

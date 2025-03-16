@@ -16,6 +16,7 @@ export default function LinkRedirectPage() {
   useEffect(() => {
     const processClick = async () => {
       if (!trackingCode) {
+        console.error('No tracking code provided in URL');
         setError('Invalid tracking link');
         setIsLoading(false);
         return;
@@ -26,6 +27,7 @@ export default function LinkRedirectPage() {
         console.log(`Device detection: isMobile=${isMobile}, userAgent=${navigator.userAgent}`);
         
         // Get the tracking link details
+        console.log(`Fetching tracking link with code: ${trackingCode}`);
         const { data: linkData, error: linkError } = await supabase
           .from('tracking_links')
           .select(`
@@ -37,19 +39,20 @@ export default function LinkRedirectPage() {
         
         if (linkError) {
           console.error('Error fetching tracking link:', linkError);
-          setError('Tracking link not found');
+          setError('Error retrieving tracking link: ' + linkError.message);
           setIsLoading(false);
           return;
         }
         
         if (!linkData) {
           console.error('Tracking link not found for code:', trackingCode);
-          setError('Tracking link not found');
+          setError('Tracking link not found or expired');
           setIsLoading(false);
           return;
         }
 
         console.log('Retrieved tracking link data:', linkData);
+        console.log('Offer data:', linkData.offer);
 
         // Generate a unique click ID
         const clickId = crypto.randomUUID();
@@ -81,7 +84,7 @@ export default function LinkRedirectPage() {
         
         // Get basic device info
         const userAgent = navigator.userAgent;
-        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i;
         const isMobileDevice = mobileRegex.test(userAgent);
         const device = isMobileDevice ? 'mobile' : 'desktop';
         console.log('Detected device type:', device, 'from userAgent');
@@ -135,6 +138,13 @@ export default function LinkRedirectPage() {
           // Continue despite error to not block user experience
         }
         
+        if (!linkData.offer || !linkData.offer.url) {
+          console.error('Offer URL is missing');
+          setError('Invalid offer configuration');
+          setIsLoading(false);
+          return;
+        }
+        
         // Build redirect URL
         let redirectUrl = linkData.offer.url;
         
@@ -151,7 +161,7 @@ export default function LinkRedirectPage() {
         
       } catch (error) {
         console.error('Error processing click:', error);
-        setError('Failed to process tracking link');
+        setError('Failed to process tracking link: ' + (error instanceof Error ? error.message : String(error)));
         setIsLoading(false);
       }
     };

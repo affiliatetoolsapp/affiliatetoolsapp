@@ -14,6 +14,7 @@ export default function ClickRedirectPage() {
   useEffect(() => {
     const processClick = async () => {
       if (!trackingCode) {
+        console.error('No tracking code provided in URL');
         setError('Invalid tracking link');
         return;
       }
@@ -23,6 +24,7 @@ export default function ClickRedirectPage() {
         console.log(`Device detection: isMobile=${isMobile}, userAgent=${navigator.userAgent}`);
         
         // Get tracking link details
+        console.log(`Fetching tracking link with code: ${trackingCode}`);
         const { data: linkData, error: linkError } = await supabase
           .from('tracking_links')
           .select('*, offers(*)')
@@ -31,7 +33,7 @@ export default function ClickRedirectPage() {
 
         if (linkError) {
           console.error('Link fetch error:', linkError);
-          setError('Error retrieving tracking link');
+          setError('Error retrieving tracking link: ' + linkError.message);
           return;
         }
 
@@ -42,6 +44,7 @@ export default function ClickRedirectPage() {
         }
 
         console.log('Retrieved tracking link data:', linkData);
+        console.log('Offer data:', linkData.offers);
 
         // Generate a unique click ID
         const clickId = crypto.randomUUID();
@@ -73,7 +76,7 @@ export default function ClickRedirectPage() {
 
         // Get basic device info
         const userAgent = navigator.userAgent;
-        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i;
         const isMobileDevice = mobileRegex.test(userAgent);
         const device = isMobileDevice ? 'mobile' : 'desktop';
         console.log('Detected device type:', device, 'from userAgent');
@@ -114,6 +117,12 @@ export default function ClickRedirectPage() {
           // Continue despite error to not block user experience
         }
 
+        if (!linkData.offers || !linkData.offers.url) {
+          console.error('Offer URL is missing');
+          setError('Invalid offer configuration');
+          return;
+        }
+
         // Build redirect URL with parameters
         let redirectUrl = linkData.offers.url;
         
@@ -129,7 +138,7 @@ export default function ClickRedirectPage() {
         window.location.href = redirectUrl;
       } catch (error) {
         console.error('Error processing click:', error);
-        setError('An unexpected error occurred');
+        setError('An unexpected error occurred: ' + (error instanceof Error ? error.message : String(error)));
       }
     };
 

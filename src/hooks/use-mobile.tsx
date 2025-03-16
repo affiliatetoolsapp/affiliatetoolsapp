@@ -11,9 +11,12 @@ export function useIsMobile() {
     if (typeof window !== 'undefined') {
       // Check user agent for mobile devices
       const checkUserAgent = () => {
-        const userAgent = navigator.userAgent;
-        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
-        return mobileRegex.test(userAgent);
+        const userAgent = navigator.userAgent.toLowerCase();
+        const mobileKeywords = [
+          'android', 'webos', 'iphone', 'ipad', 'ipod', 'blackberry', 
+          'iemobile', 'opera mini', 'mobile', 'tablet'
+        ];
+        return mobileKeywords.some(keyword => userAgent.includes(keyword));
       }
       
       // Set initial value based on both width and user agent
@@ -21,7 +24,7 @@ export function useIsMobile() {
         const isMobileWidth = window.innerWidth < MOBILE_BREAKPOINT;
         const isMobileAgent = checkUserAgent();
         setIsMobile(isMobileWidth || isMobileAgent);
-        console.log(`Mobile detection: width=${isMobileWidth}, agent=${isMobileAgent}, combined=${isMobileWidth || isMobileAgent}`);
+        console.log(`Mobile detection: width=${isMobileWidth}, agent=${isMobileAgent}, userAgent=${navigator.userAgent}, combined=${isMobileWidth || isMobileAgent}`);
       }
       
       // Set initial state
@@ -34,6 +37,9 @@ export function useIsMobile() {
       return () => {
         window.removeEventListener('resize', updateMobileState);
       }
+    } else {
+      // Default to false when not in browser
+      setIsMobile(false);
     }
   }, []);
 

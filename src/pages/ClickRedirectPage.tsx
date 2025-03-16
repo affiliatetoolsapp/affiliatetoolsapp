@@ -153,14 +153,13 @@ export default function ClickRedirectPage() {
         console.log('Recording click with data:', clickData);
         
         // Log click asynchronously - don't wait for completion to redirect
-        // FIX: Use .then().catch() properly to handle the promise
-        supabase.rpc('insert_click', clickData)
-          .then(({ error }) => {
-            if (error) console.error('Failed to record click:', error);
-          })
-          .catch(err => {
-            console.error('Error during click insertion:', err);
-          });
+        // FIX: Use correct Promise handling without .catch()
+        try {
+          const { error } = await supabase.rpc('insert_click', clickData);
+          if (error) console.error('Failed to record click:', error);
+        } catch (err) {
+          console.error('Error during click insertion:', err);
+        }
         
         // Build redirect URL
         let redirectUrl = linkData.offers.url;

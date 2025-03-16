@@ -88,6 +88,15 @@ export default function LinkRedirectPage() {
         for (const code of codeVariations) {
           console.log(`Attempting database query with code: '${code}'`);
           
+          // Log the exact query parameters
+          console.log('Query details:', {
+            table: 'tracking_links',
+            trackingCode: code,
+            trackingCodeType: typeof code,
+            trackingCodeLength: code.length,
+            trackingCodeChars: Array.from(code).map(c => ({ char: c, code: c.charCodeAt(0) }))
+          });
+          
           const { data, error } = await supabase
             .from('tracking_links')
             .select(`
@@ -100,8 +109,14 @@ export default function LinkRedirectPage() {
           console.log(`Query result for code '${code}':`, {
             success: !!data,
             hasError: !!error,
-            data: data ? 'Found' : 'Not found',
-            error: error || 'None'
+            data: data ? {
+              id: data.id,
+              tracking_code: data.tracking_code,
+              created_at: data.created_at
+            } : 'Not found',
+            error: error || 'None',
+            environment: process.env.NODE_ENV,
+            queryTimestamp: new Date().toISOString()
           });
           
           if (data) {

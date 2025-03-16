@@ -1,4 +1,3 @@
-
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -14,6 +13,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import OfferDetailView from '@/components/affiliate/OfferDetailView';
 import AffiliatePostbackSetup from '@/components/affiliate/AffiliatePostbackSetup';
+import { Offer } from '@/types';
 
 export default function OffersPage() {
   const { id } = useParams();
@@ -111,9 +111,15 @@ export default function OffersPage() {
     // For affiliates, show the enhanced OfferDetailView
     if (user.role === 'affiliate') {
       console.log("[OffersPage] Showing affiliate offer detail view with status:", applicationStatus);
+      // Convert offerData to Offer type explicitly to ensure type compatibility
+      const offer: Offer = {
+        ...offerData,
+        geo_targets: offerData.geo_targets as Offer['geo_targets']
+      };
+      
       return (
         <OfferDetailView 
-          offer={offerData} 
+          offer={offer} 
           applicationStatus={applicationStatus} 
           onBack={() => navigate('/offers')} 
         />

@@ -18,6 +18,12 @@ export const formatGeoTargets = (offer: Offer) => {
       return ["Worldwide"];
     }
     
+    // Handle arrays directly
+    if (Array.isArray(geoObj)) {
+      return geoObj.map(item => String(item));
+    }
+    
+    // Handle objects
     return Object.keys(geoObj);
   } catch (e) {
     console.error("Error parsing geo targets:", e);

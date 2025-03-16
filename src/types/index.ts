@@ -10,7 +10,7 @@ export type Offer = Database['public']['Tables']['offers']['Row'] & {
   restrictions?: string;
   marketing_materials?: any;
   conversion_requirements?: string;
-  geo_targets?: string | Record<string, any>;
+  geo_targets?: string | Record<string, any> | null;
 };
 export type AffiliateOffer = Database['public']['Tables']['affiliate_offers']['Row'];
 export type Click = Database['public']['Tables']['clicks']['Row'];

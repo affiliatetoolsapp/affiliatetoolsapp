@@ -699,10 +699,9 @@ export default function AffiliateOffers() {
                                     </div>
                                   </TooltipContent>
                                 </Tooltip>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </div>
+                              </TooltipProvider>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-2">

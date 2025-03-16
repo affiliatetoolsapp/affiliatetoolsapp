@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -910,4 +911,89 @@ export default function ReportsPage() {
                 defaultSorting={[{ id: 'created_at', desc: true }]}
                 filterableColumns={[
                   {
-                    id: 'offers.name',
+                    id: 'offer',
+                    title: 'Offer',
+                    options: getOfferFilterOptions(),
+                    type: 'select'
+                  },
+                  {
+                    id: 'geo',
+                    title: 'Country',
+                    options: getCountryFilterOptions(),
+                    type: 'select'
+                  },
+                  {
+                    id: 'device',
+                    title: 'Device',
+                    options: getDeviceFilterOptions(),
+                    type: 'select'
+                  },
+                  {
+                    id: 'ip_address',
+                    title: 'IP Address',
+                    type: 'text'
+                  }
+                ]}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="conversions">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Conversion Details</CardTitle>
+                <CardDescription>
+                  All conversion details for the selected period
+                </CardDescription>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => exportToCSV('conversions')}
+                disabled={!conversions || conversions.length === 0}
+              >
+                <DownloadIcon className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <DataTable 
+                columns={conversionColumns} 
+                data={conversions || []} 
+                isLoading={isLoadingConversions}
+                emptyMessage="No conversion data for the selected period"
+                defaultSorting={[{ id: 'created_at', desc: true }]}
+                filterableColumns={[
+                  {
+                    id: 'offer',
+                    title: 'Offer',
+                    options: getConversionOfferFilterOptions(),
+                    type: 'select'
+                  },
+                  {
+                    id: 'event_type',
+                    title: 'Event Type',
+                    options: getEventTypeFilterOptions(),
+                    type: 'select'
+                  },
+                  {
+                    id: 'status',
+                    title: 'Status',
+                    options: [
+                      { label: 'Pending', value: 'pending' },
+                      { label: 'Approved', value: 'approved' },
+                      { label: 'Rejected', value: 'rejected' }
+                    ],
+                    type: 'select'
+                  }
+                ]}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

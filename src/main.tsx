@@ -15,10 +15,19 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 // Server code for Deno deployment
 // This only runs in the Deno environment, not in the browser
 if (typeof window === 'undefined') {
+  // Add TypeScript declaration for Deno
+  declare namespace Deno {
+    export interface Env {
+      get(key: string): string | undefined;
+    }
+    export const env: Env;
+  }
+
   const serve = async () => {
     try {
       // Dynamic import to avoid browser errors
-      const { serve: denoServe } = await import('https://deno.land/std@0.140.0/http/server.ts');
+      // Using a more modern version of the Deno standard library
+      const { serve: denoServe } = await import('https://deno.land/std@0.204.0/http/server.ts');
       
       // Get port from environment variable or use default
       const port = parseInt(Deno.env.get('PORT') || '8000');

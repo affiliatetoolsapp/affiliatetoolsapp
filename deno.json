@@ -5,7 +5,7 @@
   },
   "tasks": {
     "build": "echo 'Build completed'",
-    "start": "deno run --allow-net --allow-env --allow-read --allow-hrtime --allow-ffi src/main.tsx"
+    "start": "deno run --allow-net --allow-env --allow-read src/main.tsx"
   },
   "compilerOptions": {
     "jsx": "react",

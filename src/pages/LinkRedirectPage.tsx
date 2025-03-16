@@ -22,30 +22,75 @@ export default function LinkRedirectPage() {
       }
       
       try {
+        // Log raw tracking code and URL parameters
+        console.log('Raw URL parameters:', {
+          trackingCode,
+          searchParams: Object.fromEntries(searchParams.entries()),
+          fullUrl: window.location.href,
+          pathname: window.location.pathname
+        });
+
         // First decode the tracking code in case it's URL encoded
         const decodedCode = decodeURIComponent(trackingCode);
-        console.log(`Processing click for tracking code: ${decodedCode}`);
-        console.log(`Device detection: isMobile=${isMobile}, userAgent=${navigator.userAgent}`);
+        console.log('Decoded tracking code:', {
+          original: trackingCode,
+          decoded: decodedCode,
+          length: decodedCode.length,
+          charCodes: Array.from(decodedCode).map(c => c.charCodeAt(0))
+        });
         
-        // Clean the tracking code to remove any whitespace
-        const cleanedCode = decodedCode.trim();
-        console.log(`Original tracking code: '${decodedCode}', Cleaned code: '${cleanedCode}'`);
+        // Clean the tracking code to remove any whitespace and non-printable characters
+        const cleanedCode = decodedCode.trim().replace(/[^\x20-\x7E]/g, '');
+        console.log('Cleaned tracking code:', {
+          decoded: decodedCode,
+          cleaned: cleanedCode,
+          length: cleanedCode.length,
+          charCodes: Array.from(cleanedCode).map(c => c.charCodeAt(0))
+        });
+
+        // Log device information
+        console.log('Device information:', {
+          isMobile,
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+          vendor: navigator.vendor,
+          screenSize: {
+            width: window.screen.width,
+            height: window.screen.height
+          }
+        });
         
         // Try all possible variations of the code
         const codeVariations = [
           cleanedCode,
           decodedCode,
           trackingCode,
-          encodeURIComponent(cleanedCode)
-        ].filter((code, index, self) => self.indexOf(code) === index); // Remove duplicates
+          encodeURIComponent(cleanedCode),
+          // Add more variations to handle potential mobile encoding issues
+          decodeURIComponent(encodeURIComponent(cleanedCode)), // Handle double encoding
+          cleanedCode.toLowerCase(), // Handle case sensitivity
+          decodedCode.toLowerCase()
+        ].filter((code, index, self) => 
+          // Remove duplicates and empty/null values
+          code && self.indexOf(code) === index
+        );
         
-        console.log('Trying code variations:', codeVariations);
+        console.log('Trying code variations:', {
+          variations: codeVariations,
+          counts: codeVariations.map(code => ({
+            code,
+            length: code.length,
+            charCodes: Array.from(code).map(c => c.charCodeAt(0))
+          }))
+        });
         
         let linkData = null;
         let lastError = null;
         
         // Try each variation until we find a match
         for (const code of codeVariations) {
+          console.log(`Attempting database query with code: '${code}'`);
+          
           const { data, error } = await supabase
             .from('tracking_links')
             .select(`
@@ -55,31 +100,52 @@ export default function LinkRedirectPage() {
             .eq('tracking_code', code)
             .maybeSingle();
             
-          console.log(`Query result for code '${code}':`, { data, error });
+          console.log(`Database query result for code '${code}':`, {
+            success: !!data,
+            hasError: !!error,
+            data,
+            error
+          });
           
           if (data) {
             linkData = data;
+            console.log('Found matching tracking link:', {
+              usedCode: code,
+              linkData
+            });
             break;
           }
           
           if (error) {
             lastError = error;
-            console.error(`Error querying with code '${code}':`, error);
+            console.error(`Database error for code '${code}':`, error);
           }
         }
         
         if (lastError && !linkData) {
-          console.error('Final error fetching tracking link:', lastError);
+          console.error('Final error state:', {
+            error: lastError,
+            attemptedCodes: codeVariations,
+            deviceInfo: {
+              isMobile,
+              userAgent: navigator.userAgent
+            }
+          });
           setError('Error retrieving tracking link: ' + lastError.message);
           setIsLoading(false);
           return;
         }
         
         if (!linkData) {
-          console.error('Tracking link not found for any code variation:', {
-            original: trackingCode,
-            decoded: decodedCode,
-            cleaned: cleanedCode
+          console.error('No matching tracking link found:', {
+            attemptedVariations: codeVariations,
+            originalCode: trackingCode,
+            decodedCode,
+            cleanedCode,
+            deviceInfo: {
+              isMobile,
+              userAgent: navigator.userAgent
+            }
           });
           setError('Tracking link not found or expired');
           setIsLoading(false);

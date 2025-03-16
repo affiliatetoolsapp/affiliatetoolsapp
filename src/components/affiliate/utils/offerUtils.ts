@@ -34,8 +34,13 @@ export const formatGeoTargets = (offer: Offer) => {
  * Format a tracking URL with proper encoding
  */
 export const formatTrackingUrl = (trackingCode: string) => {
+  if (!trackingCode) return '';
+  
   const baseUrl = window.location.origin;
-  // Ensure the tracking code is properly encoded for URLs
-  const encodedCode = encodeURIComponent(trackingCode.trim());
+  // Clean the code first - remove whitespace and non-printable characters
+  const cleanCode = trackingCode.trim().replace(/[^\x20-\x7E]/g, '');
+  // Ensure proper URL encoding
+  const encodedCode = encodeURIComponent(cleanCode);
+  
   return `${baseUrl}/r/${encodedCode}`;
 };

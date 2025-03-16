@@ -5,11 +5,12 @@
   },
   "tasks": {
     "build": "echo 'Build completed'",
-    "start": "deno run --allow-net --allow-env --allow-read --unstable-sloppy-imports src/main.tsx"
+    "start": "deno run --allow-net --allow-env --allow-read --allow-hrtime --allow-ffi --unstable-sloppy-imports src/main.tsx"
   },
   "compilerOptions": {
     "jsx": "react",
     "jsxFactory": "React.createElement",
-    "jsxFragmentFactory": "React.Fragment"
+    "jsxFragmentFactory": "React.Fragment",
+    "allowImportingTsExtensions": true
   }
 }

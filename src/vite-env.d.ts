@@ -8,3 +8,11 @@ declare namespace Deno {
   }
   export const env: Env;
 }
+
+// Add declaration for HTTP server import
+declare module 'https://deno.land/std@0.204.0/http/server.ts' {
+  export function serve(
+    handler: (request: Request) => Response | Promise<Response>,
+    options?: { port?: number; hostname?: string }
+  ): Promise<void>;
+}

@@ -15,14 +15,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 // Server code for Deno deployment
 // This only runs in the Deno environment, not in the browser
 if (typeof window === 'undefined') {
-  // Add TypeScript declaration for Deno
-  declare namespace Deno {
-    export interface Env {
-      get(key: string): string | undefined;
-    }
-    export const env: Env;
-  }
-
   const serve = async () => {
     try {
       // Dynamic import to avoid browser errors

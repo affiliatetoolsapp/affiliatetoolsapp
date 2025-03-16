@@ -92,30 +92,18 @@ export default function ClickRedirectPage() {
         console.log('Attempting to insert click data:', clickData);
 
         try {
-          // First try: Direct insert approach
-          const { data: insertData, error: directInsertError } = await supabase
-            .from('clicks')
-            .insert(clickData)
-            .select()
-            .single();
-            
-          if (directInsertError) {
-            console.warn('Direct insert failed, trying RPC method:', directInsertError);
-            
-            // Second try: Use RPC method without type assertion
-            const { data: rpcData, error: rpcError } = await supabase.rpc(
-              'insert_click', 
-              clickData
-            );
-            
-            if (rpcError) {
-              console.error('RPC insert also failed:', rpcError);
-              // Continue anyway to not block the user experience
-            } else {
-              console.log('Click successfully logged via RPC:', rpcData);
-            }
+          // Use the insert_click RPC function directly
+          console.log('Using RPC method to insert click');
+          const { data: rpcData, error: rpcError } = await supabase.rpc(
+            'insert_click', 
+            clickData
+          );
+          
+          if (rpcError) {
+            console.error('RPC insert failed:', rpcError);
+            toast.error('Failed to record click');
           } else {
-            console.log('Click successfully logged via direct insert:', insertData);
+            console.log('Click successfully logged via RPC:', rpcData);
           }
         } catch (insertError) {
           console.error('Error during click insertion:', insertError);

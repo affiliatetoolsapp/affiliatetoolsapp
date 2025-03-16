@@ -109,30 +109,22 @@ export default function LinkRedirectPage() {
         console.log('Attempting to insert click data:', clickData);
         
         try {
-          // First try: Direct insert approach
-          const { data: insertData, error: directError } = await supabase
-            .from('clicks')
-            .insert(clickData)
-            .select()
-            .single();
-              
-          if (directError) {
-            console.warn('Direct insert failed, trying RPC method:', directError);
-            
-            // Second try: Use RPC call to bypass RLS
-            const { data: rpcData, error: rpcError } = await supabase.rpc(
-              'insert_click',
-              clickData
-            );
-            
-            if (rpcError) {
-              console.error('RPC insert also failed:', rpcError);
-              // Continue despite error to not block user experience
-            } else {
-              console.log('Click successfully logged via RPC:', rpcData);
-            }
+          // Use RPC call directly without trying direct insert first
+          console.log('Using RPC method to insert click');
+          const { data: rpcData, error: rpcError } = await supabase.rpc(
+            'insert_click',
+            clickData
+          );
+          
+          if (rpcError) {
+            console.error('RPC insert failed:', rpcError);
+            toast({
+              title: "Error",
+              description: "Failed to record click",
+              variant: "destructive"
+            });
           } else {
-            console.log('Click successfully logged via direct insert:', insertData);
+            console.log('Click successfully logged via RPC:', rpcData);
           }
         } catch (insertError) {
           console.error('Error during click insertion:', insertError);

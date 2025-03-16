@@ -48,16 +48,14 @@ export default function LinkRedirectPage() {
           charCodes: Array.from(cleanedCode).map(c => c.charCodeAt(0))
         });
 
-        // Log device information
+        // Device detection logging
         console.log('Device information:', {
           isMobile,
           userAgent: navigator.userAgent,
           platform: navigator.platform,
           vendor: navigator.vendor,
-          screenSize: {
-            width: window.screen.width,
-            height: window.screen.height
-          }
+          screenWidth: window.innerWidth,
+          screenHeight: window.innerHeight
         });
         
         // Try all possible variations of the code
@@ -68,24 +66,23 @@ export default function LinkRedirectPage() {
           encodeURIComponent(cleanedCode),
           // Add more variations to handle potential mobile encoding issues
           decodeURIComponent(encodeURIComponent(cleanedCode)), // Handle double encoding
-          cleanedCode.toLowerCase(), // Handle case sensitivity
-          decodedCode.toLowerCase()
+          cleanedCode.toLowerCase(), // Try lowercase
+          decodedCode.toLowerCase(), // Try lowercase decoded
+          trackingCode.toLowerCase(), // Try lowercase original
         ].filter((code, index, self) => 
           // Remove duplicates and empty/null values
           code && self.indexOf(code) === index
         );
         
-        console.log('Trying code variations:', {
-          variations: codeVariations,
-          counts: codeVariations.map(code => ({
-            code,
-            length: code.length,
-            charCodes: Array.from(code).map(c => c.charCodeAt(0))
-          }))
-        });
+        console.log('Attempting code variations:', codeVariations.map(code => ({
+          code,
+          length: code.length,
+          charCodes: Array.from(code).map(c => c.charCodeAt(0))
+        })));
         
         let linkData = null;
         let lastError = null;
+        let successfulCode = null;
         
         // Try each variation until we find a match
         for (const code of codeVariations) {
@@ -100,36 +97,35 @@ export default function LinkRedirectPage() {
             .eq('tracking_code', code)
             .maybeSingle();
             
-          console.log(`Database query result for code '${code}':`, {
+          console.log(`Query result for code '${code}':`, {
             success: !!data,
             hasError: !!error,
-            data,
-            error
+            data: data ? 'Found' : 'Not found',
+            error: error || 'None'
           });
           
           if (data) {
             linkData = data;
-            console.log('Found matching tracking link:', {
+            successfulCode = code;
+            console.log('Successfully found tracking link with code:', {
               usedCode: code,
-              linkData
+              originalCode: trackingCode,
+              linkId: data.id,
+              offerId: data.offer_id
             });
             break;
           }
           
           if (error) {
             lastError = error;
-            console.error(`Database error for code '${code}':`, error);
+            console.error(`Error querying with code '${code}':`, error);
           }
         }
         
         if (lastError && !linkData) {
-          console.error('Final error state:', {
+          console.error('Final error fetching tracking link:', {
             error: lastError,
-            attemptedCodes: codeVariations,
-            deviceInfo: {
-              isMobile,
-              userAgent: navigator.userAgent
-            }
+            attemptedCodes: codeVariations
           });
           setError('Error retrieving tracking link: ' + lastError.message);
           setIsLoading(false);
@@ -137,15 +133,13 @@ export default function LinkRedirectPage() {
         }
         
         if (!linkData) {
-          console.error('No matching tracking link found:', {
-            attemptedVariations: codeVariations,
+          console.error('Tracking link not found after trying all variations:', {
             originalCode: trackingCode,
             decodedCode,
             cleanedCode,
-            deviceInfo: {
-              isMobile,
-              userAgent: navigator.userAgent
-            }
+            attemptedVariations: codeVariations,
+            isMobile,
+            userAgent: navigator.userAgent
           });
           setError('Tracking link not found or expired');
           setIsLoading(false);
@@ -251,16 +245,27 @@ export default function LinkRedirectPage() {
         // Add parameters separator if needed
         redirectUrl += redirectUrl.includes('?') ? '&' : '?';
         
-        // Add clickId and device type to help with tracking
-        redirectUrl += `clickId=${clickId}&device=${device}`;
+        // Add clickId and more detailed device info to help with tracking
+        redirectUrl += `clickId=${clickId}&device=${device}&platform=${encodeURIComponent(navigator.platform)}&mobile=${isMobile}`;
         
-        console.log(`Redirecting to: ${redirectUrl}`);
+        console.log('Final redirect details:', {
+          originalCode: trackingCode,
+          successfulCode,
+          redirectUrl,
+          device,
+          isMobile
+        });
         
         // Redirect to the offer URL
         window.location.href = redirectUrl;
         
       } catch (error) {
-        console.error('Error processing click:', error);
+        console.error('Error processing click:', {
+          error,
+          trackingCode,
+          isMobile,
+          userAgent: navigator.userAgent
+        });
         setError('Failed to process tracking link: ' + (error instanceof Error ? error.message : String(error)));
         setIsLoading(false);
       }

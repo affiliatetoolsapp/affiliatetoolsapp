@@ -37,10 +37,19 @@ export const formatTrackingUrl = (trackingCode: string) => {
   if (!trackingCode) return '';
   
   const baseUrl = window.location.origin;
-  // Clean the code first - remove whitespace and non-printable characters
+  // Clean the code first
   const cleanCode = trackingCode.trim().replace(/[^\x20-\x7E]/g, '');
-  // Ensure proper URL encoding
+  
+  // Use consistent encoding
   const encodedCode = encodeURIComponent(cleanCode);
+  
+  // Log the transformation for debugging
+  console.log('Tracking URL generation:', {
+    original: trackingCode,
+    cleaned: cleanCode,
+    encoded: encodedCode,
+    fullUrl: `${baseUrl}/r/${encodedCode}`
+  });
   
   return `${baseUrl}/r/${encodedCode}`;
 };

@@ -89,45 +89,79 @@ export default function ClickRedirectPage() {
         else if (/Linux/i.test(userAgent)) operatingSystem = 'Linux';
         
         // Device type detection (mobile or desktop)
-        if (/Android|iPhone|iPad|iPod/i.test(userAgent)) {
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
           device = 'mobile';
-        } else if (/Windows|Mac OS X|Linux/i.test(userAgent)) {
+        } else {
           device = 'desktop';
         }
         
-        // Fast IP detection - collect first, then process click data
+        console.log(`Device detected: ${device}, OS: ${operatingSystem}`);
+        
+        // Get IP and country information
         let ipAddress = null;
         let country = null;
         
         try {
-          // Get IP address first - this needs to succeed
+          // Get IP address
           const ipResponse = await fetch('https://api.ipify.org?format=json');
+          if (!ipResponse.ok) {
+            console.warn('IP detection service returned error:', ipResponse.statusText);
+            throw new Error('IP detection service unavailable');
+          }
+          
           const ipData = await ipResponse.json();
           ipAddress = ipData.ip;
+          console.log('IP Address detected:', ipAddress);
           
           if (ipAddress && ipAddress !== '127.0.0.1' && !ipAddress.startsWith('192.168.')) {
             try {
-              // Now try to get geo data with a reasonable timeout
-              const geoPromise = fetch(`https://ipapi.co/${ipAddress}/json/`)
-                .then(res => res.json())
-                .then(geoData => {
-                  country = geoData.country_name;
-                  return country;
-                });
+              // Now try to get geo data with increased timeout
+              const geoResponse = await Promise.race([
+                fetch(`https://ipapi.co/${ipAddress}/json/`),
+                new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error('Geo lookup timeout')), 1000) // Increased timeout to 1000ms
+                )
+              ]);
               
-              // Use Promise.race to avoid waiting too long for geo data
-              const timeoutPromise = new Promise<string | null>(resolve => 
-                setTimeout(() => resolve(null), 300) // 300ms timeout
-              );
+              if (!geoResponse.ok) {
+                console.warn('Geo lookup service returned error:', geoResponse.statusText);
+                throw new Error('Geo lookup service error');
+              }
               
-              country = await Promise.race([geoPromise, timeoutPromise]);
+              const geoData = await geoResponse.json();
               
-              // Fallback if we couldn't get the country
+              if (geoData.error) {
+                console.warn('Geo data contained error:', geoData.error);
+                throw new Error('Geo data error: ' + geoData.error);
+              }
+              
+              country = geoData.country_name || geoData.country;
+              console.log('Country detected:', country);
+              
               if (!country) {
-                console.log('Geo lookup timed out, using null for country');
+                console.warn('No country found in geo data:', geoData);
               }
             } catch (geoErr) {
               console.warn('Geo detection error:', geoErr);
+              // Try alternate geo service if the first one fails
+              try {
+                const altGeoResponse = await Promise.race([
+                  fetch(`https://ip-api.com/json/${ipAddress}`),
+                  new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Alternate geo lookup timeout')), 1000)
+                  )
+                ]);
+                
+                if (altGeoResponse.ok) {
+                  const altGeoData = await altGeoResponse.json();
+                  if (altGeoData.status === 'success') {
+                    country = altGeoData.country;
+                    console.log('Country detected from alternate service:', country);
+                  }
+                }
+              } catch (altGeoErr) {
+                console.warn('Alternate geo detection error:', altGeoErr);
+              }
             }
           }
         } catch (ipErr) {
@@ -141,8 +175,8 @@ export default function ClickRedirectPage() {
           tracking_code: linkData.tracking_code,
           affiliate_id: linkData.affiliate_id,
           offer_id: linkData.offer_id,
-          ip_address: ipAddress,
-          geo: country,
+          ip_address: ipAddress || 'unknown',
+          geo: country || 'unknown',
           user_agent: userAgent,
           device,
           referrer: document.referrer || null,
@@ -153,7 +187,6 @@ export default function ClickRedirectPage() {
         console.log('Recording click with data:', clickData);
         
         // Log click asynchronously - don't wait for completion to redirect
-        // FIX: Use correct Promise handling without .catch()
         try {
           const { error } = await supabase.rpc('insert_click', clickData);
           if (error) console.error('Failed to record click:', error);

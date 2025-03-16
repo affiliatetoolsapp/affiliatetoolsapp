@@ -119,26 +119,36 @@ export default function LinkRedirectPage() {
           console.warn('Could not get geo information:', geoError);
         }
         
-        // Improved device detection
+        // Improved device and OS detection
         const userAgent = navigator.userAgent;
-        let device = 'desktop';
         
-        // More accurate mobile device detection
-        if (/iPhone|iPad|iPod/i.test(userAgent)) {
-          device = 'iOS';
-        } else if (/Android/i.test(userAgent)) {
-          device = 'Android';
-        } else if (/Windows Phone|IEMobile/i.test(userAgent)) {
-          device = 'Windows Phone';
-        } else if (/Macintosh|MacIntel|MacPPC|Mac68K/i.test(userAgent)) {
-          device = 'macOS';
-        } else if (/Win/i.test(userAgent)) {
-          device = 'Windows';
-        } else if (/Linux/i.test(userAgent)) {
-          device = 'Linux';
+        // Detect device type (mobile, tablet, desktop)
+        let deviceType = 'Desktop';
+        if (/Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
+          deviceType = 'Mobile';
+          // Further classify tablets
+          if (/iPad|tablet|Tablet/i.test(userAgent)) {
+            deviceType = 'Tablet';
+          }
         }
         
-        console.log('Detected device type:', device, 'User agent:', userAgent);
+        // Detect operating system
+        let operatingSystem = 'Unknown';
+        if (/iPhone|iPad|iPod/i.test(userAgent)) {
+          operatingSystem = 'iOS';
+        } else if (/Android/i.test(userAgent)) {
+          operatingSystem = 'Android';
+        } else if (/Windows Phone|IEMobile/i.test(userAgent)) {
+          operatingSystem = 'Windows Phone';
+        } else if (/Macintosh|MacIntel|MacPPC|Mac68K/i.test(userAgent)) {
+          operatingSystem = 'macOS';
+        } else if (/Win/i.test(userAgent)) {
+          operatingSystem = 'Windows';
+        } else if (/Linux/i.test(userAgent)) {
+          operatingSystem = 'Linux';
+        }
+        
+        console.log('Detected device type:', deviceType, 'Operating system:', operatingSystem, 'User agent:', userAgent);
         
         // Simplified custom parameters
         const customParams: Record<string, string> = {};
@@ -161,7 +171,7 @@ export default function LinkRedirectPage() {
           ip_address: ipAddress,
           geo: country,
           user_agent: userAgent,
-          device,
+          device: operatingSystem, // Use OS for device field as per current implementation
           referrer: document.referrer || null,
           custom_params: Object.keys(customParams).length > 0 ? customParams : linkData.custom_params,
           created_at: new Date().toISOString()

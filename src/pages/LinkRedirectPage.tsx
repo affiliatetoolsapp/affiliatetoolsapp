@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function LinkRedirectPage() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
@@ -10,6 +11,7 @@ export default function LinkRedirectPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   
   useEffect(() => {
     const processClick = async () => {
@@ -21,6 +23,7 @@ export default function LinkRedirectPage() {
       
       try {
         console.log(`Processing click for tracking code: ${trackingCode}`);
+        console.log(`Device detection: isMobile=${isMobile}, userAgent=${navigator.userAgent}`);
         
         // Get the tracking link details
         const { data: linkData, error: linkError } = await supabase
@@ -78,9 +81,10 @@ export default function LinkRedirectPage() {
         
         // Get basic device info
         const userAgent = navigator.userAgent;
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-        const device = isMobile ? 'mobile' : 'desktop';
-        console.log('Detected device type:', device);
+        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+        const isMobileDevice = mobileRegex.test(userAgent);
+        const device = isMobileDevice ? 'mobile' : 'desktop';
+        console.log('Detected device type:', device, 'from userAgent');
         
         // Simplified custom parameters
         const customParams: Record<string, string> = {};
@@ -153,7 +157,7 @@ export default function LinkRedirectPage() {
     };
     
     processClick();
-  }, [trackingCode, searchParams, navigate]);
+  }, [trackingCode, searchParams, navigate, isMobile]);
   
   if (error) {
     return (

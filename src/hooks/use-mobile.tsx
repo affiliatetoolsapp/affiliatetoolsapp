@@ -9,9 +9,6 @@ export function useIsMobile() {
   React.useEffect(() => {
     // Check if this is running in a browser environment
     if (typeof window !== 'undefined') {
-      // Initial check
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-      
       // Check user agent for mobile devices
       const checkUserAgent = () => {
         const userAgent = navigator.userAgent;
@@ -20,21 +17,25 @@ export function useIsMobile() {
       }
       
       // Set initial value based on both width and user agent
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT || checkUserAgent())
-      
-      // Add resize listener
-      const handleResize = () => {
-        setIsMobile(window.innerWidth < MOBILE_BREAKPOINT || checkUserAgent())
+      const updateMobileState = () => {
+        const isMobileWidth = window.innerWidth < MOBILE_BREAKPOINT;
+        const isMobileAgent = checkUserAgent();
+        setIsMobile(isMobileWidth || isMobileAgent);
+        console.log(`Mobile detection: width=${isMobileWidth}, agent=${isMobileAgent}, combined=${isMobileWidth || isMobileAgent}`);
       }
       
-      window.addEventListener('resize', handleResize)
+      // Set initial state
+      updateMobileState();
+      
+      // Add resize listener
+      window.addEventListener('resize', updateMobileState);
       
       // Cleanup
       return () => {
-        window.removeEventListener('resize', handleResize)
+        window.removeEventListener('resize', updateMobileState);
       }
     }
-  }, [])
+  }, []);
 
-  return isMobile
+  return isMobile;
 }

@@ -3,11 +3,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function ClickRedirectPage() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const processClick = async () => {
@@ -18,6 +20,7 @@ export default function ClickRedirectPage() {
 
       try {
         console.log(`Processing click for tracking code: ${trackingCode}`);
+        console.log(`Device detection: isMobile=${isMobile}, userAgent=${navigator.userAgent}`);
         
         // Get tracking link details
         const { data: linkData, error: linkError } = await supabase
@@ -70,9 +73,10 @@ export default function ClickRedirectPage() {
 
         // Get basic device info
         const userAgent = navigator.userAgent;
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
-        const device = isMobile ? 'mobile' : 'desktop';
-        console.log('Detected device type:', device);
+        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+        const isMobileDevice = mobileRegex.test(userAgent);
+        const device = isMobileDevice ? 'mobile' : 'desktop';
+        console.log('Detected device type:', device, 'from userAgent');
         
         // Simplified click data
         const clickData = {
@@ -130,7 +134,7 @@ export default function ClickRedirectPage() {
     };
 
     processClick();
-  }, [trackingCode, navigate]);
+  }, [trackingCode, navigate, isMobile]);
 
   return (
     <div className="flex items-center justify-center min-h-screen flex-col p-4 text-center">

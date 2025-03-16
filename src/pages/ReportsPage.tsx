@@ -411,39 +411,123 @@ export default function ReportsPage() {
     },
   ];
 
-  // Prepare offer filter options
+  // Enhanced filtering options for offers
+  const extractOfferData = (click: any) => {
+    // This function is used for both filtering and display
+    if (click?.offers) {
+      return {
+        id: click.offers.id,
+        name: click.offers.name,
+      };
+    }
+    return { id: null, name: "Unknown" };
+  };
+  
+  const extractConversionOfferData = (conv: any) => {
+    const clickData = conv?.click as any;
+    if (clickData?.offers) {
+      return {
+        id: clickData.offers.id,
+        name: clickData.offers.name,
+      };
+    }
+    return { id: null, name: "Unknown" };
+  };
+
+  // Improved offer filter options
   const getOfferFilterOptions = () => {
     if (!clicks || clicks.length === 0) return [];
     
+    // Create a map to store unique offers
     const uniqueOffers = new Map();
     
+    // Extract offer data from clicks
     clicks.forEach(click => {
-      if (click.offers?.id && click.offers?.name) {
-        uniqueOffers.set(click.offers.id, click.offers.name);
+      const offer = extractOfferData(click);
+      if (offer.id) {
+        uniqueOffers.set(offer.id, offer.name);
       }
     });
     
+    // Convert to array of options
     return Array.from(uniqueOffers.entries()).map(([value, label]) => ({
-      label,
-      value,
+      label: String(label),
+      value: String(value),
     }));
   };
   
   const getConversionOfferFilterOptions = () => {
     if (!conversions || conversions.length === 0) return [];
     
+    // Create a map to store unique offers
     const uniqueOffers = new Map();
     
+    // Extract offer data from conversions
     conversions.forEach(conv => {
-      const clickData = conv.click as any;
-      if (clickData?.offers?.id && clickData?.offers?.name) {
-        uniqueOffers.set(clickData.offers.id, clickData.offers.name);
+      const offer = extractConversionOfferData(conv);
+      if (offer.id) {
+        uniqueOffers.set(offer.id, offer.name);
       }
     });
     
+    // Convert to array of options
     return Array.from(uniqueOffers.entries()).map(([value, label]) => ({
-      label,
-      value,
+      label: String(label),
+      value: String(value),
+    }));
+  };
+
+  // Country filtering options
+  const getCountryFilterOptions = () => {
+    if (!clicks || clicks.length === 0) return [];
+    
+    const uniqueCountries = new Set();
+    
+    clicks.forEach(click => {
+      if (click.geo) {
+        uniqueCountries.add(click.geo);
+      }
+    });
+    
+    return Array.from(uniqueCountries).map(country => ({
+      label: String(country),
+      value: String(country),
+    }));
+  };
+  
+  // Device filtering options
+  const getDeviceFilterOptions = () => {
+    if (!clicks || clicks.length === 0) return [];
+    
+    const uniqueDevices = new Set();
+    
+    clicks.forEach(click => {
+      if (click.device) {
+        uniqueDevices.add(click.device);
+      }
+    });
+    
+    return Array.from(uniqueDevices).map(device => ({
+      label: String(device).charAt(0).toUpperCase() + String(device).slice(1),
+      value: String(device),
+    }));
+  };
+  
+  // Event type filtering options for conversions
+  const getEventTypeFilterOptions = () => {
+    if (!conversions || conversions.length === 0) return [];
+    
+    const uniqueTypes = new Set();
+    
+    conversions.forEach(conv => {
+      if (conv.event_type) {
+        uniqueTypes.add(conv.event_type);
+      }
+    });
+    
+    return Array.from(uniqueTypes).map(type => ({
+      label: String(type).charAt(0).toUpperCase() + String(type).slice(1),
+      value: String(type),
     }));
   };
 
@@ -826,54 +910,4 @@ export default function ReportsPage() {
                 defaultSorting={[{ id: 'created_at', desc: true }]}
                 filterableColumns={[
                   {
-                    id: 'offer',
-                    title: 'Offer',
-                    options: getOfferFilterOptions()
-                  }
-                ]}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="conversions">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Conversion Details</CardTitle>
-                <CardDescription>
-                  All conversion data for the selected period
-                </CardDescription>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => exportToCSV('conversions')}
-                disabled={!conversions || conversions.length === 0}
-              >
-                <DownloadIcon className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <DataTable 
-                columns={conversionColumns} 
-                data={conversions || []} 
-                isLoading={isLoadingConversions}
-                emptyMessage="No conversion data for the selected period"
-                defaultSorting={[{ id: 'created_at', desc: true }]}
-                filterableColumns={[
-                  {
-                    id: 'offer',
-                    title: 'Offer',
-                    options: getConversionOfferFilterOptions()
-                  }
-                ]}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
+                    id: 'offers.name',

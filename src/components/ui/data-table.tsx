@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ArrowUpDown, ArrowDown, ArrowUp } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -34,7 +35,9 @@ interface DataTableProps<TData, TValue> {
   filterableColumns?: {
     id: string;
     title: string;
-    options: { label: string; value: string }[];
+    options?: { label: string; value: string }[];
+    type?: 'select' | 'text';
+    getValueFrom?: keyof TData | ((row: TData) => string);
   }[];
 }
 
@@ -50,6 +53,10 @@ export function DataTable<TData, TValue>({
   const [sorting, setSorting] = useState<SortingState>(defaultSorting);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
+  // Pre-filter data based on special filtering for nested objects if needed
+  const [globalFilter, setGlobalFilter] = useState<string>("");
+  
+  // Setup filter function for the table
   const table = useReactTable({
     data,
     columns,
@@ -62,7 +69,10 @@ export function DataTable<TData, TValue>({
     state: {
       sorting,
       columnFilters,
+      globalFilter,
     },
+    enableGlobalFilter: true,
+    onGlobalFilterChange: setGlobalFilter,
     initialState: {
       pagination: {
         pageSize,
@@ -79,21 +89,34 @@ export function DataTable<TData, TValue>({
               <label htmlFor={`filter-${column.id}`} className="text-sm font-medium">
                 {column.title}:
               </label>
-              <select
-                id={`filter-${column.id}`}
-                value={(table.getColumn(column.id)?.getFilterValue() as string) || ""}
-                onChange={(e) => 
-                  table.getColumn(column.id)?.setFilterValue(e.target.value || undefined)
-                }
-                className="p-1 text-sm border rounded-md"
-              >
-                <option value="">All</option>
-                {column.options.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+              
+              {column.type === 'text' ? (
+                <Input
+                  id={`filter-${column.id}`}
+                  value={(table.getColumn(column.id)?.getFilterValue() as string) || ""}
+                  onChange={(e) => 
+                    table.getColumn(column.id)?.setFilterValue(e.target.value)
+                  }
+                  className="max-w-sm h-8 text-sm"
+                  placeholder={`Filter by ${column.title.toLowerCase()}`}
+                />
+              ) : (
+                <select
+                  id={`filter-${column.id}`}
+                  value={(table.getColumn(column.id)?.getFilterValue() as string) || ""}
+                  onChange={(e) => 
+                    table.getColumn(column.id)?.setFilterValue(e.target.value || undefined)
+                  }
+                  className="p-1 text-sm border rounded-md"
+                >
+                  <option value="">All</option>
+                  {column.options?.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           ))}
         </div>

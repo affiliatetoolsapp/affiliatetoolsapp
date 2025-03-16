@@ -1,5 +1,5 @@
 [build]
-builder = "nixpacks"
+builder = "NIXPACKS"
 buildCommand = "npm install && npm run build"
 
 [deploy]
@@ -12,4 +12,5 @@ restartPolicyType = "on_failure"
 nodejs = "20"
 
 [[services]]
-name = "vite-app" 
+name = "vite-app"
+envs = { NODE_ENV = "production" } 

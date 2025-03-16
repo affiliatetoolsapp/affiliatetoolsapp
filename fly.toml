@@ -6,6 +6,12 @@ app = "your-app-name"  # Replace with your actual app name
 
 [env]
   PORT = "8080"
+  SUPABASE_URL = "https://jruzfpymzkzegdhmzwsr.supabase.co"
+  SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpydXpmcHltemt6ZWdkaG16d3NyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE4NjM4MTIsImV4cCI6MjA1NzQzOTgxMn0.fo7-t2T6wbPAyzezvZgFjOmu4hEy3T9f4EpR4JxltL0"
+
+# The service role key should be set as a secret, not in the config file
+# Run this command to set it:
+# fly secrets set SUPABASE_SERVICE_ROLE_KEY="your-service-role-key"
 
 [http_service]
   internal_port = 8080

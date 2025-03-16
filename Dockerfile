@@ -3,17 +3,14 @@ FROM denoland/deno:1.40.2
 
 WORKDIR /app
 
-# Copy dependency files
+# Copy dependency files first for better caching
 COPY deno.json ./
 
 # Copy the rest of the application
 COPY . ./
 
-# Cache the dependencies
-RUN deno cache src/main.tsx
-
-# Compile the project
+# Create a build task in deno.json
 RUN deno task build
 
 # Run the server
-CMD ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "src/main.tsx"]
+CMD ["deno", "run", "--allow-net", "--allow-env", "--allow-read", "--allow-hrtime", "--allow-ffi", "src/main.tsx"]

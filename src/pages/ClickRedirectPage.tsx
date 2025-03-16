@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Toaster } from 'sonner';
 
 export default function ClickRedirectPage() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
@@ -20,61 +21,86 @@ export default function ClickRedirectPage() {
       }
 
       try {
-        console.log(`Processing click for tracking code: ${trackingCode}`);
+        // Prepare all possible variations of the tracking code for thorough checking
+        const originalCode = trackingCode;
+        const cleanedCode = originalCode.trim();
+        const decodedCode = decodeURIComponent(cleanedCode);
+        
+        const codeVariations = [originalCode];
+        if (cleanedCode !== originalCode) codeVariations.push(cleanedCode);
+        if (decodedCode !== cleanedCode) codeVariations.push(decodedCode);
+        
+        console.log(`Processing click with tracking code variations:`, codeVariations);
         console.log(`Device detection: isMobile=${isMobile}, userAgent=${navigator.userAgent}`);
         
-        // Clean the tracking code first to remove any whitespace
-        const cleanedCode = trackingCode.trim();
-        console.log(`Original tracking code: '${trackingCode}', Cleaned code: '${cleanedCode}'`);
+        // Try each code variation until we find a match
+        let linkData = null;
+        let querySuccess = false;
+        let queryError = null;
+        let lastQueryResult = null;
         
-        // Always use the cleaned tracking code first
-        let { data: linkData, error: linkError } = await supabase
-          .from('tracking_links')
-          .select('*, offers(*)')
-          .eq('tracking_code', cleanedCode)
-          .maybeSingle();
-
-        console.log('Query response:', { 
-          data: linkData, 
-          error: linkError,
-          queryParams: { trackingCode: cleanedCode }
-        });
-        
-        if (linkError) {
-          console.error('Link fetch error:', linkError);
-          setError('Error retrieving tracking link: ' + linkError.message);
-          return;
-        }
-
-        // Try original code if cleaned didn't find anything and they're different
-        if (!linkData && cleanedCode !== trackingCode) {
-          console.log(`Fallback - trying original unmodified code: '${trackingCode}'`);
-          const { data: retryData, error: retryError } = await supabase
+        for (const code of codeVariations) {
+          console.log(`Trying tracking code: '${code}'`);
+          
+          const { data, error } = await supabase
             .from('tracking_links')
-            .select('*, offers(*)')
-            .eq('tracking_code', trackingCode)
+            .select(`
+              *,
+              offers(*)
+            `)
+            .eq('tracking_code', code)
             .maybeSingle();
-            
-          if (retryData) {
-            console.log('Found with original code!', retryData);
-            linkData = retryData;
-          } else if (retryError) {
-            console.error('Error in fallback query:', retryError);
-          } else {
-            console.log('No results found with original code either');
+          
+          lastQueryResult = { data, error, code };
+          console.log(`Query result for code '${code}':`, { 
+            success: !!data && !error, 
+            hasError: !!error,
+            data: data ? JSON.stringify(data).substring(0, 100) + '...' : 'Not found', 
+            error: error ? error.message : 'None' 
+          });
+          
+          if (error) {
+            queryError = error;
+            continue;
+          }
+          
+          if (data) {
+            linkData = data;
+            querySuccess = true;
+            console.log(`Found matching tracking link with code '${code}'`);
+            break;
           }
         }
-
+        
+        // Handle case where no match was found after trying all variations
         if (!linkData) {
-          console.error('Tracking link not found for any code attempt:', {
-            original: trackingCode,
-            cleaned: cleanedCode
+          console.error('Tracking link not found after trying all variations:', { 
+            originalCode,
+            cleanedCode,
+            decodedCode,
+            attemptedVariations: codeVariations,
+            userAgent: navigator.userAgent,
+            isMobile
           });
-          setError('Link not found or expired');
+          
+          if (queryError) {
+            console.error('Query error:', queryError);
+            setError('Error retrieving tracking link: ' + queryError.message);
+          } else {
+            setError('Tracking link not found or expired');
+          }
           return;
         }
 
         console.log('Retrieved tracking link data:', linkData);
+        
+        // Make sure offers data is accessible
+        if (!linkData.offers) {
+          console.error('Offers data not found in query result:', lastQueryResult);
+          setError('Invalid offer configuration: missing offer data');
+          return;
+        }
+        
         console.log('Offer data:', linkData.offers);
 
         // Generate a unique click ID
@@ -111,10 +137,13 @@ export default function ClickRedirectPage() {
         const device = mobileRegex.test(userAgent) ? 'mobile' : 'desktop';
         console.log('Detected device type directly from userAgent:', device);
         
+        // Use the same code that matched in the database for consistency
+        const finalTrackingCode = linkData.tracking_code;
+        
         // Simplified click data
         const clickData = {
           click_id: clickId,
-          tracking_code: cleanedCode, // Use cleaned code for consistency
+          tracking_code: finalTrackingCode,
           affiliate_id: linkData.affiliate_id,
           offer_id: linkData.offer_id,
           ip_address: ipAddress,
@@ -194,6 +223,7 @@ export default function ClickRedirectPage() {
           <p>Redirecting you to the advertiser...</p>
         </div>
       )}
+      <Toaster />
     </div>
   );
 }

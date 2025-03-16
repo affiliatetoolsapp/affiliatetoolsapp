@@ -38,13 +38,14 @@ export function useIsMobile() {
         
         return hasMobileKeyword || hasTouchScreen || isTablet;
       };
-      
+
       // Set initial value based on both width and user agent
       const updateMobileState = () => {
         const isMobileWidth = window.innerWidth < MOBILE_BREAKPOINT;
         const isMobileAgent = checkUserAgent();
-        // Set to true if either width or agent indicates mobile
-        const finalIsMobile = isMobileWidth || isMobileAgent;
+        
+        // Always prioritize user agent detection for more accurate results
+        const finalIsMobile = isMobileAgent || isMobileWidth;
         
         setIsMobile(finalIsMobile);
         

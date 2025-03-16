@@ -89,37 +89,51 @@ export default function LinkRedirectPage() {
         else if (/Mac OS X/i.test(userAgent)) operatingSystem = 'macOS';
         else if (/Linux/i.test(userAgent)) operatingSystem = 'Linux';
         
-        // Device type detection (using the operating system for more accuracy)
+        // Device type detection (mobile or desktop)
         if (/Android|iPhone|iPad|iPod/i.test(userAgent)) {
-          device = operatingSystem; // Use OS name for mobile devices
+          device = 'mobile';
+        } else if (/Windows|Mac OS X|Linux/i.test(userAgent)) {
+          device = 'desktop';
         }
         
-        // Fast IP and geo detection
+        // Fast IP and geo detection - collect first, then process click data
         let ipAddress = null;
         let country = null;
         
         try {
-          const ipPromise = fetch('https://api.ipify.org?format=json')
-            .then(res => res.json())
-            .then(data => {
-              ipAddress = data.ip;
-              if (ipAddress && ipAddress !== '127.0.0.1' && !ipAddress.startsWith('192.168.')) {
-                return fetch(`https://ipapi.co/${ipAddress}/json/`)
-                  .then(res => res.json())
-                  .then(geoData => {
-                    country = geoData.country_name;
-                  });
-              }
-            })
-            .catch(err => console.warn('IP/geo detection error:', err));
+          // Get IP address first - this needs to succeed
+          const ipResponse = await fetch('https://api.ipify.org?format=json');
+          const ipData = await ipResponse.json();
+          ipAddress = ipData.ip;
           
-          // Use Promise.race to avoid waiting too long for IP data
-          await Promise.race([
-            ipPromise,
-            new Promise(resolve => setTimeout(resolve, 300)) // 300ms timeout
-          ]);
+          if (ipAddress && ipAddress !== '127.0.0.1' && !ipAddress.startsWith('192.168.')) {
+            try {
+              // Now try to get geo data with a reasonable timeout
+              const geoPromise = fetch(`https://ipapi.co/${ipAddress}/json/`)
+                .then(res => res.json())
+                .then(geoData => {
+                  country = geoData.country_name;
+                  return country;
+                });
+              
+              // Use Promise.race to avoid waiting too long for geo data
+              const timeoutPromise = new Promise<string | null>(resolve => 
+                setTimeout(() => resolve(null), 500) // 500ms timeout (increased from 300ms)
+              );
+              
+              country = await Promise.race([geoPromise, timeoutPromise]);
+              
+              // Fallback if we couldn't get the country
+              if (!country) {
+                console.log('Geo lookup timed out, using null for country');
+              }
+            } catch (geoErr) {
+              console.warn('Geo detection error:', geoErr);
+            }
+          }
         } catch (ipErr) {
           console.warn('IP detection error:', ipErr);
+          // Don't halt the redirect process if IP detection fails
         }
         
         // Simplified custom parameters
@@ -132,7 +146,7 @@ export default function LinkRedirectPage() {
           }
         }
         
-        // Prepare click data
+        // Prepare click data with the information we have
         const clickData = {
           click_id: clickId,
           tracking_code: linkData.tracking_code,
@@ -147,6 +161,8 @@ export default function LinkRedirectPage() {
           created_at: new Date().toISOString()
         };
         
+        console.log('Recording click with data:', clickData);
+        
         // Log click asynchronously - don't wait for completion to redirect
         supabase.rpc('insert_click', clickData)
           .then(({ error }) => {
@@ -158,6 +174,8 @@ export default function LinkRedirectPage() {
         let redirectUrl = linkData.offers.url;
         redirectUrl += redirectUrl.includes('?') ? '&' : '?';
         redirectUrl += `clickId=${clickId}`;
+        
+        console.log('Redirecting to:', redirectUrl);
         
         // Immediate redirect - don't wait for click logging to complete
         window.location.href = redirectUrl;

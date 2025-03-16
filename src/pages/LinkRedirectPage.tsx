@@ -26,11 +26,7 @@ export default function LinkRedirectPage() {
         console.log(`Processing click for tracking code: ${trackingCode}`);
         console.log(`Device detection: isMobile=${isMobile}, userAgent=${navigator.userAgent}`);
         
-        // Get the tracking link details - with detailed logging
-        console.log(`Fetching tracking link with code: ${trackingCode}`);
-        console.log(`TrackingCode type: ${typeof trackingCode}, length: ${trackingCode.length}`);
-        
-        // Use let instead of const for linkData since we might need to reassign it later
+        // First, try with exact tracking code match
         let { data: linkData, error: linkError } = await supabase
           .from('tracking_links')
           .select(`
@@ -40,8 +36,33 @@ export default function LinkRedirectPage() {
           .eq('tracking_code', trackingCode)
           .maybeSingle();
         
-        console.log('Raw query response:', { data: linkData, error: linkError });
+        console.log('Initial query response:', { data: linkData, error: linkError });
         
+        // If no data found and code might have whitespace, try with trimmed code
+        if (!linkData && trackingCode.trim() !== trackingCode) {
+          const trimmedCode = trackingCode.trim();
+          console.log(`Attempting with trimmed code: '${trimmedCode}'`);
+          
+          // Make the SAME query but with trimmed code (including the offer relationship)
+          const { data: retryData, error: retryError } = await supabase
+            .from('tracking_links')
+            .select(`
+              *,
+              offer:offers(*)
+            `)
+            .eq('tracking_code', trimmedCode)
+            .maybeSingle();
+            
+          if (retryData) {
+            console.log('Found with trimmed code!', retryData);
+            linkData = retryData;
+            // No need to worry about errors here, as we're using the same type
+          } else if (retryError) {
+            console.error('Error when retrying with trimmed code:', retryError);
+          }
+        }
+        
+        // Handle error from original query if needed
         if (linkError) {
           console.error('Error fetching tracking link:', linkError);
           setError('Error retrieving tracking link: ' + linkError.message);
@@ -57,28 +78,9 @@ export default function LinkRedirectPage() {
             trackingCodeLength: trackingCode ? trackingCode.length : 0
           });
           
-          // Try a double-check query with trimmed tracking code
-          const trimmedCode = trackingCode.trim();
-          if (trimmedCode !== trackingCode) {
-            console.log(`Attempting with trimmed code: '${trimmedCode}'`);
-            const { data: retryData } = await supabase
-              .from('tracking_links')
-              .select('*')
-              .eq('tracking_code', trimmedCode)
-              .maybeSingle();
-              
-            if (retryData) {
-              console.log('Found with trimmed code!', retryData);
-              // Now we can reassign linkData because it's declared with let
-              linkData = retryData;
-            }
-          }
-          
-          if (!linkData) {
-            setError('Tracking link not found or expired');
-            setIsLoading(false);
-            return;
-          }
+          setError('Tracking link not found or expired');
+          setIsLoading(false);
+          return;
         }
 
         console.log('Retrieved tracking link data:', linkData);
@@ -99,7 +101,7 @@ export default function LinkRedirectPage() {
           console.warn('Could not get IP address:', ipError);
         }
 
-        // Get country information - simplified version
+        // Get country information
         let country = null;
         try {
           if (ipAddress && ipAddress !== '127.0.0.1' && !ipAddress.startsWith('192.168.')) {

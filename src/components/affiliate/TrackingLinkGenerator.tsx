@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,10 +37,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Link, QrCode, Copy, Download, RefreshCw, Filter, ChevronDown, ArrowUpDown } from 'lucide-react';
+import { Link, QrCode, Copy, Download, RefreshCw, Filter, ChevronDown, ArrowUpDown, Trash } from 'lucide-react';
 import { TrackingLinkWithOffer } from '@/types';
 import { useNavigate } from 'react-router-dom';
 
@@ -224,6 +236,41 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
     }
   });
   
+  // New mutation for deleting tracking links
+  const deleteTrackingLinkMutation = useMutation({
+    mutationFn: async (trackingLinkId: string) => {
+      if (!user) throw new Error("User not authenticated");
+      
+      console.log('Deleting tracking link:', trackingLinkId);
+      
+      const { error } = await supabase
+        .from('tracking_links')
+        .delete()
+        .eq('id', trackingLinkId);
+      
+      if (error) {
+        console.error('Error deleting tracking link:', error);
+        throw error;
+      }
+      
+      return trackingLinkId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tracking-links', user?.id] });
+      toast({
+        title: "Tracking Link Deleted",
+        description: "Your tracking link has been deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to delete tracking link",
+      });
+    }
+  });
+  
   // Handle tracking link generation
   const handleGenerateLink = () => {
     if (!selectedOfferId) {
@@ -267,6 +314,11 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
   // Handle regenerating a tracking link
   const handleRegenerateLink = (linkId: string) => {
     regenerateTrackingLinkMutation.mutate(linkId);
+  };
+
+  // Handle deleting a tracking link
+  const handleDeleteLink = (linkId: string) => {
+    deleteTrackingLinkMutation.mutate(linkId);
   };
 
   // Navigate to offer details page
@@ -552,6 +604,35 @@ export default function TrackingLinkGenerator({ preselectedOfferId = null }: Tra
                               >
                                 <RefreshCw className="h-4 w-4" />
                               </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button 
+                                    variant="outline" 
+                                    size="icon"
+                                    className="text-destructive"
+                                    title="Delete this tracking link"
+                                  >
+                                    <Trash className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Tracking Link</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete this tracking link? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction 
+                                      onClick={() => handleDeleteLink(link.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </div>
                           </td>
                         </tr>

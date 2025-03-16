@@ -161,6 +161,41 @@ export default function AffiliateOffers() {
       console.error(error);
     }
   });
+
+  // New mutation for deleting tracking links
+  const deleteTrackingLinkMutation = useMutation({
+    mutationFn: async (trackingLinkId: string) => {
+      if (!user) throw new Error("User not authenticated");
+      
+      console.log('Deleting tracking link:', trackingLinkId);
+      
+      const { error } = await supabase
+        .from('tracking_links')
+        .delete()
+        .eq('id', trackingLinkId);
+    
+      if (error) {
+        console.error('Error deleting tracking link:', error);
+        throw error;
+      }
+    
+      return trackingLinkId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['affiliate-tracking-links', user?.id] });
+      toast({
+        title: "Tracking Link Deleted",
+        description: "Your tracking link has been deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to delete tracking link",
+      });
+    }
+  });
   
   // Filter offers based on search query
   const filteredApprovedOffers = approvedOffers?.filter(item => 
@@ -173,6 +208,11 @@ export default function AffiliateOffers() {
   
   const handleCancelApplication = (applicationId: string) => {
     cancelApplication.mutate(applicationId);
+  };
+
+  // Handle deleting a tracking link
+  const handleDeleteLink = (linkId: string) => {
+    deleteTrackingLinkMutation.mutate(linkId);
   };
   
   // Format geo targets for display - FIXED to properly reference offer.geo_targets
@@ -396,6 +436,35 @@ export default function AffiliateOffers() {
                       <Eye className="h-4 w-4 mr-1" />
                       View Offer
                     </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="text-destructive"
+                        >
+                          <Trash className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Tracking Link</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete this tracking link? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => handleDeleteLink(link.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </TableCell>
               </TableRow>
@@ -630,9 +699,10 @@ export default function AffiliateOffers() {
                                     </div>
                                   </TooltipContent>
                                 </Tooltip>
-                              </TooltipProvider>
-                            )}
-                          </div>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex space-x-2">
@@ -815,31 +885,3 @@ export default function AffiliateOffers() {
           {isLoading ? (
             <div className="flex justify-center p-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          ) : trackingLinks?.length ? (
-            <>
-              <div className="mb-4">
-                <h3 className="text-lg font-semibold">Your Tracking Links</h3>
-                <p className="text-sm text-muted-foreground">
-                  All your generated tracking links for approved offers
-                </p>
-              </div>
-              {renderTrackingLinksTable(trackingLinks)}
-            </>
-          ) : (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground mb-4">You haven't created any tracking links yet</p>
-              <Button 
-                onClick={() => {
-                  navigate('/links');
-                }}
-              >
-                Generate Tracking Links
-              </Button>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}

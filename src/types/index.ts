@@ -1,4 +1,3 @@
-
 import { Database } from '@/integrations/supabase/types';
 
 export type Offer = Database['public']['Tables']['offers']['Row'] & {
@@ -16,7 +15,7 @@ export type Click = Database['public']['Tables']['clicks']['Row'];
 export type Conversion = Database['public']['Tables']['conversions']['Row'];
 export type Payment = Database['public']['Tables']['payments']['Row'];
 export type TrackingLink = Database['public']['Tables']['tracking_links']['Row'] & {
-  link_type?: 'direct' | 'shortened' | 'qr';
+  link_type: 'direct' | 'shortened' | 'qr';
 };
 export type Wallet = Database['public']['Tables']['wallets']['Row'];
 export type User = Database['public']['Tables']['users']['Row'];

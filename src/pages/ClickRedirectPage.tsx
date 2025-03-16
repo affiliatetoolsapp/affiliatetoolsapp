@@ -2,27 +2,22 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Toaster } from 'sonner';
 
 export default function ClickRedirectPage() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const isMobile = useIsMobile();
 
   useEffect(() => {
-    const processClick = async () => {
+    // Execute immediately without waiting for component to fully render
+    (async () => {
       if (!trackingCode) {
         console.error('No tracking code provided in URL');
         setError('Invalid tracking link');
-        setIsLoading(false);
         return;
       }
 
       try {
-        // Prepare all possible variations of the tracking code for thorough checking
+        // Prepare code variations
         const originalCode = trackingCode;
         const cleanedCode = originalCode.trim();
         const decodedCode = decodeURIComponent(cleanedCode);
@@ -32,30 +27,20 @@ export default function ClickRedirectPage() {
         if (decodedCode !== cleanedCode) codeVariations.push(decodedCode);
         
         console.log(`Processing click with tracking code variations:`, codeVariations);
-        console.log(`Device detection: isMobile=${isMobile}, userAgent=${navigator.userAgent}`);
         
-        // Try each code variation until we find a match
+        // Fast query to check if any variation matches
         let linkData = null;
         let queryError = null;
         
         for (const code of codeVariations) {
-          console.log(`Trying tracking code: '${code}'`);
-          
           const { data, error } = await supabase
             .from('tracking_links')
             .select(`
               *,
-              offers(*)
+              offers(url)
             `)
             .eq('tracking_code', code)
             .maybeSingle();
-          
-          console.log(`Query result for code '${code}':`, { 
-            success: !!data && !error, 
-            hasError: !!error,
-            data: data ? JSON.stringify(data).substring(0, 100) + '...' : 'Not found', 
-            error: error ? error.message : 'None' 
-          });
           
           if (error) {
             queryError = error;
@@ -64,84 +49,82 @@ export default function ClickRedirectPage() {
           
           if (data) {
             linkData = data;
-            console.log(`Found matching tracking link with code '${code}'`);
             break;
           }
         }
         
-        // Handle case where no match was found after trying all variations
         if (!linkData) {
-          console.error('Tracking link not found after trying all variations:', { 
-            originalCode,
-            cleanedCode,
-            decodedCode,
-            userAgent: navigator.userAgent,
-            isMobile
-          });
-          
+          console.error('Tracking link not found after trying all variations');
           if (queryError) {
             console.error('Query error:', queryError);
             setError('Error retrieving tracking link: ' + queryError.message);
           } else {
             setError('Tracking link not found or expired');
           }
-          setIsLoading(false);
           return;
         }
 
-        console.log('Retrieved tracking link data:', linkData);
-        
         // Make sure offers data is accessible
-        if (!linkData.offers) {
-          console.error('Offers data not found in query result');
-          setError('Invalid offer configuration: missing offer data');
-          setIsLoading(false);
+        if (!linkData.offers?.url) {
+          console.error('Offer URL is missing');
+          setError('Invalid offer configuration');
           return;
         }
         
-        console.log('Offer data:', linkData.offers);
-
-        // Generate a unique click ID
+        // Generate a click ID
         const clickId = crypto.randomUUID();
-        console.log(`Generated click ID: ${clickId}`);
-
-        // Get client IP address - this will be null in development
-        let ipAddress = null;
-        try {
-          const ipResponse = await fetch('https://api.ipify.org?format=json');
-          const ipData = await ipResponse.json();
-          ipAddress = ipData.ip;
-          console.log('Retrieved IP address:', ipAddress);
-        } catch (ipError) {
-          console.warn('Could not get IP address:', ipError);
-        }
-
-        // Get country information
-        let country = null;
-        try {
-          if (ipAddress && ipAddress !== '127.0.0.1' && !ipAddress.startsWith('192.168.')) {
-            const geoResponse = await fetch(`https://ipapi.co/${ipAddress}/json/`);
-            const geoData = await geoResponse.json();
-            country = geoData.country_name;
-            console.log('Retrieved country information:', country);
-          }
-        } catch (geoError) {
-          console.warn('Could not get geo information:', geoError);
-        }
-
-        // Get device info directly from user agent
+        
+        // Get device information
         const userAgent = navigator.userAgent;
-        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i;
-        const device = mobileRegex.test(userAgent) ? 'mobile' : 'desktop';
-        console.log('Detected device type directly from userAgent:', device);
         
-        // Use the same code that matched in the database for consistency
-        const finalTrackingCode = linkData.tracking_code;
+        // More accurate device and OS detection
+        let device = 'desktop';
+        let operatingSystem = 'Unknown';
         
-        // Simplified click data
+        // OS Detection
+        if (/Windows/i.test(userAgent)) operatingSystem = 'Windows';
+        else if (/Android/i.test(userAgent)) operatingSystem = 'Android';
+        else if (/iPhone|iPad|iPod/i.test(userAgent)) operatingSystem = 'iOS';
+        else if (/Mac OS X/i.test(userAgent)) operatingSystem = 'macOS';
+        else if (/Linux/i.test(userAgent)) operatingSystem = 'Linux';
+        
+        // Device type detection (using the operating system for more accuracy)
+        if (/Android|iPhone|iPad|iPod/i.test(userAgent)) {
+          device = operatingSystem; // Use OS name for mobile devices
+        }
+        
+        // Fast IP detection - run in parallel but don't block redirect
+        let ipAddress = null;
+        let country = null;
+        
+        try {
+          const ipPromise = fetch('https://api.ipify.org?format=json')
+            .then(res => res.json())
+            .then(data => {
+              ipAddress = data.ip;
+              if (ipAddress && ipAddress !== '127.0.0.1' && !ipAddress.startsWith('192.168.')) {
+                return fetch(`https://ipapi.co/${ipAddress}/json/`)
+                  .then(res => res.json())
+                  .then(geoData => {
+                    country = geoData.country_name;
+                  });
+              }
+            })
+            .catch(err => console.warn('IP/geo detection error:', err));
+          
+          // Use Promise.race to avoid waiting too long for IP data
+          await Promise.race([
+            ipPromise,
+            new Promise(resolve => setTimeout(resolve, 300)) // 300ms timeout
+          ]);
+        } catch (ipErr) {
+          console.warn('IP detection error:', ipErr);
+        }
+        
+        // Prepare click data
         const clickData = {
           click_id: clickId,
-          tracking_code: finalTrackingCode,
+          tracking_code: linkData.tracking_code,
           affiliate_id: linkData.affiliate_id,
           offer_id: linkData.offer_id,
           ip_address: ipAddress,
@@ -153,60 +136,31 @@ export default function ClickRedirectPage() {
           created_at: new Date().toISOString()
         };
         
-        console.log('Attempting to insert click data:', clickData);
-
-        try {
-          // Use the insert_click RPC function
-          console.log('Using RPC method to insert click');
-          const { data: rpcData, error: rpcError } = await supabase.rpc(
-            'insert_click', 
-            clickData
-          );
-          
-          if (rpcError) {
-            console.error('RPC insert failed:', rpcError);
-            toast.error('Failed to record click');
-          } else {
-            console.log('Click successfully logged via RPC:', rpcData);
-          }
-        } catch (insertError) {
-          console.error('Error during click insertion:', insertError);
-          // Continue despite error to not block user experience
-        }
-
-        if (!linkData.offers || !linkData.offers.url) {
-          console.error('Offer URL is missing');
-          setError('Invalid offer configuration');
-          setIsLoading(false);
-          return;
-        }
-
-        // Build redirect URL with parameters
+        // Log click asynchronously - don't wait for completion to redirect
+        supabase.rpc('insert_click', clickData)
+          .then(({ error }) => {
+            if (error) console.error('Failed to record click:', error);
+          })
+          .catch(err => console.error('Error during click insertion:', err));
+        
+        // Build redirect URL
         let redirectUrl = linkData.offers.url;
-        
-        // Add parameters separator if needed
         redirectUrl += redirectUrl.includes('?') ? '&' : '?';
-        
-        // Add clickId to help with tracking
         redirectUrl += `clickId=${clickId}`;
-
-        console.log(`Redirecting to: ${redirectUrl}`);
-
-        // Redirect to advertiser URL
+        
+        // Immediate redirect - don't wait for click logging to complete
         window.location.href = redirectUrl;
       } catch (error) {
         console.error('Error processing click:', error);
         setError('An unexpected error occurred: ' + (error instanceof Error ? error.message : String(error)));
-        setIsLoading(false);
       }
-    };
+    })();
+  }, [trackingCode]);
 
-    processClick();
-  }, [trackingCode, isMobile]);
-
-  return (
-    <div className="flex items-center justify-center min-h-screen flex-col p-4 text-center">
-      {error ? (
+  // Only show error page if something went wrong
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen flex-col p-4 text-center">
         <div>
           <h1 className="text-2xl font-bold text-red-500 mb-4">Error</h1>
           <p className="mb-4">{error}</p>
@@ -217,13 +171,10 @@ export default function ClickRedirectPage() {
             Return Home
           </a>
         </div>
-      ) : (
-        <div>
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
-          <p>Redirecting you to the advertiser...</p>
-        </div>
-      )}
-      <Toaster />
-    </div>
-  );
+      </div>
+    );
+  }
+
+  // Return empty div - user should never see this as redirection happens immediately
+  return <div style={{ display: 'none' }}></div>;
 }

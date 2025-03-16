@@ -52,9 +52,28 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>(defaultSorting);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-
-  // Pre-filter data based on special filtering for nested objects if needed
+  
+  // Global filter state
   const [globalFilter, setGlobalFilter] = useState<string>("");
+  
+  // Custom filter functions for nested data
+  const customFilterFns = {
+    offerFilter: (row: any, columnId: string, filterValue: string) => {
+      // For clicks table where offer is in row.offers.name
+      if (columnId === 'offer' && row.original.offers) {
+        return row.original.offers.name.toLowerCase().includes(filterValue.toLowerCase()) ||
+               row.original.offers.id === filterValue;
+      }
+      
+      // For conversions table where offer is in row.click.offers.name
+      if (columnId === 'offer' && row.original.click && row.original.click.offers) {
+        return row.original.click.offers.name.toLowerCase().includes(filterValue.toLowerCase()) ||
+               row.original.click.offers.id === filterValue;
+      }
+      
+      return false;
+    },
+  };
   
   // Setup filter function for the table
   const table = useReactTable({
@@ -78,7 +97,13 @@ export function DataTable<TData, TValue>({
         pageSize,
       },
     },
+    filterFns: {
+      ...customFilterFns,
+    },
   });
+
+  // Apply custom pre-filtering for special cases like nested objects
+  const preFilteredData = table.getFilteredRowModel().rows;
 
   return (
     <div>
@@ -94,9 +119,18 @@ export function DataTable<TData, TValue>({
                 <Input
                   id={`filter-${column.id}`}
                   value={(table.getColumn(column.id)?.getFilterValue() as string) || ""}
-                  onChange={(e) => 
-                    table.getColumn(column.id)?.setFilterValue(e.target.value)
-                  }
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    
+                    // For nested data like offers, we need a custom approach
+                    if (column.id === 'offer') {
+                      // Use our custom filter function
+                      table.getColumn(column.id)?.setFilterValue(value);
+                    } else {
+                      // Normal filtering
+                      table.getColumn(column.id)?.setFilterValue(value);
+                    }
+                  }}
                   className="max-w-sm h-8 text-sm"
                   placeholder={`Filter by ${column.title.toLowerCase()}`}
                 />
@@ -104,9 +138,18 @@ export function DataTable<TData, TValue>({
                 <select
                   id={`filter-${column.id}`}
                   value={(table.getColumn(column.id)?.getFilterValue() as string) || ""}
-                  onChange={(e) => 
-                    table.getColumn(column.id)?.setFilterValue(e.target.value || undefined)
-                  }
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    
+                    // For nested data like offers
+                    if (column.id === 'offer') {
+                      // Use our custom filter function
+                      table.getColumn(column.id)?.setFilterValue(value);
+                    } else {
+                      // Normal filtering
+                      table.getColumn(column.id)?.setFilterValue(value || undefined);
+                    }
+                  }}
                   className="p-1 text-sm border rounded-md"
                 >
                   <option value="">All</option>
@@ -168,8 +211,8 @@ export function DataTable<TData, TValue>({
                   </div>
                 </TableCell>
               </TableRow>
-            ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+            ) : preFilteredData.length ? (
+              preFilteredData.map((row) => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
@@ -197,7 +240,7 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
-      {table.getRowModel().rows?.length > 0 && (
+      {preFilteredData.length > 0 && (
         <div className="flex items-center justify-between space-x-2 py-4">
           <div className="text-sm text-muted-foreground">
             Page {table.getState().pagination.pageIndex + 1} of{" "}

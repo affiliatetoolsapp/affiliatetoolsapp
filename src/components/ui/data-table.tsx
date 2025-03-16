@@ -6,9 +6,11 @@ import {
   getCoreRowModel,
   getPaginationRowModel,
   getSortedRowModel,
+  getFilteredRowModel,
   useReactTable,
   type ColumnDef,
   type SortingState,
+  type ColumnFiltersState,
 } from "@tanstack/react-table";
 import { useState } from "react";
 import {
@@ -29,6 +31,11 @@ interface DataTableProps<TData, TValue> {
   isLoading?: boolean;
   emptyMessage?: string;
   defaultSorting?: { id: string; desc: boolean }[];
+  filterableColumns?: {
+    id: string;
+    title: string;
+    options: { label: string; value: string }[];
+  }[];
 }
 
 export function DataTable<TData, TValue>({
@@ -38,8 +45,10 @@ export function DataTable<TData, TValue>({
   isLoading = false,
   emptyMessage = "No data available",
   defaultSorting = [],
+  filterableColumns = [],
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>(defaultSorting);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   const table = useReactTable({
     data,
@@ -48,8 +57,11 @@ export function DataTable<TData, TValue>({
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
+    onColumnFiltersChange: setColumnFilters,
+    getFilteredRowModel: getFilteredRowModel(),
     state: {
       sorting,
+      columnFilters,
     },
     initialState: {
       pagination: {
@@ -60,6 +72,32 @@ export function DataTable<TData, TValue>({
 
   return (
     <div>
+      {filterableColumns.length > 0 && (
+        <div className="flex flex-wrap gap-2 py-4">
+          {filterableColumns.map((column) => (
+            <div key={column.id} className="flex gap-1 items-center">
+              <label htmlFor={`filter-${column.id}`} className="text-sm font-medium">
+                {column.title}:
+              </label>
+              <select
+                id={`filter-${column.id}`}
+                value={(table.getColumn(column.id)?.getFilterValue() as string) || ""}
+                onChange={(e) => 
+                  table.getColumn(column.id)?.setFilterValue(e.target.value || undefined)
+                }
+                className="p-1 text-sm border rounded-md"
+              >
+                <option value="">All</option>
+                {column.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="rounded-md border">
         <Table>
           <TableHeader>

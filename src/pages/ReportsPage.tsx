@@ -178,7 +178,7 @@ export default function ReportsPage() {
     enabled: !!user,
   });
   
-  // Prepare data for charts - no change needed here
+  // Prepare data for charts
   const prepareChartData = () => {
     if (!clicks) return [];
     
@@ -410,6 +410,42 @@ export default function ReportsPage() {
       ),
     },
   ];
+
+  // Prepare offer filter options
+  const getOfferFilterOptions = () => {
+    if (!clicks || clicks.length === 0) return [];
+    
+    const uniqueOffers = new Map();
+    
+    clicks.forEach(click => {
+      if (click.offers?.id && click.offers?.name) {
+        uniqueOffers.set(click.offers.id, click.offers.name);
+      }
+    });
+    
+    return Array.from(uniqueOffers.entries()).map(([value, label]) => ({
+      label,
+      value,
+    }));
+  };
+  
+  const getConversionOfferFilterOptions = () => {
+    if (!conversions || conversions.length === 0) return [];
+    
+    const uniqueOffers = new Map();
+    
+    conversions.forEach(conv => {
+      const clickData = conv.click as any;
+      if (clickData?.offers?.id && clickData?.offers?.name) {
+        uniqueOffers.set(clickData.offers.id, clickData.offers.name);
+      }
+    });
+    
+    return Array.from(uniqueOffers.entries()).map(([value, label]) => ({
+      label,
+      value,
+    }));
+  };
 
   // Export data to CSV
   const exportToCSV = (dataType: 'clicks' | 'conversions') => {
@@ -788,6 +824,13 @@ export default function ReportsPage() {
                 isLoading={isLoadingClicks}
                 emptyMessage="No click data for the selected period"
                 defaultSorting={[{ id: 'created_at', desc: true }]}
+                filterableColumns={[
+                  {
+                    id: 'offer',
+                    title: 'Offer',
+                    options: getOfferFilterOptions()
+                  }
+                ]}
               />
             </CardContent>
           </Card>
@@ -819,6 +862,13 @@ export default function ReportsPage() {
                 isLoading={isLoadingConversions}
                 emptyMessage="No conversion data for the selected period"
                 defaultSorting={[{ id: 'created_at', desc: true }]}
+                filterableColumns={[
+                  {
+                    id: 'offer',
+                    title: 'Offer',
+                    options: getConversionOfferFilterOptions()
+                  }
+                ]}
               />
             </CardContent>
           </Card>

@@ -70,7 +70,27 @@ serve(async (req) => {
     
     if (!clickData) {
       console.error('Click not found')
-      return new Response(JSON.stringify({ error: 'Click not found' }), { 
+      
+      // Additional diagnostic info
+      console.log('Attempting to find click with similar ID pattern...');
+      
+      // Try to find clicks with similar patterns
+      const { data: similarClicks } = await supabase
+        .from('clicks')
+        .select('click_id')
+        .limit(5);
+        
+      if (similarClicks && similarClicks.length > 0) {
+        console.log('Found some recent clicks:', similarClicks.map(c => c.click_id).join(', '));
+      } else {
+        console.log('No recent clicks found in database');
+      }
+      
+      return new Response(JSON.stringify({ 
+        error: 'Click not found',
+        message: 'The clickId provided does not match any records in our system.',
+        debug: { provided_click_id: body.clickId }
+      }), { 
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       })
@@ -87,7 +107,11 @@ serve(async (req) => {
         revenue: body.revenue || null,
         commission: 0, // We'll handle commission calculations later
         status: 'pending',
-        metadata: body.metadata || null,
+        metadata: { 
+          ...body.metadata || {},
+          source: 'api_conversion',
+          request_path: req.url
+        },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -127,9 +151,9 @@ serve(async (req) => {
         
         // Send the request asynchronously
         try {
-          const forwardRes = await Promise.race([
+          const forwardRes = await Promise.race<Response>([
             fetch(forwardUrl),
-            new Promise((_, reject) => 
+            new Promise<never>((_, reject) => 
               setTimeout(() => reject(new Error('Postback forward timeout')), 5000)
             )
           ]);
@@ -147,7 +171,11 @@ serve(async (req) => {
     return new Response(JSON.stringify({ 
       success: true, 
       conversionId: conversionData.id,
-      message: `Conversion recorded for ${body.eventType} event`
+      message: `Conversion recorded for ${body.eventType} event`,
+      clickInfo: {
+        offer_id: clickData.offer_id,
+        affiliate_id: clickData.affiliate_id
+      }
     }), { 
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -156,7 +184,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error processing conversion:', error)
     
-    return new Response(JSON.stringify({ error: 'Internal server error' }), { 
+    return new Response(JSON.stringify({ 
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
+    }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     })

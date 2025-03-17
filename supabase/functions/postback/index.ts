@@ -15,61 +15,97 @@ serve(async (req) => {
   
   // Get URL and query parameters
   const url = new URL(req.url);
-  const click_id = url.searchParams.get('click_id');
-  const goal = url.searchParams.get('goal') || 'conversion';
-  const payout = url.searchParams.get('payout');
   
-  console.log(`Received postback request: click_id=${click_id}, goal=${goal}, payout=${payout || 'not provided'}`)
+  // More flexible parameter handling - check multiple possible parameter names
+  const click_id = url.searchParams.get('click_id') || url.searchParams.get('clickId') || url.searchParams.get('clickid') || url.searchParams.get('cid');
+  
+  // Get goal and handle both string and numeric formats
+  const rawGoal = url.searchParams.get('goal') || url.searchParams.get('event') || 'conversion';
+  // Map numeric goals to string values if needed
+  const goalMap: Record<string, string> = {
+    '1': 'lead',
+    '2': 'sale',
+    '3': 'action',
+    '4': 'deposit'
+  };
+  const goal = goalMap[rawGoal] || rawGoal;
+  
+  // Get payout if available
+  const payout = url.searchParams.get('payout') || url.searchParams.get('amount') || url.searchParams.get('revenue');
+  
+  console.log(`Received postback request: click_id=${click_id}, goal=${goal}, payout=${payout || 'not provided'}, raw goal=${rawGoal}`);
   
   // Validate required fields
   if (!click_id) {
-    console.error('Missing required field: click_id')
+    console.error('Missing required field: click_id');
     return new Response(JSON.stringify({ error: 'Missing required field: click_id' }), { 
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-    })
+    });
   }
   
   try {
     // Create Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     
     if (!supabaseUrl || !supabaseKey) {
-      console.error('Missing Supabase configuration')
+      console.error('Missing Supabase configuration');
       return new Response(JSON.stringify({ error: 'Server configuration error' }), { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      })
+      });
     }
     
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const supabase = createClient(supabaseUrl, supabaseKey);
     
     // Get click information
-    console.log(`Looking for click with ID: ${click_id}`)
+    console.log(`Looking for click with ID: ${click_id}`);
     const { data: clickData, error: clickError } = await supabase
       .from('clicks')
       .select('*, offer:offers(*)')
       .eq('click_id', click_id)
-      .maybeSingle()
+      .maybeSingle();
     
     if (clickError) {
-      console.error('Error fetching click:', clickError)
+      console.error('Error fetching click:', clickError);
       return new Response(JSON.stringify({ error: 'Error retrieving click data' }), { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      })
+      });
     }
     
     if (!clickData) {
-      console.error('Click not found')
-      return new Response(JSON.stringify({ error: 'Click not found' }), { 
+      console.error('Click not found');
+      
+      // Additional diagnostic info to help troubleshoot
+      console.log('Attempting to find click with similar ID pattern...');
+      
+      // Try to find clicks with similar patterns in case of encoding issues
+      const { data: similarClicks } = await supabase
+        .from('clicks')
+        .select('click_id')
+        .limit(5);
+        
+      if (similarClicks && similarClicks.length > 0) {
+        console.log('Found some recent clicks:', similarClicks.map(c => c.click_id).join(', '));
+      } else {
+        console.log('No recent clicks found in database.');
+      }
+      
+      return new Response(JSON.stringify({ 
+        error: 'Click not found', 
+        message: 'The click_id provided does not match any records in our system.',
+        debug: { 
+          provided_click_id: click_id 
+        }
+      }), { 
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      })
+      });
     }
     
-    console.log(`Found click data for affiliate_id ${clickData.affiliate_id}`)
+    console.log(`Found click data for affiliate_id ${clickData.affiliate_id}, offer_id ${clickData.offer_id}`);
     
     // Parse payout if provided
     let revenue = null;
@@ -95,23 +131,25 @@ serve(async (req) => {
         metadata: { 
           source: 's2s_postback', 
           goal: goal,
-          payout: payout || null
+          raw_goal: rawGoal,
+          payout: payout || null,
+          request_url: req.url
         },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .select()
-      .single()
+      .single();
     
     if (conversionError) {
-      console.error('Error creating conversion:', conversionError)
+      console.error('Error creating conversion:', conversionError);
       return new Response(JSON.stringify({ error: 'Failed to create conversion record' }), { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      })
+      });
     }
     
-    console.log('Created conversion record:', conversionData)
+    console.log('Created conversion record:', conversionData);
     
     // Check if we need to forward this conversion to the affiliate's custom postback
     try {
@@ -136,9 +174,9 @@ serve(async (req) => {
         
         // Send the request asynchronously
         try {
-          const forwardRes = await Promise.race([
+          const forwardRes = await Promise.race<Response>([
             fetch(forwardUrl),
-            new Promise((_, reject) => 
+            new Promise<never>((_, reject) => 
               setTimeout(() => reject(new Error('Postback forward timeout')), 5000)
             )
           ]);
@@ -157,18 +195,25 @@ serve(async (req) => {
       success: true, 
       message: `Conversion recorded for click_id ${click_id}`,
       conversionId: conversionData.id,
-      goal: goal
+      goal: goal,
+      clickInfo: {
+        offer_id: clickData.offer_id,
+        affiliate_id: clickData.affiliate_id
+      }
     }), { 
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-    })
+    });
     
   } catch (error) {
-    console.error('Error processing postback:', error)
+    console.error('Error processing postback:', error);
     
-    return new Response(JSON.stringify({ error: 'Internal server error' }), { 
+    return new Response(JSON.stringify({ 
+      error: 'Internal server error',
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
+    }), { 
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-    })
+    });
   }
-})
+});

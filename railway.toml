@@ -4,8 +4,8 @@ builder = "NIXPACKS"
 buildCommand = "npm install && npm run build"
 
 [deploy]
-startCommand = "node src/api/postback.js"
-healthcheckPath = "/api/postback"
+startCommand = "node src/api/server.js"
+healthcheckPath = "/"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"
 
@@ -13,5 +13,5 @@ restartPolicyType = "on_failure"
 nodejs = "20"
 
 [[services]]
-name = "afftools-api"
+name = "affiliate-tools"
 envs = { NODE_ENV = "production" } 

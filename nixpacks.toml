@@ -9,4 +9,4 @@ cmds = ["npm install"]
 cmds = ["npm run build"]
 
 [start]
-cmd = "node src/api/postback.js"
+cmd = "node src/api/server.js"

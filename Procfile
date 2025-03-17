@@ -1,2 +1,2 @@
 
-web: node src/api/postback.js
+web: node src/api/server.js

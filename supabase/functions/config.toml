@@ -12,3 +12,9 @@ enable_jwt_verification = false
 verify_jwt = false
 [functions.affiliate-applications] 
 verify_jwt = true
+[functions.apply-for-offer]
+verify_jwt = true
+[functions.cancel-application]
+verify_jwt = true
+[functions.review-application]
+verify_jwt = true

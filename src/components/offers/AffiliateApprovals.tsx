@@ -83,22 +83,30 @@ export default function AffiliateApprovals() {
     refetchOnWindowFocus: true
   });
   
-  // Mutation to update application status
+  // Mutation to update application status using edge function
   const updateApplication = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: 'approved' | 'rejected' }) => {
-      const { data, error } = await supabase
-        .from('affiliate_offers')
-        .update({ 
-          status, 
-          reviewed_at: new Date().toISOString() 
-        })
-        .eq('id', id)
-        .select();
+      console.log("Reviewing application via edge function:", id, status);
+      
+      const { data, error } = await supabase.functions.invoke('review-application', {
+        method: 'POST',
+        body: { 
+          applicationId: id, 
+          decision: status 
+        }
+      });
       
       if (error) {
+        console.error("Error from review-application edge function:", error);
         throw error;
       }
       
+      if (data.error) {
+        console.error("Error returned by review-application edge function:", data.error);
+        throw new Error(data.error);
+      }
+      
+      console.log("Application reviewed successfully:", data);
       return { id, status, data };
     },
     onSuccess: (data) => {

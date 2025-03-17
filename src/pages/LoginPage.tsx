@@ -13,9 +13,16 @@ export default function LoginPage() {
   console.log('LoginPage render:', { user, session, isLoading });
   
   useEffect(() => {
-    // If user is already authenticated, redirect to dashboard
-    if (!isLoading && (session || user)) {
-      console.log('LoginPage: User already authenticated, redirecting to dashboard');
+    // Check for session first (more reliable than checking user)
+    if (!isLoading && session) {
+      console.log('LoginPage: Session detected, redirecting to dashboard');
+      navigate('/dashboard');
+      return;
+    }
+    
+    // As a fallback, also check for user object
+    if (!isLoading && user) {
+      console.log('LoginPage: User detected, redirecting to dashboard');
       navigate('/dashboard');
     }
   }, [user, session, isLoading, navigate]);

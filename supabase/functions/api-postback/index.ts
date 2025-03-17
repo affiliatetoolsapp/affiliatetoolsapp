@@ -19,8 +19,28 @@ serve(async (req) => {
   
   // Handle health checks (requests without query parameters)
   const url = new URL(req.url);
+  
+  console.log('Received request with URL:', req.url);
+  console.log('Query parameters:', Object.fromEntries(url.searchParams.entries()));
+  
+  // Check if environment variables are available
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Missing environment variables: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    return new Response(
+      JSON.stringify({ 
+        error: 'Configuration error', 
+        message: 'Missing required environment variables'
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+  
+  // Health check
   if (url.search === '') {
-    console.log('Received health check request');
+    console.log('Handling as health check request');
     return new Response(
       JSON.stringify({ status: 'healthy' }),
       { 
@@ -29,9 +49,6 @@ serve(async (req) => {
       }
     );
   }
-  
-  console.log('Received postback request with URL:', req.url);
-  console.log('Query parameters:', Object.fromEntries(url.searchParams.entries()));
   
   try {
     // Extract all query parameters to forward
@@ -52,13 +69,24 @@ serve(async (req) => {
       }
     });
     
-    // Get the response data
-    const data = await response.json();
+    // Log the raw response
+    console.log('Raw response status:', response.status);
+    console.log('Raw response headers:', Object.fromEntries(response.headers.entries()));
     
-    console.log('Received response from internal function:', {
-      status: response.status,
-      data: data
-    });
+    // Get the response data
+    const responseText = await response.text();
+    console.log('Raw response body:', responseText);
+    
+    let data;
+    try {
+      // Try to parse as JSON
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('Error parsing response as JSON:', parseError);
+      data = { rawResponse: responseText };
+    }
+    
+    console.log('Processed response data:', data);
     
     // Return the response to the client
     return new Response(
@@ -74,7 +102,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error occurred'
+        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        stack: error instanceof Error ? error.stack : undefined
       }),
       { 
         status: 500,

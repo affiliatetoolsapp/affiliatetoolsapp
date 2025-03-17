@@ -15,16 +15,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Add a specific health check endpoint to better handle Railway's health checks
+// Health check endpoint
 app.get('/', (req, res) => {
-  console.log('Health check on root path');
   res.json({ status: 'online', message: 'AffTools API service is running' });
-});
-
-// Dedicated health check endpoint
-app.get('/health', (req, res) => {
-  console.log('Health check on /health path');
-  res.status(200).json({ status: 'healthy', message: 'Service is healthy' });
 });
 
 // Postback endpoint
@@ -32,16 +25,6 @@ app.get('/api/postback', async (req, res) => {
   try {
     console.log('Received postback request:', req.url);
     console.log('Query parameters:', req.query);
-    
-    // If no query parameters, this is a health check
-    if (Object.keys(req.query).length === 0) {
-      console.log('Health check on /api/postback path');
-      return res.status(200).json({ 
-        status: 'healthy', 
-        message: 'Postback service is running correctly',
-        success: true
-      });
-    }
     
     // Extract query parameters
     const { click_id, goal, payout } = req.query;

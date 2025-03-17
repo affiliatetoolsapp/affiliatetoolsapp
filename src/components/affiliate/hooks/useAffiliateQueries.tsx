@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AffiliateOfferWithOffer, TrackingLinkWithOffer } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -125,32 +126,22 @@ export const useAffiliateQueries = (userId: string | undefined) => {
     enabled: !!userId,
   });
   
-  // Cancel application mutation - Using the correct path format
+  // Cancel application mutation
   const cancelApplicationMutation = useMutation({
     mutationFn: async (applicationId: string) => {
-      console.log("Cancelling application via affiliate/cancel endpoint:", applicationId);
+      console.log("Cancelling application:", applicationId);
       
-      // The proper way to call a function with a path is to include it in the function name
-      const { data, error } = await supabase.functions.invoke('affiliate', {
-        method: 'POST',
-        body: { applicationId },
-        // Invoke the function with the path as part of the request body
-        headers: {
-          'x-function-path': 'cancel'
-        }
-      });
+      const { error } = await supabase
+        .from('affiliate_offers')
+        .delete()
+        .eq('id', applicationId);
       
       if (error) {
-        console.error("Error from affiliate cancel edge function:", error);
+        console.error("Error cancelling application:", error);
         throw error;
       }
       
-      if (data.error) {
-        console.error("Error returned by affiliate cancel edge function:", data.error);
-        throw new Error(data.error);
-      }
-      
-      console.log("Application cancelled successfully:", data);
+      console.log("Application cancelled successfully");
       return applicationId;
     },
     onSuccess: () => {

@@ -87,31 +87,20 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
     },
   });
   
-  // Mutation to update affiliate application status using the edge function
+  // Mutation to update affiliate application status
   const updateAffiliateStatus = useMutation({
     mutationFn: async ({ affiliateOfferId, status }: { affiliateOfferId: string, status: string }) => {
-      console.log("Reviewing application via edge function:", affiliateOfferId, status);
+      const { data, error } = await supabase
+        .from('affiliate_offers')
+        .update({
+          status,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', affiliateOfferId)
+        .select();
       
-      const { data, error } = await supabase.functions.invoke('review-application', {
-        method: 'POST',
-        body: { 
-          applicationId: affiliateOfferId, 
-          decision: status 
-        }
-      });
-      
-      if (error) {
-        console.error("Error from review-application edge function:", error);
-        throw error;
-      }
-      
-      if (data.error) {
-        console.error("Error returned by review-application edge function:", data.error);
-        throw new Error(data.error);
-      }
-      
-      console.log("Application reviewed successfully:", data);
-      return data.application;
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['offer-affiliates', offerId] });

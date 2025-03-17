@@ -111,28 +111,22 @@ export default function AffiliateDashboard() {
     enabled: !!user,
   });
 
-  // Apply to offer using affiliate/apply endpoint
+  // Apply to offer
   const applyToOffer = async () => {
     if (!user || !selectedOffer) return;
     
     try {
-      const { data, error } = await supabase.functions.invoke('affiliate', {
-        method: 'POST',
-        body: {
-          offerId: selectedOffer.id,
-          trafficSource,
-          notes: applicationNotes
-        },
-        headers: {
-          'x-function-path': 'apply'
-        }
-      });
+      const { error } = await supabase
+        .from('affiliate_offers')
+        .insert({
+          affiliate_id: user.id,
+          offer_id: selectedOffer.id,
+          traffic_source: trafficSource,
+          notes: applicationNotes,
+          status: 'pending'
+        });
       
       if (error) throw error;
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
       
       toast({
         title: 'Application Submitted',

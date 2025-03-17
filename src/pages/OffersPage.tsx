@@ -1,3 +1,4 @@
+
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -68,7 +69,7 @@ export default function OffersPage() {
         .select('status')
         .eq('offer_id', id)
         .eq('affiliate_id', user.id)
-        .maybeSingle();
+        .single();
       
       if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
         console.error("Error fetching application:", error);

@@ -17,6 +17,11 @@ app.get('/', (req, res) => {
   res.send('Affiliate Tools API is running');
 });
 
+// Health check endpoint for Railway
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy' });
+});
+
 // Postback endpoint that forwards to Supabase
 app.get('/api/postback', async (req, res) => {
   try {

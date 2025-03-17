@@ -1,11 +1,10 @@
-
 [build]
 builder = "NIXPACKS"
 buildCommand = "npm install && npm run build"
 
 [deploy]
-startCommand = "node src/api/server.js"
-healthcheckPath = "/health"
+startCommand = "npm run preview -- --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"
 
@@ -13,5 +12,5 @@ restartPolicyType = "on_failure"
 nodejs = "20"
 
 [[services]]
-name = "affiliate-tools"
+name = "vite-app"
 envs = { NODE_ENV = "production" } 

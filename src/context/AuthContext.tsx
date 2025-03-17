@@ -1,14 +1,16 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@/types';
 import { Session } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<boolean>;
+  signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, role: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
@@ -27,8 +29,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Function to fetch user profile with improved error handling
   async function fetchUserProfile(userId: string) {
     try {
-      console.log('Fetching user profile for ID:', userId);
-      
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -40,7 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      console.log('User profile fetched successfully:', data);
       setUser(data as User);
       return data;
     } catch (error) {
@@ -67,32 +66,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!isMounted) return;
         
         if (data.session) {
-          console.log('Auth init: Session found');
           setSession(data.session);
-          
-          // Try to fetch the profile, but don't block user access if it fails
           const profile = await fetchUserProfile(data.session.user.id);
           
-          if (!profile) {
-            console.log('Auth init: Could not fetch profile, using session metadata');
-            // Create a minimal user object from session metadata if profile fetch fails
-            const role = data.session.user.user_metadata?.role || 'affiliate';
-            setUser({
-              id: data.session.user.id,
-              email: data.session.user.email || '',
-              role: role,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            } as User);
+          // If profile fetch failed but we have a session, still allow access
+          // This prevents login issues when user table might have issues
+          if (!profile && isMounted) {
+            console.warn('Profile fetch failed but session exists - continuing anyway');
           }
         } else {
-          console.log('Auth init: No session found');
           setUser(null);
         }
-        
-        if (isMounted) setIsLoading(false);
       } catch (error) {
         console.error('Auth initialization error:', error);
+      } finally {
         if (isMounted) setIsLoading(false);
       }
     })();
@@ -106,29 +93,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       
       if (session?.user) {
-        console.log('Auth state change: User logged in');
-        
-        // Try to fetch profile, but don't block if it fails
-        const profile = await fetchUserProfile(session.user.id);
-        
-        if (!profile) {
-          console.log('Auth state change: Could not fetch profile, using session metadata');
-          // Create a minimal user object from session metadata if profile fetch fails
-          const role = session.user.user_metadata?.role || 'affiliate';
-          setUser({
-            id: session.user.id,
-            email: session.user.email || '',
-            role: role,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          } as User);
-        }
+        // Don't wait for profile fetch to complete before setting isLoading to false
+        fetchUserProfile(session.user.id).catch(err => {
+          console.error('Error in profile fetch during auth change:', err);
+        });
       } else {
-        console.log('Auth state change: User logged out or no session');
         setUser(null);
       }
       
-      if (isMounted) setIsLoading(false);
+      setIsLoading(false);
     });
 
     return () => {
@@ -138,44 +111,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Modified to return success status
-  async function signIn(email: string, password: string): Promise<boolean> {
+  // Rest of the auth functions
+  async function signIn(email: string, password: string) {
     setIsLoading(true);
     try {
-      console.log('Attempting to sign in with email:', email);
-      
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       
       if (error) throw error;
       
-      console.log('Sign in successful:', data);
+      // Immediately set loading to false after successful sign-in
+      // Auth state change will handle session and user update
+      setIsLoading(false);
       
       toast({
         title: "Success",
         description: "You have successfully signed in!",
       });
-      
-      // If we have session data, consider authentication successful even without profile
-      if (data.session) {
-        // Try to fetch profile but don't block if it fails
-        const profile = await fetchUserProfile(data.session.user.id);
-        
-        if (!profile) {
-          console.log('Sign in: Could not fetch profile, using session metadata');
-          // Create a minimal user object from session metadata if profile fetch fails
-          const role = data.session.user.user_metadata?.role || 'affiliate';
-          setUser({
-            id: data.session.user.id,
-            email: data.session.user.email || '',
-            role: role,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          } as User);
-        }
-      }
-      
-      setIsLoading(false);
-      return true;
     } catch (error: any) {
       console.error('Sign in error:', error);
       toast({
@@ -184,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         variant: "destructive",
       });
       setIsLoading(false);
-      return false;
+      throw error;
     }
   }
 

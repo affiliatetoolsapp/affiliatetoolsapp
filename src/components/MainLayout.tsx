@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Sidebar } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Bell, LogOut, Menu, Settings, ShieldAlert } from 'lucide-react';
+import { Bell, LogOut, Menu, Settings } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { 
@@ -16,7 +16,6 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
 
 export default function MainLayout() {
   const { user, signOut } = useAuth();
@@ -26,8 +25,6 @@ export default function MainLayout() {
   const userInitials = user?.contact_name 
     ? user.contact_name.split(' ').map(n => n[0]).join('')
     : user?.email?.slice(0, 2).toUpperCase();
-  
-  const isAdmin = user?.role === 'admin';
   
   return (
     <div className="min-h-screen bg-background flex">
@@ -55,16 +52,7 @@ export default function MainLayout() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-screen max-w-[100%]">
         {/* Fixed Header */}
-        <header className="h-16 border-b flex items-center justify-between px-6 sticky top-0 bg-background z-40">
-          <div className="flex items-center">
-            {isAdmin && (
-              <Badge variant="destructive" className="mr-2">
-                <ShieldAlert className="h-3 w-3 mr-1" />
-                Admin Mode
-              </Badge>
-            )}
-          </div>
-          
+        <header className="h-16 border-b flex items-center justify-end px-6 sticky top-0 bg-background z-40">
           <div className="flex items-center space-x-4">
             <ThemeToggle />
             <Button variant="ghost" size="icon">
@@ -92,30 +80,6 @@ export default function MainLayout() {
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Account Settings</span>
                 </DropdownMenuItem>
-                {isAdmin && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => navigate('/admin')}>
-                      <ShieldAlert className="mr-2 h-4 w-4" />
-                      <span>Admin Dashboard</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => navigate('/admin/users')}>
-                      <span className="ml-6">Users Management</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => navigate('/admin/offers')}>
-                      <span className="ml-6">Offers Management</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => navigate('/admin/payments')}>
-                      <span className="ml-6">Payments Management</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => navigate('/admin/activity')}>
-                      <span className="ml-6">Activity Monitoring</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => navigate('/admin/settings')}>
-                      <span className="ml-6">Platform Settings</span>
-                    </DropdownMenuItem>
-                  </>
-                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => signOut()}>
                   <LogOut className="mr-2 h-4 w-4" />

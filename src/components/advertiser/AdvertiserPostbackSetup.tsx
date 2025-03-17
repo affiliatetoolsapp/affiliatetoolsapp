@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -19,11 +18,10 @@ export default function AdvertiserPostbackSetup() {
   
   // Get the domain name for the postback URL
   useEffect(() => {
-    // Use the Supabase edge function URL instead of the hardcoded one
-    const supabaseProjectId = 'jruzfpymzkzegdhmzwsr';
-    const supabaseDomain = `https://${supabaseProjectId}.supabase.co`;
-    setDomain(supabaseDomain);
-    const baseUrl = `${supabaseDomain}/functions/v1/postback`;
+    // Use the custom Railway domain instead of Supabase
+    const customDomain = 'https://afftools.up.railway.app';
+    setDomain(customDomain);
+    const baseUrl = `${customDomain}/api/postback`;
     setPostbackUrl(`${baseUrl}?click_id={click_id}&goal={goal}&payout={payout}`);
   }, []);
   

@@ -1,13 +1,24 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// This configuration allows unauthenticated requests by default
+// Create a Supabase client with the service role key
+const getServiceClient = (): SupabaseClient => {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing Supabase configuration');
+  }
+  
+  return createClient(supabaseUrl, supabaseKey);
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -58,19 +69,8 @@ serve(async (req) => {
   }
   
   try {
-    // Create Supabase client - this will use the SERVICE_ROLE key which allows access without auth
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-    
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('Missing Supabase configuration');
-      return new Response(JSON.stringify({ error: 'Server configuration error' }), { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
-    }
-    
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // Create a Supabase client with service role key - this allows access without auth
+    const supabase = getServiceClient();
     
     // The click_id might be a placeholder or the actual ID. Check if it contains variables
     let actualClickId = click_id;

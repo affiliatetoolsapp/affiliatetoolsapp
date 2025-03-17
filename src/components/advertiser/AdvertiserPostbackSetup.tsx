@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Clipboard, Check, AlertCircle, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function AdvertiserPostbackSetup() {
   const { user } = useAuth();
@@ -19,11 +20,10 @@ export default function AdvertiserPostbackSetup() {
   
   // Get the domain name for the postback URL
   useEffect(() => {
-    // Use the Supabase function URL directly
-    const supabaseProjectId = 'jruzfpymzkzegdhmzwsr';
-    const supabaseDomain = `https://${supabaseProjectId}.supabase.co`;
-    setDomain(supabaseDomain);
-    const baseUrl = `${supabaseDomain}/functions/v1/postback`;
+    // Use the direct Supabase function URL with no authorization needed
+    const supabaseUrl = "https://jruzfpymzkzegdhmzwsr.supabase.co";
+    setDomain(supabaseUrl);
+    const baseUrl = `${supabaseUrl}/functions/v1/postback`;
     setPostbackUrl(`${baseUrl}?click_id={click_id}&goal={goal}&payout={payout}`);
   }, []);
   
@@ -50,6 +50,7 @@ export default function AdvertiserPostbackSetup() {
       description: "Sending a test postback request...",
     });
     
+    // Use direct fetch with no auth headers
     fetch(testUrl)
       .then(response => response.json())
       .then(data => {

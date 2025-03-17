@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -52,8 +53,17 @@ export default function SignInForm() {
     
     setIsLoading(true);
     try {
-      await signIn(data.email, data.password);
-      // Navigation is handled by the useEffect above
+      const result = await signIn(data.email, data.password);
+      console.log('Sign in result:', result);
+      
+      // Explicitly navigate to dashboard after successful login
+      if (result) {
+        toast({
+          title: "Success",
+          description: "You have successfully signed in!"
+        });
+        navigate('/dashboard');
+      }
     } catch (error: any) {
       console.error('SignInForm: Sign in error:', error);
       // Error is already displayed via toast in the signIn function

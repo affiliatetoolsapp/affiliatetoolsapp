@@ -28,20 +28,22 @@ export function ProtectedRoute({ children, allowedRoles, redirectTo = "/login" }
     return <Navigate to={redirectTo} state={{ from: location }} replace />;
   }
   
-  // If we have a session but no user (possibly due to RLS issue)
-  // Still allow access but with role checking based on session claim
-  if (!user && allowedRoles) {
-    const sessionRole = session.user?.user_metadata?.role as UserRole;
-    console.log('ProtectedRoute: No user profile but have session, checking role from session:', sessionRole);
+  // Role-based access control
+  if (allowedRoles) {
+    // First try to get role from user object if available
+    let userRole = user?.role as UserRole | undefined;
     
-    if (!sessionRole || !allowedRoles.includes(sessionRole)) {
-      console.log(`Role ${sessionRole} not authorized. Allowed roles:`, allowedRoles);
+    // If user object is not available, fallback to session metadata
+    if (!userRole) {
+      userRole = session.user?.user_metadata?.role as UserRole;
+    }
+    
+    if (!userRole || !allowedRoles.includes(userRole)) {
+      console.log(`Role ${userRole} not authorized. Allowed roles:`, allowedRoles);
       return <Navigate to="/unauthorized" replace />;
     }
-  } else if (user && allowedRoles && !allowedRoles.includes(user.role as UserRole)) {
-    // Normal role check when user profile is available
-    console.log(`User role ${user.role} not authorized. Allowed roles:`, allowedRoles);
-    return <Navigate to="/unauthorized" replace />;
+    
+    console.log(`User with role ${userRole} authorized to access this route`);
   }
   
   return <>{children}</>;

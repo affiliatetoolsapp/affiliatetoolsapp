@@ -67,19 +67,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (data.session) {
           setSession(data.session);
-          const profile = await fetchUserProfile(data.session.user.id);
-          
-          // If profile fetch failed but we have a session, still allow access
-          // This prevents login issues when user table might have issues
-          if (!profile && isMounted) {
-            console.warn('Profile fetch failed but session exists - continuing anyway');
-          }
+          // Try to fetch the profile, but don't block user access if it fails
+          fetchUserProfile(data.session.user.id)
+            .catch(err => {
+              console.error('Error in profile fetch during initialization:', err);
+            })
+            .finally(() => {
+              if (isMounted) setIsLoading(false);
+            });
         } else {
           setUser(null);
+          if (isMounted) setIsLoading(false);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
-      } finally {
         if (isMounted) setIsLoading(false);
       }
     })();
@@ -94,14 +95,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (session?.user) {
         // Don't wait for profile fetch to complete before setting isLoading to false
-        fetchUserProfile(session.user.id).catch(err => {
-          console.error('Error in profile fetch during auth change:', err);
-        });
+        fetchUserProfile(session.user.id)
+          .catch(err => {
+            console.error('Error in profile fetch during auth change:', err);
+          })
+          .finally(() => {
+            if (isMounted) setIsLoading(false);
+          });
       } else {
         setUser(null);
+        if (isMounted) setIsLoading(false);
       }
-      
-      setIsLoading(false);
     });
 
     return () => {
@@ -111,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Rest of the auth functions
+  // For signIn, modify to ensure we don't depend solely on the profile fetch
   async function signIn(email: string, password: string) {
     setIsLoading(true);
     try {
@@ -119,14 +123,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (error) throw error;
       
-      // Immediately set loading to false after successful sign-in
-      // Auth state change will handle session and user update
-      setIsLoading(false);
-      
+      // Navigation should happen automatically by auth state change
       toast({
         title: "Success",
         description: "You have successfully signed in!",
       });
+      
+      // If we get this far, consider the sign-in successful
+      setIsLoading(false);
     } catch (error: any) {
       console.error('Sign in error:', error);
       toast({

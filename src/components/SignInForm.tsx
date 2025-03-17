@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -25,11 +25,19 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 export default function SignInForm() {
-  const { signIn } = useAuth();
+  const { signIn, session } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Add effect to handle navigation after successful login
+  useEffect(() => {
+    if (session) {
+      console.log('SignInForm: Session detected, navigating to dashboard');
+      navigate('/dashboard');
+    }
+  }, [session, navigate]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -45,7 +53,7 @@ export default function SignInForm() {
     setIsLoading(true);
     try {
       await signIn(data.email, data.password);
-      // The auth change will trigger navigation automatically
+      // Navigation is handled by the useEffect above
     } catch (error: any) {
       console.error('SignInForm: Sign in error:', error);
       // Error is already displayed via toast in the signIn function

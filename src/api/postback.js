@@ -20,11 +20,20 @@ app.get('/', (req, res) => {
   res.json({ status: 'online', message: 'AffTools API service is running' });
 });
 
-// Postback endpoint
+// Postback endpoint - this also serves as the health check
 app.get('/api/postback', async (req, res) => {
   try {
     console.log('Received postback request:', req.url);
     console.log('Query parameters:', req.query);
+    
+    // If no query parameters, this is likely a health check
+    if (Object.keys(req.query).length === 0) {
+      return res.json({ 
+        status: 'healthy', 
+        message: 'Postback service is running correctly',
+        success: true
+      });
+    }
     
     // Extract query parameters
     const { click_id, goal, payout } = req.query;

@@ -12,4 +12,3 @@ enable_jwt_verification = false
 verify_jwt = false
 [functions.affiliate]
 verify_jwt = true
-

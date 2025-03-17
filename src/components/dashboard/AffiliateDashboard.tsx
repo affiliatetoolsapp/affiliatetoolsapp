@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useQuery } from '@tanstack/react-query';
@@ -122,7 +123,9 @@ export default function AffiliateDashboard() {
           trafficSource,
           notes: applicationNotes
         },
-        urlParams: { path: 'apply' }
+        headers: {
+          'x-function-path': 'apply'
+        }
       });
       
       if (error) throw error;

@@ -183,7 +183,7 @@ export default function AdvertiserPostbackSetup() {
             <li>
               <strong>Send postback on conversion:</strong> When a conversion happens, send a GET request to our postback URL with the click ID.
               <div className="text-xs font-mono p-2 mt-1 bg-background rounded border overflow-auto text-muted-foreground">
-                {domain}/api/postback?click_id=ACTUAL_CLICK_ID&goal=lead
+                {domain}/functions/v1/postback?click_id=ACTUAL_CLICK_ID&goal=lead
               </div>
             </li>
             <li>

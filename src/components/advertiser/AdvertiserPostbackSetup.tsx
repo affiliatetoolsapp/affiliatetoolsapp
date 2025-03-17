@@ -19,8 +19,11 @@ export default function AdvertiserPostbackSetup() {
   
   // Get the domain name for the postback URL
   useEffect(() => {
-    setDomain(window.location.origin);
-    const baseUrl = `${window.location.origin}/api/postback`;
+    // Use the Supabase edge function URL instead of the hardcoded one
+    const supabaseProjectId = 'jruzfpymzkzegdhmzwsr';
+    const supabaseDomain = `https://${supabaseProjectId}.supabase.co`;
+    setDomain(supabaseDomain);
+    const baseUrl = `${supabaseDomain}/functions/v1/postback`;
     setPostbackUrl(`${baseUrl}?click_id={click_id}&goal={goal}&payout={payout}`);
   }, []);
   

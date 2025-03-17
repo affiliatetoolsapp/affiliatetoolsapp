@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/context/AuthContext';
@@ -27,6 +28,13 @@ import PartnersPage from '@/pages/PartnersPage';
 import SettingsPage from '@/pages/SettingsPage';
 import Index from '@/pages/Index';
 import { UserRole } from '@/types';
+
+// Admin-specific pages
+import AdminUsersPage from '@/pages/admin/AdminUsersPage';
+import AdminOffersPage from '@/pages/admin/AdminOffersPage';
+import AdminPaymentsPage from '@/pages/admin/AdminPaymentsPage';
+import AdminSettingsPage from '@/pages/admin/AdminSettingsPage';
+import AdminActivityPage from '@/pages/admin/AdminActivityPage';
 import './App.css';
 
 // Create a client
@@ -86,6 +94,56 @@ function AppContent() {
               
               {/* Advertiser-specific routes */}
               <Route path="partners" element={<PartnersPage />} />
+              
+              {/* Admin-specific routes - protected by role */}
+              <Route 
+                path="admin" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <DashboardPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="admin/users" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminUsersPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="admin/offers" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminOffersPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="admin/payments" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminPaymentsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="admin/settings" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminSettingsPage />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="admin/activity" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminActivityPage />
+                  </ProtectedRoute>
+                } 
+              />
             </Route>
           </Routes>
         </Router>

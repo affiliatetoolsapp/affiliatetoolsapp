@@ -126,23 +126,25 @@ export const useAffiliateQueries = (userId: string | undefined) => {
     enabled: !!userId,
   });
   
-  // Cancel application mutation - Now using the edge function
+  // Cancel application mutation - Using the new affiliate/cancel endpoint
   const cancelApplicationMutation = useMutation({
     mutationFn: async (applicationId: string) => {
-      console.log("Cancelling application via edge function:", applicationId);
+      console.log("Cancelling application via affiliate/cancel endpoint:", applicationId);
       
-      const { data, error } = await supabase.functions.invoke('cancel-application', {
+      const { data, error } = await supabase.functions.invoke('affiliate', {
         method: 'POST',
-        body: { applicationId }
+        body: { applicationId },
+        // Specify the cancel subpath
+        urlParams: { path: 'cancel' },
       });
       
       if (error) {
-        console.error("Error from cancel-application edge function:", error);
+        console.error("Error from affiliate/cancel edge function:", error);
         throw error;
       }
       
       if (data.error) {
-        console.error("Error returned by cancel-application edge function:", data.error);
+        console.error("Error returned by affiliate/cancel edge function:", data.error);
         throw new Error(data.error);
       }
       

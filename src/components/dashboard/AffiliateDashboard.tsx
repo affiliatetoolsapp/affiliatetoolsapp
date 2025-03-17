@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useQuery } from '@tanstack/react-query';
@@ -111,22 +110,26 @@ export default function AffiliateDashboard() {
     enabled: !!user,
   });
 
-  // Apply to offer
+  // Apply to offer using affiliate/apply endpoint
   const applyToOffer = async () => {
     if (!user || !selectedOffer) return;
     
     try {
-      const { error } = await supabase
-        .from('affiliate_offers')
-        .insert({
-          affiliate_id: user.id,
-          offer_id: selectedOffer.id,
-          traffic_source: trafficSource,
-          notes: applicationNotes,
-          status: 'pending'
-        });
+      const { data, error } = await supabase.functions.invoke('affiliate', {
+        method: 'POST',
+        body: {
+          offerId: selectedOffer.id,
+          trafficSource,
+          notes: applicationNotes
+        },
+        urlParams: { path: 'apply' }
+      });
       
       if (error) throw error;
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
       
       toast({
         title: 'Application Submitted',

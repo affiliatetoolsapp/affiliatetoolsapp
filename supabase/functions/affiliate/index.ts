@@ -1,6 +1,5 @@
 
-// Affiliate applications edge function
-// Handles: apply for offer, cancel application, review application
+// Affiliate edge function that handles multiple operations
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -33,9 +32,11 @@ serve(async (req) => {
   }
   
   try {
-    // Get the action from the URL
+    // Get the subpath from the URL
     const url = new URL(req.url)
-    const action = url.searchParams.get('action')
+    const path = url.pathname.split('/').pop() || '';
+    
+    console.log(`Processing ${path} request`);
     
     // Create Supabase client with auth from request
     const supabaseClient = createClient(
@@ -71,10 +72,9 @@ serve(async (req) => {
 
     // Get request body
     const requestData = await req.json().catch(() => ({}))
-    console.log(`Processing ${action} request:`, requestData)
-
-    // Route based on action
-    switch (action) {
+    
+    // Route based on path
+    switch (path) {
       case 'apply': {
         // Apply for an offer (affiliate side)
         const { offerId, trafficSource, notes } = requestData
@@ -251,7 +251,7 @@ serve(async (req) => {
       }
       
       default:
-        return createErrorResponse('Invalid action. Must be one of: apply, cancel, review', 400)
+        return createErrorResponse('Invalid path. Must be one of: apply, cancel, review', 400)
     }
   } catch (error) {
     console.error('Unhandled error:', error)

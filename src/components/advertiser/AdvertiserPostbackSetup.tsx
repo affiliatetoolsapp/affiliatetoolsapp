@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -18,7 +19,7 @@ export default function AdvertiserPostbackSetup() {
   
   // Get the domain name for the postback URL
   useEffect(() => {
-    // Use the custom Railway domain instead of Supabase
+    // Use the custom Railway domain
     const customDomain = 'https://afftools.up.railway.app';
     setDomain(customDomain);
     const baseUrl = `${customDomain}/api/postback`;

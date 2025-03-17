@@ -7,6 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// This configuration allows unauthenticated requests by default
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -57,7 +58,7 @@ serve(async (req) => {
   }
   
   try {
-    // Create Supabase client
+    // Create Supabase client - this will use the SERVICE_ROLE key which allows access without auth
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     

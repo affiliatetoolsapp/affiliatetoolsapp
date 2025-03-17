@@ -19,7 +19,7 @@ export default function AdvertiserPostbackSetup() {
   
   // Get the domain name for the postback URL
   useEffect(() => {
-    // Use the Supabase edge function URL instead of the hardcoded one
+    // Use the Supabase function URL directly
     const supabaseProjectId = 'jruzfpymzkzegdhmzwsr';
     const supabaseDomain = `https://${supabaseProjectId}.supabase.co`;
     setDomain(supabaseDomain);

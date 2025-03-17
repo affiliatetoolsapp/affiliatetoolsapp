@@ -13,8 +13,16 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
   
-  // Get URL and query parameters
+  // For health checks or simple status checks, return a 200 response
   const url = new URL(req.url);
+  if (url.searchParams.size === 0) {
+    return new Response(JSON.stringify({ status: 'healthy' }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+  
+  // Get URL and query parameters
   console.log('Received postback request with URL:', req.url);
   console.log('All query parameters:', Object.fromEntries(url.searchParams.entries()));
   

@@ -13,9 +13,6 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
   
-  // Allow requests without authentication for postback functionality
-  // This is needed for advertiser systems to send conversion data
-  
   // Get URL and query parameters
   const url = new URL(req.url);
   console.log('Received postback request with URL:', req.url);

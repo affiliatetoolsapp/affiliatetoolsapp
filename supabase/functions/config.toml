@@ -1,0 +1,14 @@
+
+# A string used as the project reference - should not be modified at the moment
+project_id = "jruzfpymzkzegdhmzwsr"
+[api]
+# Port to use for the API URL.
+port = 54321
+# Enable JWT verification for API requests.
+enable_jwt_verification = false
+
+[functions]
+[functions.postback]
+verify_jwt = false
+[functions.affiliate-applications] 
+verify_jwt = true

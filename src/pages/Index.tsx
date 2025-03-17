@@ -5,24 +5,27 @@ import { useAuth } from '@/context/AuthContext';
 import { PublicHeader } from '@/components/PublicHeader';
 
 export default function Index() {
-  const { user, isLoading } = useAuth();
+  const { user, session, isLoading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     // Log the current state for debugging
-    console.log('Index page state:', { user, isLoading });
+    console.log('Index page state:', { user, session, isLoading });
     
     // Immediate navigation if auth state is already loaded
     if (!isLoading) {
-      if (user) {
+      if (session) {
+        console.log('Session authenticated, redirecting to dashboard');
+        navigate('/dashboard');
+      } else if (user) {
         console.log('User authenticated, redirecting to dashboard');
         navigate('/dashboard');
       } else {
-        console.log('No user found, redirecting to login');
+        console.log('No session or user found, redirecting to login');
         navigate('/login');
       }
     }
-  }, [isLoading, user, navigate]);
+  }, [isLoading, user, session, navigate]);
 
   return (
     <div className="min-h-screen bg-background">

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -25,7 +26,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 export default function SignInForm() {
-  const { signIn } = useAuth();
+  const { signIn, session } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -42,10 +43,14 @@ export default function SignInForm() {
   const onSubmit = async (data: FormValues) => {
     if (isLoading) return; // Prevent multiple submissions
     
+    console.log('SignInForm: Submitting with email:', data.email);
     setIsLoading(true);
     try {
       await signIn(data.email, data.password);
-      // The auth change will trigger navigation automatically
+      console.log('SignInForm: Sign in successful');
+      
+      // Explicitly navigate to dashboard after successful login
+      navigate('/dashboard');
     } catch (error: any) {
       console.error('SignInForm: Sign in error:', error);
       // Error is already displayed via toast in the signIn function
@@ -53,6 +58,14 @@ export default function SignInForm() {
       setIsLoading(false);
     }
   };
+
+  // If we already have a session, redirect to dashboard
+  React.useEffect(() => {
+    if (session) {
+      console.log('SignInForm: Session detected, redirecting to dashboard');
+      navigate('/dashboard');
+    }
+  }, [session, navigate]);
 
   return (
     <div className="space-y-6">

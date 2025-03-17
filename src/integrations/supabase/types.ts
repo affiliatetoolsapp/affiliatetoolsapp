@@ -624,6 +624,16 @@ export type Database = {
         }
         Returns: string
       }
+      is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_self: {
+        Args: {
+          user_id: string
+        }
+        Returns: boolean
+      }
       log_conversion: {
         Args: {
           p_click_id: string

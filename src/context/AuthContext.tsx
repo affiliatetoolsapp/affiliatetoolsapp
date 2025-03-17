@@ -1,10 +1,8 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@/types';
 import { Session } from '@supabase/supabase-js';
 import { useToast } from '@/hooks/use-toast';
-import { useNavigate } from 'react-router-dom';
 
 interface AuthContextType {
   session: Session | null;
@@ -29,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Function to fetch user profile with improved error handling
   async function fetchUserProfile(userId: string) {
     try {
+      console.log('Fetching user profile for ID:', userId);
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -40,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
+      console.log('User profile fetched successfully:', data);
       setUser(data as User);
       return data;
     } catch (error) {
@@ -49,38 +49,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    console.log('AuthProvider: Setting up auth state');
     let isMounted = true;
     
     // Shorter timeout for better user experience
     const loadingTimeout = setTimeout(() => {
       if (isMounted && isLoading) {
+        console.log('Auth loading timeout reached, setting isLoading to false');
         setIsLoading(false);
       }
     }, 3000); // Reduced from 10 seconds to 3 seconds
 
-    // Get initial session - use async IIFE for cleaner code
+    // Get initial session
     (async () => {
       try {
+        console.log('Auth: Getting initial session');
         const { data } = await supabase.auth.getSession();
         
         if (!isMounted) return;
         
+        console.log('Auth: Initial session data:', data.session ? 'Session exists' : 'No session');
+        
         if (data.session) {
           setSession(data.session);
-          const profile = await fetchUserProfile(data.session.user.id);
-          
-          // If profile fetch failed but we have a session, still allow access
-          // This prevents login issues when user table might have issues
-          if (!profile && isMounted) {
-            console.warn('Profile fetch failed but session exists - continuing anyway');
-          }
+          console.log('Auth: Session found, fetching user profile');
+          await fetchUserProfile(data.session.user.id);
         } else {
+          console.log('Auth: No session found, setting user to null');
           setUser(null);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (isMounted) {
+          console.log('Auth: Initialization complete, setting isLoading to false');
+          setIsLoading(false);
+        }
       }
     })();
 
@@ -88,16 +92,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
       
-      console.log('Auth state change event:', event);
+      console.log('Auth state change event:', event, session ? 'with session' : 'no session');
       
       setSession(session);
       
       if (session?.user) {
-        // Don't wait for profile fetch to complete before setting isLoading to false
-        fetchUserProfile(session.user.id).catch(err => {
-          console.error('Error in profile fetch during auth change:', err);
-        });
+        console.log('Auth change: Session found, fetching user profile');
+        try {
+          const profile = await fetchUserProfile(session.user.id);
+          if (!profile) {
+            console.warn('Profile fetch failed but session exists');
+          }
+        } catch (error) {
+          console.error('Error in profile fetch during auth change:', error);
+        }
       } else {
+        console.log('Auth change: No session, setting user to null');
         setUser(null);
       }
       
@@ -105,22 +115,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
+      console.log('Auth: Cleaning up auth provider');
       isMounted = false;
       clearTimeout(loadingTimeout);
       subscription.unsubscribe();
     };
   }, []);
 
-  // Rest of the auth functions
+  // Auth functions
   async function signIn(email: string, password: string) {
+    console.log('Attempting to sign in with email:', email);
     setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       
       if (error) throw error;
       
+      console.log('Sign in successful, data:', data.session ? 'Session exists' : 'No session');
+      
       // Immediately set loading to false after successful sign-in
-      // Auth state change will handle session and user update
       setIsLoading(false);
       
       toast({

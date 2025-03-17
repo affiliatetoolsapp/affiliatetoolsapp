@@ -78,14 +78,46 @@ serve(async (req) => {
         paramName = click_id.substring(1, click_id.length - 1);
         console.log('Extracted param name from placeholder:', paramName);
       }
+      
+      // If we have a parameter name like 'sub1', look for clicks with that in custom_params
+      if (paramName) {
+        console.log(`Looking for clicks with ${paramName} in custom_params`);
+        
+        const { data: customParamClicks, error: customParamError } = await supabase
+          .from('clicks')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50);
+        
+        if (customParamError) {
+          console.error('Error fetching clicks by custom param:', customParamError);
+        } else if (customParamClicks?.length) {
+          console.log(`Found ${customParamClicks.length} clicks, searching for ${paramName} match`);
+          
+          // Find the first click that has this param name in custom_params
+          for (const click of customParamClicks) {
+            if (click.custom_params && typeof click.custom_params === 'object') {
+              console.log(`Checking click ${click.click_id} custom_params:`, click.custom_params);
+              
+              // If this is the click we need, use its ID
+              if (click.custom_params[paramName]) {
+                actualClickId = click.click_id;
+                console.log(`Found match! Using click ID ${actualClickId} for conversion`);
+                break;
+              }
+            }
+          }
+        }
+      }
     }
     
     // Get click information
     console.log(`Looking for click with ID: ${actualClickId}`);
     let clickQuery = supabase.from('clicks').select('*, offer:offers(*)');
     
-    if (lookupByCustomParam) {
-      // If we're using a placeholder, try to find clicks with custom params recently first
+    if (lookupByCustomParam && actualClickId === click_id) {
+      // If we still have the placeholder and couldn't find a match by custom param,
+      // try to find clicks with similar patterns or most recent
       const { data: recentClicks, error: recentError } = await supabase
         .from('clicks')
         .select('*, offer:offers(*)')
@@ -95,10 +127,9 @@ serve(async (req) => {
       if (recentError) {
         console.error('Error fetching recent clicks:', recentError);
       } else if (recentClicks?.length) {
-        console.log(`Found ${recentClicks.length} recent clicks, searching for custom params match`);
+        console.log(`Found ${recentClicks.length} recent clicks, using most recent as fallback`);
         
-        // This can be improved to match the exact placeholder pattern,
-        // but for now we'll just take the most recent click
+        // As a last resort, just use the most recent click
         if (recentClicks[0]) {
           actualClickId = recentClicks[0].click_id;
           console.log(`Using most recent click ID for conversion: ${actualClickId}`);
@@ -269,4 +300,3 @@ serve(async (req) => {
     });
   }
 });
-

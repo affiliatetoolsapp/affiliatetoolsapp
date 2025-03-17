@@ -14,14 +14,11 @@ export default function Index() {
     
     // Immediate navigation if auth state is already loaded
     if (!isLoading) {
-      if (session) {
-        console.log('Session authenticated, redirecting to dashboard');
-        navigate('/dashboard');
-      } else if (user) {
+      if (session || user) {
         console.log('User authenticated, redirecting to dashboard');
         navigate('/dashboard');
       } else {
-        console.log('No session or user found, redirecting to login');
+        console.log('No authenticated user found, redirecting to login');
         navigate('/login');
       }
     }

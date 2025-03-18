@@ -24,7 +24,7 @@ export default function OfferBrowser() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentNiche, setCurrentNiche] = useState<string | null>(null);
   const navigate = useNavigate();
-  const [displayMode, setDisplayMode] = useState<'grid' | 'list'>('grid');
+  const [displayMode, setDisplayMode] = useState<'grid' | 'list'>('list'); // Changed default to 'list'
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [trafficSource, setTrafficSource] = useState('');
   const [applicationNotes, setApplicationNotes] = useState('');

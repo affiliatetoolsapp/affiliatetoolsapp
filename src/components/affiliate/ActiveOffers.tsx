@@ -105,7 +105,7 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                 <div className="flex flex-wrap gap-1">
                   {formatGeoTargets(affiliateOffer.offer).slice(0, 3).map((geo, i) => (
                     <Badge key={i} variant="outline" className="text-xs">
-                      {geo}
+                      {geo.flag} {geo.code}
                     </Badge>
                   ))}
                   {formatGeoTargets(affiliateOffer.offer).length > 3 && (
@@ -118,7 +118,7 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                         </TooltipTrigger>
                         <TooltipContent>
                           <div className="max-w-xs">
-                            {formatGeoTargets(affiliateOffer.offer).slice(3).join(', ')}
+                            {formatGeoTargets(affiliateOffer.offer).slice(3).map(geo => `${geo.flag} ${geo.code}`).join(', ')}
                           </div>
                         </TooltipContent>
                       </Tooltip>
@@ -197,7 +197,7 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                 <div className="flex flex-wrap gap-1">
                   {formatGeoTargets(affiliateOffer.offer).slice(0, 2).map((geo, i) => (
                     <Badge key={i} variant="outline" className="text-xs">
-                      {geo}
+                      {geo.flag} {geo.code}
                     </Badge>
                   ))}
                   {formatGeoTargets(affiliateOffer.offer).length > 2 && (
@@ -210,7 +210,7 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                         </TooltipTrigger>
                         <TooltipContent>
                           <div className="max-w-xs">
-                            {formatGeoTargets(affiliateOffer.offer).slice(2).join(', ')}
+                            {formatGeoTargets(affiliateOffer.offer).slice(2).map(geo => `${geo.flag} ${geo.code}`).join(', ')}
                           </div>
                         </TooltipContent>
                       </Tooltip>

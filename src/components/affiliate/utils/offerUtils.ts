@@ -2,10 +2,28 @@
 import { Offer } from '@/types';
 
 /**
- * Format geo targets for display
+ * Get emoji flag for country code
+ */
+export const getCountryFlag = (countryCode: string): string => {
+  // Convert country code to regional indicator symbols
+  // Each country code letter is transformed to a regional indicator symbol (emoji)
+  if (!countryCode || countryCode.length !== 2) return '🌎'; // World emoji for invalid codes
+  
+  // For country codes, convert to uppercase and get the regional indicator symbols
+  // Regional indicator symbols are formed by taking the Unicode value of each letter,
+  // subtracting the Unicode value of 'A', and adding the Unicode value of the regional indicator 'A' (0x1F1E6)
+  const firstLetter = countryCode.toUpperCase().charCodeAt(0) - 65 + 0x1F1E6;
+  const secondLetter = countryCode.toUpperCase().charCodeAt(1) - 65 + 0x1F1E6;
+  
+  // Convert the Unicode values to characters and combine them
+  return String.fromCodePoint(firstLetter) + String.fromCodePoint(secondLetter);
+};
+
+/**
+ * Format geo targets for display with emoji flags
  */
 export const formatGeoTargets = (offer: Offer) => {
-  if (!offer.geo_targets) return ["Worldwide"];
+  if (!offer.geo_targets) return [{ flag: '🌎', code: 'WW' }]; // World emoji for "Worldwide"
   
   try {
     // If geo_targets is a string, try to parse it
@@ -15,19 +33,25 @@ export const formatGeoTargets = (offer: Offer) => {
     
     // If it's an empty object or not actually containing country data
     if (!geoObj || Object.keys(geoObj).length === 0) {
-      return ["Worldwide"];
+      return [{ flag: '🌎', code: 'WW' }];
     }
     
     // Handle arrays directly
     if (Array.isArray(geoObj)) {
-      return geoObj.map(item => String(item));
+      return geoObj.map(item => ({
+        code: String(item),
+        flag: getCountryFlag(String(item))
+      }));
     }
     
     // Handle objects
-    return Object.keys(geoObj);
+    return Object.keys(geoObj).map(code => ({
+      code,
+      flag: getCountryFlag(code)
+    }));
   } catch (e) {
     console.error("Error parsing geo targets:", e);
-    return ["Worldwide"];
+    return [{ flag: '🌎', code: 'WW' }];
   }
 };
 

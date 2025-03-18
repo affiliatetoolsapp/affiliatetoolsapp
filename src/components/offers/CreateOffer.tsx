@@ -183,15 +183,27 @@ const CreateOffer = () => {
     setIsSubmitting(true);
 
     try {
-      // Prepare data for Supabase
+      // Explicitly ensure commission_type is included
       const offerData = {
-        ...data, // This ensures all form data including commission_type is included
+        name: data.name,
+        description: data.description,
+        url: data.url,
+        niche: data.niche,
+        target_audience: data.target_audience,
+        conversion_requirements: data.conversion_requirements,
+        restrictions: data.restrictions,
+        commission_type: data.commission_type, // Explicitly include commission_type
+        status: data.status,
+        allowed_traffic_sources: data.allowed_traffic_sources,
+        restricted_geos: data.restricted_geos,
+        offer_image: data.offer_image,
         advertiser_id: user.id,
         geo_commissions: geoCommissions.length > 0 ? geoCommissions : null,
         marketing_materials: creatives.length > 0 ? creatives : null,
         // Convert string numbers to actual numbers for the database
         commission_amount: data.commission_amount ? parseFloat(data.commission_amount) : null,
         commission_percent: data.commission_percent ? parseFloat(data.commission_percent) : null,
+        geo_targets: data.geo_targets || []
       };
 
       // Insert into Supabase

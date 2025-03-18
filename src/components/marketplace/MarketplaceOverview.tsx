@@ -3,11 +3,13 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { formatGeoTargets } from '@/components/affiliate/utils/offerUtils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, Award, TrendingUp, Globe, Target, Users, DollarSign, Tag } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 
 export default function MarketplaceOverview() {
   const { user } = useAuth();
@@ -92,78 +94,107 @@ export default function MarketplaceOverview() {
           <div className="mt-8">
             <h2 className="text-xl font-semibold mb-4 text-left">Featured Offers in the Marketplace</h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {topOffers?.map((offer) => (
-                <Card key={offer.id} className="overflow-hidden">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg text-left">{offer.name}</CardTitle>
-                      {offer.is_featured && (
-                        <Badge className="ml-2">
-                          <Award className="h-3 w-3 mr-1" />
-                          Featured
-                        </Badge>
+              {topOffers?.map((offer) => {
+                const geoData = formatGeoTargets(offer);
+                
+                return (
+                  <Card key={offer.id} className="overflow-hidden">
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-lg text-left">{offer.name}</CardTitle>
+                        {offer.is_featured && (
+                          <Badge className="ml-2">
+                            <Award className="h-3 w-3 mr-1" />
+                            Featured
+                          </Badge>
+                        )}
+                      </div>
+                      <CardDescription className="line-clamp-2 text-left">{offer.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center text-sm">
+                        <DollarSign className="h-4 w-4 mr-1 text-green-500" />
+                        <span className="font-medium mr-1">Commission:</span>
+                        {offer.commission_type === 'RevShare' 
+                          ? `${offer.commission_percent}% RevShare` 
+                          : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
+                      </div>
+                      
+                      {offer.niche && (
+                        <div className="flex items-center text-sm">
+                          <Tag className="h-4 w-4 mr-1 text-blue-500" />
+                          <span className="font-medium mr-1">Niche:</span>
+                          {offer.niche}
+                        </div>
                       )}
-                    </div>
-                    <CardDescription className="line-clamp-2 text-left">{offer.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center text-sm">
-                      <DollarSign className="h-4 w-4 mr-1 text-green-500" />
-                      <span className="font-medium mr-1">Commission:</span>
-                      {offer.commission_type === 'RevShare' 
-                        ? `${offer.commission_percent}% RevShare` 
-                        : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
-                    </div>
-                    
-                    {offer.niche && (
-                      <div className="flex items-center text-sm">
-                        <Tag className="h-4 w-4 mr-1 text-blue-500" />
-                        <span className="font-medium mr-1">Niche:</span>
-                        {offer.niche}
-                      </div>
-                    )}
-                    
-                    {/* Display geo targeting info */}
-                    {offer.geo_targets && Array.isArray(offer.geo_targets) && offer.geo_targets.length > 0 && (
-                      <div className="flex items-center text-sm">
-                        <Globe className="h-4 w-4 mr-1 text-indigo-500" />
-                        <span className="font-medium mr-1">Targeting:</span>
-                        {offer.geo_targets.length <= 3 
-                          ? offer.geo_targets.join(', ') 
-                          : `${offer.geo_targets.length} countries`}
-                      </div>
-                    )}
-                    
-                    {/* Display traffic sources */}
-                    {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
-                      <div className="flex items-center text-sm">
-                        <Target className="h-4 w-4 mr-1 text-purple-500" />
-                        <span className="font-medium mr-1">Traffic:</span>
-                        {offer.allowed_traffic_sources.length <= 2 
-                          ? offer.allowed_traffic_sources.join(', ') 
-                          : `${offer.allowed_traffic_sources.length} sources`}
-                      </div>
-                    )}
-                    
-                    {/* Additional offer details */}
-                    {offer.target_audience && (
-                      <div className="flex items-start text-sm mt-2">
-                        <Users className="h-4 w-4 mr-1 text-orange-500 mt-0.5" />
+                      
+                      {/* Display geo targeting info - Updated to use flag + code */}
+                      <div className="flex items-start text-sm">
+                        <Globe className="h-4 w-4 mr-1 text-indigo-500 mt-0.5" />
                         <div>
-                          <span className="font-medium">Target Audience:</span>
-                          <p className="text-xs text-muted-foreground mt-0.5">{offer.target_audience}</p>
+                          <span className="font-medium mr-1">Targeting:</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {geoData.length <= 3 ? (
+                              geoData.map((geo, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {geo.flag} {geo.code}
+                                </Badge>
+                              ))
+                            ) : (
+                              <HoverCard>
+                                <HoverCardTrigger asChild>
+                                  <Badge variant="outline" className="text-xs cursor-pointer">
+                                    <Globe className="h-3 w-3 mr-1" />
+                                    {geoData.length} countries
+                                  </Badge>
+                                </HoverCardTrigger>
+                                <HoverCardContent className="w-auto max-w-[300px]">
+                                  <div className="font-medium mb-2">Targeted Countries:</div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {geoData.map((geo, i) => (
+                                      <Badge key={i} variant="outline" className="text-xs">
+                                        {geo.flag} {geo.code}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </HoverCardContent>
+                              </HoverCard>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    )}
-                    
-                    <Separator className="my-2" />
-                    
-                    <div className="flex justify-end">
-                      <Button size="sm">View Details</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      
+                      {/* Display traffic sources */}
+                      {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
+                        <div className="flex items-center text-sm">
+                          <Target className="h-4 w-4 mr-1 text-purple-500" />
+                          <span className="font-medium mr-1">Traffic:</span>
+                          {offer.allowed_traffic_sources.length <= 2 
+                            ? offer.allowed_traffic_sources.join(', ') 
+                            : `${offer.allowed_traffic_sources.length} sources`}
+                        </div>
+                      )}
+                      
+                      {/* Additional offer details */}
+                      {offer.target_audience && (
+                        <div className="flex items-start text-sm mt-2">
+                          <Users className="h-4 w-4 mr-1 text-orange-500 mt-0.5" />
+                          <div>
+                            <span className="font-medium">Target Audience:</span>
+                            <p className="text-xs text-muted-foreground mt-0.5">{offer.target_audience}</p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <Separator className="my-2" />
+                      
+                      <div className="flex justify-end">
+                        <Button size="sm">View Details</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           </div>
         </>

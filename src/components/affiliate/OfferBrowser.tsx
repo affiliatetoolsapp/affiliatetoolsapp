@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Offer, AffiliateOffer } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { formatGeoTargets } from './utils/offerUtils';
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ArrowUpRight, Clock, Eye, Filter, Grid, List, MapPin, Search, Trash2, Award, Tag, Target, DollarSign, Globe, AlertTriangle } from 'lucide-react';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import OfferDetailView from './OfferDetailView';
 
 export default function OfferBrowser() {
@@ -327,10 +329,10 @@ export default function OfferBrowser() {
       )}
 
       {displayMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredOffers?.map(offer => {
             const application = getApplicationStatus(offer.id);
-            const targetedGeos = formatGeoTargets(offer);
+            const geoData = formatGeoTargets(offer);
             const restrictedGeos = formatRestrictedGeos(offer);
             
             return (
@@ -365,31 +367,45 @@ export default function OfferBrowser() {
                     </div>
                   )}
                   
-                  {/* Targeted Geos Section */}
+                  {/* Targeted Geos Section - Updated */}
                   <div className="text-sm">
                     <div className="flex items-center mb-1">
                       <Globe className="h-4 w-4 mr-1 text-indigo-500" />
                       <span className="font-medium">Targeted Geos:</span>
                     </div>
-                    {Array.isArray(targetedGeos) ? (
-                      <div className="flex flex-wrap gap-1 ml-5 mt-1">
-                        {targetedGeos.length > 0 ? (
-                          targetedGeos.map((geo, index) => (
-                            <Badge key={`${geo}-${index}`} variant="outline" className="flex items-center">
-                              <MapPin className="h-3 w-3 mr-1" />
-                              {geo}
+                    <div className="flex flex-wrap gap-1 ml-5 mt-1">
+                      {geoData.length <= 3 ? (
+                        // If 3 or fewer countries, show them all
+                        geoData.map((geo, i) => (
+                          <Badge key={i} variant="outline" className="flex items-center">
+                            {geo.flag} {geo.code}
+                          </Badge>
+                        ))
+                      ) : (
+                        // If more than 3 countries, show globe icon with hover
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <Badge variant="outline" className="text-xs cursor-pointer">
+                              <Globe className="h-3 w-3 mr-1" />
+                              {geoData.length} countries
                             </Badge>
-                          ))
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Worldwide</span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground ml-5">{targetedGeos}</span>
-                    )}
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-auto max-w-[300px]">
+                            <div className="font-medium mb-2">Targeted Countries:</div>
+                            <div className="flex flex-wrap gap-1">
+                              {geoData.map((geo, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {geo.flag} {geo.code}
+                                </Badge>
+                              ))}
+                            </div>
+                          </HoverCardContent>
+                        </HoverCard>
+                      )}
+                    </div>
                   </div>
                   
-                  {/* Restricted Geos Section */}
+                  {/* Restricted Geos Section - Keep existing code */}
                   {restrictedGeos && restrictedGeos.length > 0 && (
                     <div className="text-sm">
                       <div className="flex items-center mb-1">
@@ -407,7 +423,7 @@ export default function OfferBrowser() {
                     </div>
                   )}
                   
-                  {/* Traffic Sources */}
+                  {/* Traffic Sources - Keep existing code */}
                   {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
                     <div className="text-sm">
                       <div className="flex items-center">
@@ -562,7 +578,7 @@ export default function OfferBrowser() {
             <tbody className="divide-y">
               {filteredOffers?.map(offer => {
                 const application = getApplicationStatus(offer.id);
-                const targetedGeos = formatGeoTargets(offer);
+                const geoData = formatGeoTargets(offer);
                 const restrictedGeos = formatRestrictedGeos(offer);
                 
                 return (
@@ -581,21 +597,31 @@ export default function OfferBrowser() {
                       <div className="flex flex-col gap-1">
                         <div className="text-xs font-medium">Targeted:</div>
                         <div className="flex flex-wrap gap-1">
-                          {Array.isArray(targetedGeos) ? (
-                            targetedGeos.length > 0 ? (
-                              targetedGeos.slice(0, 3).map((geo, index) => (
-                                <Badge key={`${geo}-${index}`} variant="outline" className="flex items-center">
-                                  {geo}
-                                </Badge>
-                              ))
-                            ) : (
-                              <span className="text-xs text-muted-foreground">Worldwide</span>
-                            )
+                          {geoData.length <= 3 ? (
+                            geoData.map((geo, index) => (
+                              <Badge key={index} variant="outline" className="flex items-center">
+                                {geo.flag} {geo.code}
+                              </Badge>
+                            ))
                           ) : (
-                            <span className="text-xs text-muted-foreground">{targetedGeos}</span>
-                          )}
-                          {Array.isArray(targetedGeos) && targetedGeos.length > 3 && (
-                            <Badge variant="outline">+{targetedGeos.length - 3} more</Badge>
+                            <HoverCard>
+                              <HoverCardTrigger asChild>
+                                <Badge variant="outline" className="text-xs cursor-pointer">
+                                  <Globe className="h-3 w-3 mr-1" />
+                                  {geoData.length} countries
+                                </Badge>
+                              </HoverCardTrigger>
+                              <HoverCardContent className="w-auto max-w-[300px]">
+                                <div className="font-medium mb-2">Targeted Countries:</div>
+                                <div className="flex flex-wrap gap-1">
+                                  {geoData.map((geo, i) => (
+                                    <Badge key={i} variant="outline" className="text-xs">
+                                      {geo.flag} {geo.code}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </HoverCardContent>
+                            </HoverCard>
                           )}
                         </div>
                         

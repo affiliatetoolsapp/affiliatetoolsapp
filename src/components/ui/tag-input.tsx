@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 export interface TagInputProps {
   placeholder?: string;
   tags: string[];
-  suggestions: string[];
+  suggestions?: string[];
   onTagsChange: (tags: string[]) => void;
   variant?: "default" | "negative";
   className?: string;
@@ -20,7 +20,7 @@ export interface TagInputProps {
 export function TagInput({
   placeholder = "Add item...",
   tags,
-  suggestions,
+  suggestions = [],
   onTagsChange,
   variant = "default",
   className,

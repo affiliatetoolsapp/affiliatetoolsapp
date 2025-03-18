@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -189,6 +190,9 @@ const CreateOffer = () => {
         advertiser_id: user.id,
         geo_commissions: geoCommissions.length > 0 ? geoCommissions : null,
         marketing_materials: creatives.length > 0 ? creatives : null,
+        // Convert string numbers to actual numbers for the database
+        commission_amount: data.commission_amount ? parseFloat(data.commission_amount) : null,
+        commission_percent: data.commission_percent ? parseFloat(data.commission_percent) : null,
       };
 
       // Insert into Supabase
@@ -560,10 +564,10 @@ const CreateOffer = () => {
                   <div className="space-y-2">
                     <Label htmlFor="traffic_sources">Allowed Traffic Sources</Label>
                     <TagInput
-                      id="traffic_sources"
                       placeholder="Add a traffic source and press Enter (e.g. Facebook, Google)"
                       tags={watch('allowed_traffic_sources') || []}
-                      setTags={handleTrafficSourcesChange}
+                      onTagsChange={handleTrafficSourcesChange}
+                      suggestions={['Facebook', 'Google', 'Instagram', 'TikTok', 'Native Ads', 'Push', 'Email', 'SEO']}
                     />
                   </div>
 
@@ -576,10 +580,10 @@ const CreateOffer = () => {
                     </p>
                     {watch('geo_targets')?.length === 0 && (
                       <TagInput
-                        id="geo_targets"
                         placeholder="Add country codes and press Enter (e.g. US, UK, CA)"
                         tags={watch('geo_targets') || []}
-                        setTags={(value) => setValue('geo_targets', value)}
+                        onTagsChange={(value) => setValue('geo_targets', value)}
+                        suggestions={['US', 'UK', 'CA', 'AU', 'DE', 'FR', 'ES', 'IT', 'JP']}
                       />
                     )}
                     
@@ -597,10 +601,10 @@ const CreateOffer = () => {
                   <div className="space-y-2">
                     <Label htmlFor="restricted_geos">Geographic Restrictions (Blocked)</Label>
                     <TagInput
-                      id="restricted_geos"
                       placeholder="Add restricted country codes (e.g. CN, RU)"
                       tags={watch('restricted_geos') || []}
-                      setTags={handleRestrictedGeosChange}
+                      onTagsChange={handleRestrictedGeosChange}
+                      suggestions={['CN', 'RU', 'IR', 'KP', 'CU', 'VE', 'MM']}
                     />
                   </div>
 

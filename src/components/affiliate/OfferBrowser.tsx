@@ -18,6 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ArrowUpRight, Clock, Eye, Filter, Grid, List, MapPin, Search, Trash2, Award, Tag, Target, DollarSign, Globe, AlertTriangle } from 'lucide-react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import OfferDetailView from './OfferDetailView';
 
 export default function OfferBrowser() {
@@ -356,24 +357,26 @@ export default function OfferBrowser() {
                         ))
                       ) : (
                         // If more than 3 countries, show globe icon with hover
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <Badge variant="outline" className="text-xs cursor-pointer">
-                              <Globe className="h-3 w-3 mr-1" />
-                              {geoData.length} GEO's
-                            </Badge>
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-auto max-w-[300px]">
-                            <div className="font-medium mb-2">Targeted GEO's:</div>
-                            <div className="flex flex-wrap gap-1">
-                              {geoData.map((geo, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  {geo.flag} {geo.code}
-                                </Badge>
-                              ))}
-                            </div>
-                          </HoverCardContent>
-                        </HoverCard>
+                        <TooltipProvider>
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <Badge variant="outline" className="text-xs cursor-pointer">
+                                <Globe className="h-3 w-3 mr-1" />
+                                {geoData.length} GEO's
+                              </Badge>
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-auto p-2">
+                              <div className="font-medium mb-2">Targeted GEO's:</div>
+                              <div className="flex flex-wrap gap-1 max-w-[300px]">
+                                {geoData.map((geo, i) => (
+                                  <Badge key={i} variant="outline" className="text-xs">
+                                    {geo.flag} {geo.code}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </TooltipProvider>
                       )}
                     </div>
                   </div>
@@ -577,24 +580,26 @@ export default function OfferBrowser() {
                               </Badge>
                             ))
                           ) : (
-                            <HoverCard>
-                              <HoverCardTrigger asChild>
-                                <Badge variant="outline" className="text-xs cursor-pointer">
-                                  <Globe className="h-3 w-3 mr-1" />
-                                  {geoData.length} GEO's
-                                </Badge>
-                              </HoverCardTrigger>
-                              <HoverCardContent className="w-auto max-w-[300px]">
-                                <div className="font-medium mb-2">Targeted GEO's:</div>
-                                <div className="flex flex-wrap gap-1">
-                                  {geoData.map((geo, i) => (
-                                    <Badge key={i} variant="outline" className="text-xs">
-                                      {geo.flag} {geo.code}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </HoverCardContent>
-                            </HoverCard>
+                            <TooltipProvider>
+                              <HoverCard>
+                                <HoverCardTrigger asChild>
+                                  <Badge variant="outline" className="text-xs cursor-pointer">
+                                    <Globe className="h-3 w-3 mr-1" />
+                                    {geoData.length} GEO's
+                                  </Badge>
+                                </HoverCardTrigger>
+                                <HoverCardContent className="w-auto p-2">
+                                  <div className="font-medium mb-2">Targeted GEO's:</div>
+                                  <div className="flex flex-wrap gap-1 max-w-[300px]">
+                                    {geoData.map((geo, i) => (
+                                      <Badge key={i} variant="outline" className="text-xs">
+                                        {geo.flag} {geo.code}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </HoverCardContent>
+                              </HoverCard>
+                            </TooltipProvider>
                           )}
                         </div>
                         

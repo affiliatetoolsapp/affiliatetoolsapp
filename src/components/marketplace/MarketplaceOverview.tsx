@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle, Award, TrendingUp, Globe, Target, Users, DollarSign, Tag } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Offer } from '@/types';
 
 export default function MarketplaceOverview() {
@@ -143,24 +145,26 @@ export default function MarketplaceOverview() {
                                 </Badge>
                               ))
                             ) : (
-                              <HoverCard>
-                                <HoverCardTrigger asChild>
-                                  <Badge variant="outline" className="text-xs cursor-pointer">
-                                    <Globe className="h-3 w-3 mr-1" />
-                                    {geoData.length} GEO's
-                                  </Badge>
-                                </HoverCardTrigger>
-                                <HoverCardContent className="w-auto max-w-[300px]">
-                                  <div className="font-medium mb-2">Targeted GEO's:</div>
-                                  <div className="flex flex-wrap gap-1">
-                                    {geoData.map((geo, i) => (
-                                      <Badge key={i} variant="outline" className="text-xs">
-                                        {geo.flag} {geo.code}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                </HoverCardContent>
-                              </HoverCard>
+                              <TooltipProvider>
+                                <HoverCard>
+                                  <HoverCardTrigger asChild>
+                                    <Badge variant="outline" className="text-xs cursor-pointer">
+                                      <Globe className="h-3 w-3 mr-1" />
+                                      {geoData.length} GEO's
+                                    </Badge>
+                                  </HoverCardTrigger>
+                                  <HoverCardContent className="w-auto p-2">
+                                    <div className="font-medium mb-2">Targeted GEO's:</div>
+                                    <div className="flex flex-wrap gap-1 max-w-[300px]">
+                                      {geoData.map((geo, i) => (
+                                        <Badge key={i} variant="outline" className="text-xs">
+                                          {geo.flag} {geo.code}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </HoverCardContent>
+                                </HoverCard>
+                              </TooltipProvider>
                             )}
                           </div>
                         </div>

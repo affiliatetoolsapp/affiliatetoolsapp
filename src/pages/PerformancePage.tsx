@@ -1,7 +1,7 @@
 
 import { useAuth } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import AffiliatePerformance from '@/components/affiliate/AffiliatePerformance';
+import ReportsPage from '@/pages/ReportsPage';
 
 export default function PerformancePage() {
   const { user } = useAuth();
@@ -10,7 +10,7 @@ export default function PerformancePage() {
   
   return (
     <ProtectedRoute allowedRoles={['affiliate']}>
-      <AffiliatePerformance />
+      <ReportsPage />
     </ProtectedRoute>
   );
 }

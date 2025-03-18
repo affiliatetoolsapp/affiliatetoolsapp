@@ -63,7 +63,6 @@ export function Sidebar({ className, isCollapsed = false, onToggle, ...props }: 
     { name: 'Marketplace', href: '/marketplace', icon: Store },
     { name: 'My Offers', href: '/offers', icon: Tag },
     { name: 'Tracking Links', href: '/links', icon: LinkIcon },
-    { name: 'Performance', href: '/performance', icon: TrendingUp },
     { name: 'Reports', href: '/reports', icon: FileText },
     { name: 'Earnings', href: '/earnings', icon: BarChart3 },
     { name: 'Wallet', href: '/wallet', icon: Wallet },

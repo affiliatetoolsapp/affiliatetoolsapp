@@ -145,14 +145,14 @@ export default function MarketplaceOverview() {
                                 </Badge>
                               ))
                             ) : (
-                              <HoverCard>
+                              <HoverCard openDelay={0} closeDelay={0}>
                                 <HoverCardTrigger asChild>
                                   <Badge variant="outline" className="text-xs cursor-pointer">
                                     <Globe className="h-3 w-3 mr-1" />
                                     {geoData.length} GEO's
                                   </Badge>
                                 </HoverCardTrigger>
-                                <HoverCardContent className="w-auto p-2">
+                                <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white">
                                   <div className="font-medium mb-2">Targeted GEO's:</div>
                                   <div className="flex flex-wrap gap-1 max-w-[300px]">
                                     {geoData.map((geo, i) => (

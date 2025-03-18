@@ -341,7 +341,7 @@ export default function OfferBrowser() {
                     </div>
                   )}
                   
-                  {/* Targeted Geos Section - Updated terminology from countries to GEO's */}
+                  {/* Targeted Geos Section - Updated with fixed hover */}
                   <div className="text-sm">
                     <div className="flex items-center mb-1">
                       <Globe className="h-4 w-4 mr-1 text-indigo-500" />
@@ -357,14 +357,14 @@ export default function OfferBrowser() {
                         ))
                       ) : (
                         // If more than 3 countries, show globe icon with hover
-                        <HoverCard>
+                        <HoverCard openDelay={0} closeDelay={0}>
                           <HoverCardTrigger asChild>
                             <Badge variant="outline" className="text-xs cursor-pointer">
                               <Globe className="h-3 w-3 mr-1" />
                               {geoData.length} GEO's
                             </Badge>
                           </HoverCardTrigger>
-                          <HoverCardContent className="w-auto p-2">
+                          <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white">
                             <div className="font-medium mb-2">Targeted GEO's:</div>
                             <div className="flex flex-wrap gap-1 max-w-[300px]">
                               {geoData.map((geo, i) => (
@@ -578,14 +578,14 @@ export default function OfferBrowser() {
                               </Badge>
                             ))
                           ) : (
-                            <HoverCard>
+                            <HoverCard openDelay={0} closeDelay={0}>
                               <HoverCardTrigger asChild>
                                 <Badge variant="outline" className="text-xs cursor-pointer">
                                   <Globe className="h-3 w-3 mr-1" />
                                   {geoData.length} GEO's
                                 </Badge>
                               </HoverCardTrigger>
-                              <HoverCardContent className="w-auto p-2">
+                              <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white">
                                 <div className="font-medium mb-2">Targeted GEO's:</div>
                                 <div className="flex flex-wrap gap-1 max-w-[300px]">
                                   {geoData.map((geo, i) => (

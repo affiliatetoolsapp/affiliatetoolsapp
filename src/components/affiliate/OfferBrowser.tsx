@@ -340,7 +340,7 @@ export default function OfferBrowser() {
                     </div>
                   )}
                   
-                  {/* Targeted Geos Section - Updated with type-safe approach */}
+                  {/* Targeted Geos Section - Updated terminology from countries to GEO's */}
                   <div className="text-sm">
                     <div className="flex items-center mb-1">
                       <Globe className="h-4 w-4 mr-1 text-indigo-500" />
@@ -360,11 +360,11 @@ export default function OfferBrowser() {
                           <HoverCardTrigger asChild>
                             <Badge variant="outline" className="text-xs cursor-pointer">
                               <Globe className="h-3 w-3 mr-1" />
-                              {geoData.length} countries
+                              {geoData.length} GEO's
                             </Badge>
                           </HoverCardTrigger>
                           <HoverCardContent className="w-auto max-w-[300px]">
-                            <div className="font-medium mb-2">Targeted Countries:</div>
+                            <div className="font-medium mb-2">Targeted GEO's:</div>
                             <div className="flex flex-wrap gap-1">
                               {geoData.map((geo, i) => (
                                 <Badge key={i} variant="outline" className="text-xs">
@@ -581,11 +581,11 @@ export default function OfferBrowser() {
                               <HoverCardTrigger asChild>
                                 <Badge variant="outline" className="text-xs cursor-pointer">
                                   <Globe className="h-3 w-3 mr-1" />
-                                  {geoData.length} countries
+                                  {geoData.length} GEO's
                                 </Badge>
                               </HoverCardTrigger>
                               <HoverCardContent className="w-auto max-w-[300px]">
-                                <div className="font-medium mb-2">Targeted Countries:</div>
+                                <div className="font-medium mb-2">Targeted GEO's:</div>
                                 <div className="flex flex-wrap gap-1">
                                   {geoData.map((geo, i) => (
                                     <Badge key={i} variant="outline" className="text-xs">

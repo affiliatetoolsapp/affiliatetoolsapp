@@ -33,9 +33,9 @@ const CreativesTab: React.FC<CreativesTabProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [creatives, setCreatives] = useState<any[]>(savedCreatives);
+  const [isDragging, setIsDragging] = useState(false);
   
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
+  const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     
     setUploading(true);
@@ -102,6 +102,26 @@ const CreativesTab: React.FC<CreativesTabProps> = ({
     } finally {
       setUploading(false);
     }
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleFileUpload(e.target.files);
+  };
+  
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+  
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+  
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileUpload(e.dataTransfer.files);
   };
   
   const handleRemoveCreative = async (index: number) => {
@@ -171,7 +191,16 @@ const CreativesTab: React.FC<CreativesTabProps> = ({
             <p className="text-sm text-muted-foreground mb-2">
               Upload images, banners, and other marketing materials for affiliates
             </p>
-            <div className="flex items-center gap-4">
+            
+            <div
+              className={`border-2 border-dashed rounded-md p-6 text-center ${
+                isDragging ? 'border-primary bg-primary/10' : 'border-muted-foreground/30'
+              } transition-colors`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
               <Input
                 ref={fileInputRef}
                 id="creatives"
@@ -181,22 +210,22 @@ const CreativesTab: React.FC<CreativesTabProps> = ({
                 onChange={handleFileChange}
                 accept="image/*,application/zip,application/x-zip-compressed"
               />
-              <Button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="flex items-center gap-2"
-              >
-                {uploading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="h-4 w-4" />
+              
+              <div className="flex flex-col items-center justify-center gap-2">
+                <Upload className="h-10 w-10 text-muted-foreground mb-2" />
+                <p className="text-sm font-medium">
+                  Click or drag and drop to upload images or .zip files
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Accepted formats: JPG, PNG, GIF, ZIP (max 10MB)
+                </p>
+                {uploading && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Uploading...</span>
+                  </div>
                 )}
-                Upload Files
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                Accepted formats: JPG, PNG, GIF, ZIP (max 10MB)
-              </p>
+              </div>
             </div>
           </div>
           

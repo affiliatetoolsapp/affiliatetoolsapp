@@ -145,26 +145,24 @@ export default function MarketplaceOverview() {
                                 </Badge>
                               ))
                             ) : (
-                              <TooltipProvider>
-                                <HoverCard>
-                                  <HoverCardTrigger asChild>
-                                    <Badge variant="outline" className="text-xs cursor-pointer">
-                                      <Globe className="h-3 w-3 mr-1" />
-                                      {geoData.length} GEO's
-                                    </Badge>
-                                  </HoverCardTrigger>
-                                  <HoverCardContent className="w-auto p-2">
-                                    <div className="font-medium mb-2">Targeted GEO's:</div>
-                                    <div className="flex flex-wrap gap-1 max-w-[300px]">
-                                      {geoData.map((geo, i) => (
-                                        <Badge key={i} variant="outline" className="text-xs">
-                                          {geo.flag} {geo.code}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  </HoverCardContent>
-                                </HoverCard>
-                              </TooltipProvider>
+                              <HoverCard>
+                                <HoverCardTrigger asChild>
+                                  <Badge variant="outline" className="text-xs cursor-pointer">
+                                    <Globe className="h-3 w-3 mr-1" />
+                                    {geoData.length} GEO's
+                                  </Badge>
+                                </HoverCardTrigger>
+                                <HoverCardContent className="w-auto p-2">
+                                  <div className="font-medium mb-2">Targeted GEO's:</div>
+                                  <div className="flex flex-wrap gap-1 max-w-[300px]">
+                                    {geoData.map((geo, i) => (
+                                      <Badge key={i} variant="outline" className="text-xs">
+                                        {geo.flag} {geo.code}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </HoverCardContent>
+                              </HoverCard>
                             )}
                           </div>
                         </div>

@@ -105,24 +105,24 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                 <span className="font-medium mr-1">Geo: </span>
                 <div className="flex flex-wrap gap-1">
                   {formatGeoTargets(affiliateOffer.offer).length <= 3 ? (
-                    // If 3 or fewer countries, show them all
+                    // If 3 or fewer GEO's, show them all
                     formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
                       <Badge key={i} variant="outline" className="text-xs">
                         {geo.flag} {geo.code}
                       </Badge>
                     ))
                   ) : (
-                    // If more than 3 countries, show globe icon with hover
+                    // If more than 3 GEO's, show globe icon with hover
                     <HoverCard>
                       <HoverCardTrigger asChild>
                         <Badge variant="outline" className="text-xs cursor-pointer">
                           <Globe className="h-3 w-3 mr-1" />
-                          {formatGeoTargets(affiliateOffer.offer).length} countries
+                          {formatGeoTargets(affiliateOffer.offer).length} GEO's
                         </Badge>
                       </HoverCardTrigger>
-                      <HoverCardContent className="w-auto max-w-[300px]">
-                        <div className="font-medium mb-2">Targeted Countries:</div>
-                        <div className="flex flex-wrap gap-1">
+                      <HoverCardContent className="w-auto p-2">
+                        <div className="font-medium mb-2">Targeted GEO's:</div>
+                        <div className="flex flex-wrap gap-1 max-w-[300px]">
                           {formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
                             <Badge key={i} variant="outline" className="text-xs">
                               {geo.flag} {geo.code}
@@ -204,24 +204,24 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
               <TableCell>
                 <div className="flex flex-wrap gap-1">
                   {formatGeoTargets(affiliateOffer.offer).length <= 2 ? (
-                    // If 2 or fewer countries, show them all
+                    // If 2 or fewer GEO's, show them all
                     formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
                       <Badge key={i} variant="outline" className="text-xs">
                         {geo.flag} {geo.code}
                       </Badge>
                     ))
                   ) : (
-                    // If more than 2 countries, show globe icon with hover
+                    // If more than 2 GEO's, show globe icon with hover
                     <HoverCard>
                       <HoverCardTrigger asChild>
                         <Badge variant="outline" className="text-xs cursor-pointer">
                           <Globe className="h-3 w-3 mr-1" />
-                          {formatGeoTargets(affiliateOffer.offer).length} countries
+                          {formatGeoTargets(affiliateOffer.offer).length} GEO's
                         </Badge>
                       </HoverCardTrigger>
-                      <HoverCardContent className="w-auto max-w-[300px]">
-                        <div className="font-medium mb-2">Targeted Countries:</div>
-                        <div className="flex flex-wrap gap-1">
+                      <HoverCardContent className="w-auto p-2">
+                        <div className="font-medium mb-2">Targeted GEO's:</div>
+                        <div className="flex flex-wrap gap-1 max-w-[300px]">
                           {formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
                             <Badge key={i} variant="outline" className="text-xs">
                               {geo.flag} {geo.code}

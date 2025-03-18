@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -186,7 +185,7 @@ const CreateOffer = () => {
     try {
       // Prepare data for Supabase
       const offerData = {
-        ...data,
+        ...data, // This ensures all form data including commission_type is included
         advertiser_id: user.id,
         geo_commissions: geoCommissions.length > 0 ? geoCommissions : null,
         marketing_materials: creatives.length > 0 ? creatives : null,

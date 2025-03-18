@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AffiliateOfferWithOffer } from '@/types';
@@ -13,7 +14,7 @@ import { DollarSign, Calendar, Tag, MapPin, Globe, Eye, Link as LinkIcon } from 
 
 interface ActiveOffersProps {
   offers: AffiliateOfferWithOffer[];
-  viewMode: 'grid' | list';
+  viewMode: 'grid' | 'list';
   isLoading: boolean;
   onViewOfferDetails: (offerId: string) => void;
   onGenerateLinks: (offerId: string) => void;

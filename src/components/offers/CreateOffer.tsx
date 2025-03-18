@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,8 +19,10 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { TagInput } from '@/components/ui/tag-input';
-import { GlobeIcon, DollarSignIcon, ShieldIcon, TagIcon, UsersIcon, Clipboard, Check, AlertCircle, RefreshCw } from 'lucide-react';
+import { GlobeIcon, DollarSignIcon, ShieldIcon, TagIcon, UsersIcon, Clipboard, Check, AlertCircle, RefreshCw, ImageIcon, FileIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import GeoCommissionSelector from './GeoCommissionSelector';
+import CreativesTab from './CreativesTab';
 
 export default function CreateOffer() {
   const { user } = useAuth();
@@ -51,19 +53,89 @@ export default function CreateOffer() {
     payout_terms: 'net30',
     tracking_method: 'postback',
     postback_url: '',
-    required_affiliate_approval: true
+    required_affiliate_approval: true,
+    use_geo_pricing: false,
+    geo_commissions: [] as { country: string; amount: string }[],
+    offer_image: null as string | null,
+    creatives: [] as any[]
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentTab, setCurrentTab] = useState('basic');
   const [copied, setCopied] = useState(false);
   const [postbackUrl, setPostbackUrl] = useState('');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   
   // Get the domain name for the postback URL
-  useState(() => {
+  useEffect(() => {
     const baseUrl = `${window.location.origin}/api/postback`;
     setPostbackUrl(`${baseUrl}?click_id={click_id}&goal={goal}&payout={payout}`);
-  });
+  }, []);
+  
+  // Function to handle image upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        variant: "destructive",
+        title: "Invalid file type",
+        description: "Please upload an image file (PNG, JPG, GIF).",
+      });
+      return;
+    }
+    
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "File too large",
+        description: "Image must be less than 2MB.",
+      });
+      return;
+    }
+    
+    try {
+      // Create a unique file name
+      const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`;
+      const filePath = `offer-images/${user?.id}/${fileName}`;
+      
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('offer-assets')
+        .upload(filePath, file, {
+          upsert: false,
+          contentType: file.type
+        });
+        
+      if (error) {
+        throw error;
+      }
+      
+      // Get public URL for the uploaded image
+      const { data: urlData } = supabase.storage
+        .from('offer-assets')
+        .getPublicUrl(filePath);
+        
+      // Set the image URL in form data and preview
+      setFormData(prev => ({ ...prev, offer_image: urlData.publicUrl }));
+      setImagePreview(URL.createObjectURL(file));
+      
+      toast({
+        title: "Image uploaded",
+        description: "Your offer image has been uploaded successfully.",
+      });
+    } catch (error: any) {
+      console.error("Image upload error:", error);
+      toast({
+        variant: "destructive",
+        title: "Upload failed",
+        description: error.message || "Failed to upload image.",
+      });
+    }
+  };
   
   const copyToClipboard = () => {
     navigator.clipboard.writeText(postbackUrl);
@@ -127,6 +199,10 @@ export default function CreateOffer() {
     setFormData(prev => ({ ...prev, [name]: checked }));
   };
   
+  const handleGeoTargetsUpdate = (geoTargets: string[]) => {
+    setFormData(prev => ({ ...prev, geo_targets: geoTargets }));
+  };
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -135,14 +211,13 @@ export default function CreateOffer() {
     try {
       setIsSubmitting(true);
       
-      const payload = {
+      // Prepare the basic payload
+      const payload: any = {
         advertiser_id: user.id,
         name: formData.name,
         description: formData.description,
         url: formData.url,
         commission_type: formData.commission_type,
-        commission_amount: formData.commission_type !== 'RevShare' ? parseFloat(formData.commission_amount) : null,
-        commission_percent: formData.commission_type === 'RevShare' ? parseFloat(formData.commission_percent) : null,
         niche: formData.niche,
         is_featured: formData.is_featured,
         geo_targets: formData.geo_targets.length > 0 ? formData.geo_targets : null,
@@ -151,8 +226,24 @@ export default function CreateOffer() {
         target_audience: formData.target_audience || null,
         restrictions: formData.restrictions || null,
         conversion_requirements: formData.conversion_requirements || null,
-        status: 'active'
+        status: 'active',
+        offer_image: formData.offer_image,
+        marketing_materials: formData.creatives.length > 0 ? formData.creatives : null
       };
+      
+      // If using geo-specific pricing, add geo_commissions to the payload
+      if (formData.use_geo_pricing && formData.geo_commissions.length > 0) {
+        payload.geo_commissions = formData.geo_commissions;
+      } else {
+        // Otherwise use standard commission
+        if (formData.commission_type === 'RevShare') {
+          payload.commission_percent = parseFloat(formData.commission_percent);
+          payload.commission_amount = null;
+        } else {
+          payload.commission_amount = parseFloat(formData.commission_amount);
+          payload.commission_percent = null;
+        }
+      }
       
       const { data, error } = await supabase
         .from('offers')
@@ -235,10 +326,11 @@ export default function CreateOffer() {
       
       <form onSubmit={handleSubmit}>
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="mb-6">
-          <TabsList className="grid grid-cols-4 mb-8">
+          <TabsList className="grid grid-cols-5 mb-8">
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
             <TabsTrigger value="commission">Commission</TabsTrigger>
             <TabsTrigger value="targeting">Targeting</TabsTrigger>
+            <TabsTrigger value="creatives">Creatives</TabsTrigger>
             <TabsTrigger value="tracking">Tracking</TabsTrigger>
           </TabsList>
           
@@ -291,6 +383,54 @@ export default function CreateOffer() {
                     placeholder="Describe your offer to potential affiliates"
                     rows={4}
                   />
+                </div>
+                
+                <div className="grid gap-3">
+                  <Label htmlFor="offer-image">Offer Image</Label>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <Input
+                        id="offer-image"
+                        type="file"
+                        onChange={handleImageUpload}
+                        accept="image/*"
+                        className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                      />
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Upload an image to represent your offer in the marketplace. 
+                        Recommended size: 800x400px, Max: 2MB.
+                      </p>
+                    </div>
+                    
+                    <div className="flex items-center justify-center">
+                      {imagePreview ? (
+                        <div className="relative border rounded overflow-hidden h-40 w-full">
+                          <img 
+                            src={imagePreview} 
+                            alt="Offer preview" 
+                            className="h-full w-full object-cover"
+                          />
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="absolute top-2 right-2 h-8 w-8 p-0"
+                            type="button"
+                            onClick={() => {
+                              setImagePreview(null);
+                              setFormData(prev => ({ ...prev, offer_image: null }));
+                            }}
+                          >
+                            ✕
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-40 w-full border border-dashed rounded text-muted-foreground">
+                          <ImageIcon className="h-8 w-8 mb-2" />
+                          <span className="text-sm">No image uploaded</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="grid gap-3">
@@ -409,7 +549,25 @@ export default function CreateOffer() {
                   </p>
                 </div>
                 
-                {isRevShare ? (
+                <div className="flex items-center gap-2 py-2">
+                  <Switch
+                    id="use_geo_pricing"
+                    checked={formData.use_geo_pricing}
+                    onCheckedChange={(checked) => handleSwitchChange('use_geo_pricing', checked)}
+                  />
+                  <Label htmlFor="use_geo_pricing">Use Country-Specific Pricing</Label>
+                  <p className="ml-2 text-sm text-muted-foreground">
+                    Set different commission rates for specific countries
+                  </p>
+                </div>
+                
+                {formData.use_geo_pricing ? (
+                  <GeoCommissionSelector 
+                    geoCommissions={formData.geo_commissions}
+                    onChange={(commissions) => setFormData(prev => ({ ...prev, geo_commissions: commissions }))}
+                    onGeoTargetsUpdate={handleGeoTargetsUpdate}
+                  />
+                ) : isRevShare ? (
                   <div className="grid gap-3">
                     <Label htmlFor="commission_percent">Commission Percentage *</Label>
                     <div className="relative">
@@ -423,7 +581,7 @@ export default function CreateOffer() {
                         min="0"
                         max="100"
                         step="0.01"
-                        required
+                        required={!formData.use_geo_pricing}
                       />
                       <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                         %
@@ -450,7 +608,7 @@ export default function CreateOffer() {
                         placeholder="e.g., 10.00"
                         min="0"
                         step="0.01"
-                        required
+                        required={!formData.use_geo_pricing}
                       />
                     </div>
                     <p className="text-sm text-muted-foreground">
@@ -616,7 +774,14 @@ export default function CreateOffer() {
                     suggestions={popularGeos}
                     onTagsChange={(newTags) => setFormData(prev => ({ ...prev, geo_targets: newTags }))}
                     variant="default"
+                    disabled={formData.use_geo_pricing && formData.geo_commissions.length > 0}
                   />
+                  {formData.use_geo_pricing && formData.geo_commissions.length > 0 && (
+                    <p className="text-sm text-amber-500">
+                      <AlertCircle className="h-4 w-4 inline mr-1" />
+                      GEO targeting is automatically configured based on your country-specific pricing.
+                    </p>
+                  )}
                   <p className="text-sm text-muted-foreground">
                     Select the countries where this offer should be promoted
                   </p>
@@ -654,11 +819,22 @@ export default function CreateOffer() {
                 <Button type="button" variant="outline" onClick={() => setCurrentTab('commission')}>
                   Back
                 </Button>
-                <Button type="button" onClick={() => setCurrentTab('tracking')}>
-                  Next: Tracking
+                <Button type="button" onClick={() => setCurrentTab('creatives')}>
+                  Next: Creatives
                 </Button>
               </CardFooter>
             </Card>
+          </TabsContent>
+          
+          {/* Creatives Tab */}
+          <TabsContent value="creatives">
+            <CreativesTab 
+              advertiserID={user?.id || ''}
+              formData={formData}
+              setFormData={setFormData}
+              onPrevious={() => setCurrentTab('targeting')}
+              onNext={() => setCurrentTab('tracking')}
+            />
           </TabsContent>
           
           {/* Tracking Tab - Updated with improved S2S Postback setup */}
@@ -825,7 +1001,7 @@ export default function CreateOffer() {
               </CardContent>
               
               <CardFooter className="flex justify-between">
-                <Button type="button" variant="outline" onClick={() => setCurrentTab('targeting')}>
+                <Button type="button" variant="outline" onClick={() => setCurrentTab('creatives')}>
                   Back
                 </Button>
                 <Button type="submit" disabled={isSubmitting}>

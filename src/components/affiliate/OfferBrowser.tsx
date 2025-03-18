@@ -194,35 +194,8 @@ export default function OfferBrowser() {
     return application ? { status: application.status, id: application.id } : null;
   };
 
-  // Format geo targets for display
-  const formatGeoTargets = (offer: Offer) => {
-    if (!offer.geo_targets) return "Worldwide";
-    
-    try {
-      // If geo_targets is a string, try to parse it
-      const geoObj = typeof offer.geo_targets === 'string' 
-        ? JSON.parse(offer.geo_targets) 
-        : offer.geo_targets;
-      
-      // If it's an empty object or not actually containing country data
-      if (!geoObj || Object.keys(geoObj).length === 0) {
-        return "Worldwide";
-      }
-      
-      // Return the country codes/names directly as an array
-      if (Array.isArray(geoObj)) {
-        return geoObj;
-      }
-      
-      // If it's an object with country codes as keys
-      return Object.keys(geoObj);
-    } catch (e) {
-      console.error("Error parsing geo targets:", e);
-      return "Worldwide";
-    }
-  };
   
-  // Format restricted geos for display
+  // Format restricted geos for display - keep this
   const formatRestrictedGeos = (offer: Offer) => {
     if (!offer.restricted_geos || !Array.isArray(offer.restricted_geos) || offer.restricted_geos.length === 0) {
       return null;
@@ -367,7 +340,7 @@ export default function OfferBrowser() {
                     </div>
                   )}
                   
-                  {/* Targeted Geos Section - Updated */}
+                  {/* Targeted Geos Section - Updated with type-safe approach */}
                   <div className="text-sm">
                     <div className="flex items-center mb-1">
                       <Globe className="h-4 w-4 mr-1 text-indigo-500" />

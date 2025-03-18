@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle, Award, TrendingUp, Globe, Target, Users, DollarSign, Tag } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { Offer } from '@/types';
 
 export default function MarketplaceOverview() {
   const { user } = useAuth();
@@ -26,7 +27,9 @@ export default function MarketplaceOverview() {
         .limit(6);
       
       if (error) throw error;
-      return data;
+      
+      // Ensure data is properly typed as Offer array
+      return data as Offer[];
     },
     enabled: !!user && user.role === 'advertiser',
   });

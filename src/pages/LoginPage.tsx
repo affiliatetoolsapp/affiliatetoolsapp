@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SignInForm from '@/components/SignInForm';
 import { useAuth } from '@/context/AuthContext';
@@ -8,30 +8,24 @@ import { PublicHeader } from '@/components/PublicHeader';
 export default function LoginPage() {
   const { user, session, isLoading } = useAuth();
   const navigate = useNavigate();
-  const [redirectAttempted, setRedirectAttempted] = useState(false);
   
   // Add console log to help debug
-  console.log('LoginPage render:', { user, session, isLoading, redirectAttempted });
+  console.log('LoginPage render:', { user, session, isLoading });
   
   useEffect(() => {
-    // Only attempt redirect once when auth state is loaded
-    if (!isLoading && !redirectAttempted) {
-      setRedirectAttempted(true);
-      
-      // Check for session first (more reliable than checking user)
-      if (session) {
-        console.log('LoginPage: Session detected, redirecting to dashboard');
-        navigate('/dashboard');
-        return;
-      }
-      
-      // As a fallback, also check for user object
-      if (user) {
-        console.log('LoginPage: User detected, redirecting to dashboard');
-        navigate('/dashboard');
-      }
+    // Check for session first (more reliable than checking user)
+    if (!isLoading && session) {
+      console.log('LoginPage: Session detected, redirecting to dashboard');
+      navigate('/dashboard');
+      return;
     }
-  }, [user, session, isLoading, navigate, redirectAttempted]);
+    
+    // As a fallback, also check for user object
+    if (!isLoading && user) {
+      console.log('LoginPage: User detected, redirecting to dashboard');
+      navigate('/dashboard');
+    }
+  }, [user, session, isLoading, navigate]);
   
   return (
     <div className="min-h-screen bg-background">

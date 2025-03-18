@@ -68,6 +68,7 @@ const CreateOffer = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [geoCommissions, setGeoCommissions] = useState<{country: string, amount: string}[]>([]);
   const [creatives, setCreatives] = useState<any[]>([]);
+  const [geoCommissionsEnabled, setGeoCommissionsEnabled] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   
   const form = useForm<OfferFormValues>({
@@ -171,6 +172,16 @@ const CreateOffer = () => {
     setValue('geo_targets', countries);
   };
   
+  // Handle enabling/disabling geo commissions
+  const handleGeoCommissionsEnabledChange = (enabled: boolean) => {
+    setGeoCommissionsEnabled(enabled);
+    if (!enabled) {
+      setGeoCommissions([]);
+      setValue('geo_commissions', []);
+      setValue('geo_targets', []);
+    }
+  };
+  
   // Handle creatives change
   const handleCreativesChange = (newCreatives: any[]) => {
     setCreatives(newCreatives);
@@ -198,12 +209,12 @@ const CreateOffer = () => {
         restricted_geos: data.restricted_geos,
         offer_image: data.offer_image,
         advertiser_id: user.id,
-        geo_commissions: geoCommissions.length > 0 ? geoCommissions : null,
+        geo_commissions: geoCommissionsEnabled && geoCommissions.length > 0 ? geoCommissions : null,
         marketing_materials: creatives.length > 0 ? creatives : null,
         // Convert string numbers to actual numbers for the database
         commission_amount: data.commission_amount ? parseFloat(data.commission_amount) : null,
         commission_percent: data.commission_percent ? parseFloat(data.commission_percent) : null,
-        geo_targets: data.geo_targets || []
+        geo_targets: geoCommissionsEnabled ? data.geo_targets || [] : []
       };
 
       // Insert into Supabase
@@ -488,7 +499,7 @@ const CreateOffer = () => {
                       )}
                     </div>
 
-                    {commissionType !== 'RevShare' ? (
+                    {!geoCommissionsEnabled && commissionType !== 'RevShare' ? (
                       <div className="space-y-2">
                         <Label htmlFor="commission_amount">Commission Amount ($)</Label>
                         <Input
@@ -500,7 +511,7 @@ const CreateOffer = () => {
                           {...register('commission_amount')}
                         />
                       </div>
-                    ) : (
+                    ) : !geoCommissionsEnabled && commissionType === 'RevShare' ? (
                       <div className="space-y-2">
                         <Label htmlFor="commission_percent">Commission Percentage (%)</Label>
                         <Input
@@ -513,34 +524,17 @@ const CreateOffer = () => {
                           {...register('commission_percent')}
                         />
                       </div>
-                    )}
+                    ) : null}
                   </div>
                   
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2">
-                      <Checkbox 
-                        id="geo_pricing" 
-                        checked={geoCommissions.length > 0}
-                        onCheckedChange={(checked) => {
-                          if (!checked) {
-                            setGeoCommissions([]);
-                            setValue('geo_commissions', []);
-                            setValue('geo_targets', []);
-                          }
-                        }}
-                      />
-                      <Label htmlFor="geo_pricing" className="font-medium">
-                        Enable Country-Specific Pricing
-                      </Label>
-                    </div>
-                    
-                    {geoCommissions.length > 0 || geoCommissions.length === 0 ? (
-                      <GeoCommissionSelector 
-                        geoCommissions={geoCommissions}
-                        onChange={handleGeoCommissionsChange}
-                        onGeoTargetsUpdate={handleGeoTargetsUpdate}
-                      />
-                    ) : null}
+                    <GeoCommissionSelector 
+                      geoCommissions={geoCommissions}
+                      onChange={handleGeoCommissionsChange}
+                      onGeoTargetsUpdate={handleGeoTargetsUpdate}
+                      enabled={geoCommissionsEnabled}
+                      onEnabledChange={handleGeoCommissionsEnabledChange}
+                    />
                   </div>
 
                   <div className="space-y-2">

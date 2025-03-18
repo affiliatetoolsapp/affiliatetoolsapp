@@ -356,7 +356,7 @@ export default function OfferBrowser() {
                           </Badge>
                         ))
                       ) : (
-                        // If more than 3 countries, show globe icon with hover
+                        // If more than 3 countries, show globe icon with hover - fixed implementation
                         <HoverCard openDelay={0} closeDelay={0}>
                           <HoverCardTrigger asChild>
                             <Badge variant="outline" className="text-xs cursor-pointer">
@@ -364,7 +364,7 @@ export default function OfferBrowser() {
                               {geoData.length} GEO's
                             </Badge>
                           </HoverCardTrigger>
-                          <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white">
+                          <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
                             <div className="font-medium mb-2">Targeted GEO's:</div>
                             <div className="flex flex-wrap gap-1 max-w-[300px]">
                               {geoData.map((geo, i) => (
@@ -585,7 +585,7 @@ export default function OfferBrowser() {
                                   {geoData.length} GEO's
                                 </Badge>
                               </HoverCardTrigger>
-                              <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white">
+                              <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
                                 <div className="font-medium mb-2">Targeted GEO's:</div>
                                 <div className="flex flex-wrap gap-1 max-w-[300px]">
                                   {geoData.map((geo, i) => (

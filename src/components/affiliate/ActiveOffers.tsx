@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AffiliateOfferWithOffer } from '@/types';
@@ -14,7 +13,7 @@ import { DollarSign, Calendar, Tag, MapPin, Globe, Eye, Link as LinkIcon } from 
 
 interface ActiveOffersProps {
   offers: AffiliateOfferWithOffer[];
-  viewMode: 'grid' | 'list';
+  viewMode: 'grid' | list';
   isLoading: boolean;
   onViewOfferDetails: (offerId: string) => void;
   onGenerateLinks: (offerId: string) => void;
@@ -53,116 +52,120 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
   if (viewMode === 'grid') {
     return (
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {offers.map((affiliateOffer) => (
-          <Card key={affiliateOffer.id} className="overflow-hidden">
-            <CardHeader className="p-4 pb-0">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-lg">
-                    {affiliateOffer.offer.name}
-                  </CardTitle>
-                  {affiliateOffer.offer.is_featured && (
-                    <Badge variant="outline" className="mt-1 bg-yellow-100 dark:bg-yellow-900">
-                      Featured Offer
-                    </Badge>
-                  )}
-                </div>
-                <Badge variant="default" className="capitalize">
-                  Approved
-                </Badge>
-              </div>
-              <CardDescription className="line-clamp-2 mt-2">
-                {affiliateOffer.offer.description}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 pt-2 grid gap-2">
-              <div className="text-sm flex items-center">
-                <DollarSign className="h-4 w-4 mr-1 text-green-500" />
-                <span className="font-medium">Commission: </span> 
-                <span className="ml-1">
-                  {affiliateOffer.offer.commission_type === 'RevShare' 
-                    ? `${affiliateOffer.offer.commission_percent}% Revenue Share` 
-                    : `$${affiliateOffer.offer.commission_amount} per ${affiliateOffer.offer.commission_type.slice(2)}`}
-                </span>
-              </div>
-              
-              {affiliateOffer.offer.niche && (
-                <div className="text-sm flex items-center">
-                  <Tag className="h-4 w-4 mr-1 text-blue-500" />
-                  <span className="font-medium">Niche: </span>
-                  <span className="ml-1">{affiliateOffer.offer.niche}</span>
-                </div>
-              )}
-              
-              <div className="text-sm flex items-center">
-                <Calendar className="h-4 w-4 mr-1 text-purple-500" />
-                <span className="font-medium">Joined: </span>
-                <span className="ml-1">{affiliateOffer.reviewed_at ? new Date(affiliateOffer.reviewed_at).toLocaleDateString() : 'Recently'}</span>
-              </div>
-              
-              <div className="text-sm flex items-start">
-                <Globe className="h-4 w-4 mr-1 text-indigo-500 mt-0.5" />
-                <span className="font-medium mr-1">Geo: </span>
-                <div className="flex flex-wrap gap-1">
-                  {formatGeoTargets(affiliateOffer.offer).length <= 3 ? (
-                    // If 3 or fewer GEO's, show them all
-                    formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
-                      <Badge key={i} variant="outline" className="text-xs">
-                        {geo.flag} {geo.code}
+        {offers.map((affiliateOffer) => {
+          
+          return (
+            <Card key={affiliateOffer.id} className="overflow-hidden">
+              <CardHeader className="p-4 pb-0">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="text-lg">
+                      {affiliateOffer.offer.name}
+                    </CardTitle>
+                    {affiliateOffer.offer.is_featured && (
+                      <Badge variant="outline" className="mt-1 bg-yellow-100 dark:bg-yellow-900">
+                        Featured Offer
                       </Badge>
-                    ))
-                  ) : (
-                    // If more than 3 GEO's, show globe icon with hover
-                    <HoverCard>
-                      <HoverCardTrigger asChild>
-                        <Badge variant="outline" className="text-xs cursor-pointer">
-                          <Globe className="h-3 w-3 mr-1" />
-                          {formatGeoTargets(affiliateOffer.offer).length} GEO's
-                        </Badge>
-                      </HoverCardTrigger>
-                      <HoverCardContent className="w-auto p-2">
-                        <div className="font-medium mb-2">Targeted GEO's:</div>
-                        <div className="flex flex-wrap gap-1 max-w-[300px]">
-                          {formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
-                            <Badge key={i} variant="outline" className="text-xs">
-                              {geo.flag} {geo.code}
-                            </Badge>
-                          ))}
-                        </div>
-                      </HoverCardContent>
-                    </HoverCard>
-                  )}
+                    )}
+                  </div>
+                  <Badge variant="default" className="capitalize">
+                    Approved
+                  </Badge>
                 </div>
-              </div>
-              
-              {affiliateOffer.traffic_source && (
+                <CardDescription className="line-clamp-2 mt-2">
+                  {affiliateOffer.offer.description}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 pt-2 grid gap-2">
                 <div className="text-sm flex items-center">
-                  <MapPin className="h-4 w-4 mr-1 text-red-500" />
-                  <span className="font-medium">Traffic Source: </span>
-                  <span className="ml-1">{affiliateOffer.traffic_source}</span>
+                  <DollarSign className="h-4 w-4 mr-1 text-green-500" />
+                  <span className="font-medium">Commission: </span> 
+                  <span className="ml-1">
+                    {affiliateOffer.offer.commission_type === 'RevShare' 
+                      ? `${affiliateOffer.offer.commission_percent}% Revenue Share` 
+                      : `$${affiliateOffer.offer.commission_amount} per ${affiliateOffer.offer.commission_type.slice(2)}`}
+                  </span>
                 </div>
-              )}
-            </CardContent>
-            <CardFooter className="p-4 pt-0 flex justify-between gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => onViewOfferDetails(affiliateOffer.offer_id)}
-              >
-                <Eye className="h-4 w-4 mr-2" />
-                View Offer
-              </Button>
+                
+                {affiliateOffer.offer.niche && (
+                  <div className="text-sm flex items-center">
+                    <Tag className="h-4 w-4 mr-1 text-blue-500" />
+                    <span className="font-medium">Niche: </span>
+                    <span className="ml-1">{affiliateOffer.offer.niche}</span>
+                  </div>
+                )}
+                
+                <div className="text-sm flex items-center">
+                  <Calendar className="h-4 w-4 mr-1 text-purple-500" />
+                  <span className="font-medium">Joined: </span>
+                  <span className="ml-1">{affiliateOffer.reviewed_at ? new Date(affiliateOffer.reviewed_at).toLocaleDateString() : 'Recently'}</span>
+                </div>
+                
+                <div className="text-sm flex items-start">
+                  <Globe className="h-4 w-4 mr-1 text-indigo-500 mt-0.5" />
+                  <span className="font-medium mr-1">Geo: </span>
+                  <div className="flex flex-wrap gap-1">
+                    {formatGeoTargets(affiliateOffer.offer).length <= 3 ? (
+                      // If 3 or fewer GEO's, show them all
+                      formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          {geo.flag} {geo.code}
+                        </Badge>
+                      ))
+                    ) : (
+                      // Fixed HoverCard implementation with specific delays and improved styling
+                      <HoverCard openDelay={0} closeDelay={0}>
+                        <HoverCardTrigger asChild>
+                          <Badge variant="outline" className="text-xs cursor-pointer">
+                            <Globe className="h-3 w-3 mr-1" />
+                            {formatGeoTargets(affiliateOffer.offer).length} GEO's
+                          </Badge>
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
+                          <div className="font-medium mb-2">Targeted GEO's:</div>
+                          <div className="flex flex-wrap gap-1 max-w-[300px]">
+                            {formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
+                              <Badge key={i} variant="outline" className="text-xs">
+                                {geo.flag} {geo.code}
+                              </Badge>
+                            ))}
+                          </div>
+                        </HoverCardContent>
+                      </HoverCard>
+                    )}
+                  </div>
+                </div>
+                
+                {affiliateOffer.traffic_source && (
+                  <div className="text-sm flex items-center">
+                    <MapPin className="h-4 w-4 mr-1 text-red-500" />
+                    <span className="font-medium">Traffic Source: </span>
+                    <span className="ml-1">{affiliateOffer.traffic_source}</span>
+                  </div>
+                )}
+              </CardContent>
               
-              <Button
-                size="sm"
-                onClick={() => onGenerateLinks(affiliateOffer.offer_id)}
-              >
-                <LinkIcon className="h-4 w-4 mr-2" />
-                Generate Links
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
+              <CardFooter className="p-4 pt-0 flex justify-between gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => onViewOfferDetails(affiliateOffer.offer_id)}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Offer
+                </Button>
+                
+                <Button
+                  size="sm"
+                  onClick={() => onGenerateLinks(affiliateOffer.offer_id)}
+                >
+                  <LinkIcon className="h-4 w-4 mr-2" />
+                  Generate Links
+                </Button>
+              </CardFooter>
+            </Card>
+          );
+        })}
       </div>
     );
   }
@@ -184,6 +187,7 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
         <TableBody>
           {offers.map((affiliateOffer) => (
             <TableRow key={affiliateOffer.id}>
+              
               <TableCell className="font-medium">
                 <div className="flex flex-col">
                   {affiliateOffer.offer.name}
@@ -211,15 +215,15 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                       </Badge>
                     ))
                   ) : (
-                    // If more than 2 GEO's, show globe icon with hover
-                    <HoverCard>
+                    // Fixed HoverCard implementation with specific delays and improved styling
+                    <HoverCard openDelay={0} closeDelay={0}>
                       <HoverCardTrigger asChild>
                         <Badge variant="outline" className="text-xs cursor-pointer">
                           <Globe className="h-3 w-3 mr-1" />
                           {formatGeoTargets(affiliateOffer.offer).length} GEO's
                         </Badge>
                       </HoverCardTrigger>
-                      <HoverCardContent className="w-auto p-2">
+                      <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
                         <div className="font-medium mb-2">Targeted GEO's:</div>
                         <div className="flex flex-wrap gap-1 max-w-[300px]">
                           {formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
@@ -234,6 +238,7 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                 </div>
               </TableCell>
               <TableCell>
+                
                 <div className="flex space-x-2">
                   <Button 
                     variant="outline" 

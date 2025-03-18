@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -132,7 +131,7 @@ export default function MarketplaceOverview() {
                         </div>
                       )}
                       
-                      {/* Display geo targeting info - Updated terminology from countries to GEO's */}
+                      {/* Display geo targeting info - Fixed hover implementation */}
                       <div className="flex items-start text-sm">
                         <Globe className="h-4 w-4 mr-1 text-indigo-500 mt-0.5" />
                         <div>
@@ -152,7 +151,7 @@ export default function MarketplaceOverview() {
                                     {geoData.length} GEO's
                                   </Badge>
                                 </HoverCardTrigger>
-                                <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white">
+                                <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
                                   <div className="font-medium mb-2">Targeted GEO's:</div>
                                   <div className="flex flex-wrap gap-1 max-w-[300px]">
                                     {geoData.map((geo, i) => (
@@ -168,7 +167,6 @@ export default function MarketplaceOverview() {
                         </div>
                       </div>
                       
-                      {/* Display traffic sources */}
                       {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
                         <div className="flex items-center text-sm">
                           <Target className="h-4 w-4 mr-1 text-purple-500" />

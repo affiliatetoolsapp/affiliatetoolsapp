@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { DollarSign, Calendar, Tag, MapPin, Globe, Eye, Link as LinkIcon } from 'lucide-react';
 
 interface ActiveOffersProps {
@@ -103,26 +104,33 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                 <Globe className="h-4 w-4 mr-1 text-indigo-500 mt-0.5" />
                 <span className="font-medium mr-1">Geo: </span>
                 <div className="flex flex-wrap gap-1">
-                  {formatGeoTargets(affiliateOffer.offer).slice(0, 3).map((geo, i) => (
-                    <Badge key={i} variant="outline" className="text-xs">
-                      {geo.flag} {geo.code}
-                    </Badge>
-                  ))}
-                  {formatGeoTargets(affiliateOffer.offer).length > 3 && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge variant="outline" className="text-xs">
-                            +{formatGeoTargets(affiliateOffer.offer).length - 3} more
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <div className="max-w-xs">
-                            {formatGeoTargets(affiliateOffer.offer).slice(3).map(geo => `${geo.flag} ${geo.code}`).join(', ')}
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                  {formatGeoTargets(affiliateOffer.offer).length <= 3 ? (
+                    // If 3 or fewer countries, show them all
+                    formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
+                      <Badge key={i} variant="outline" className="text-xs">
+                        {geo.flag} {geo.code}
+                      </Badge>
+                    ))
+                  ) : (
+                    // If more than 3 countries, show globe icon with hover
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Badge variant="outline" className="text-xs cursor-pointer">
+                          <Globe className="h-3 w-3 mr-1" />
+                          {formatGeoTargets(affiliateOffer.offer).length} countries
+                        </Badge>
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-auto max-w-[300px]">
+                        <div className="font-medium mb-2">Targeted Countries:</div>
+                        <div className="flex flex-wrap gap-1">
+                          {formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
+                            <Badge key={i} variant="outline" className="text-xs">
+                              {geo.flag} {geo.code}
+                            </Badge>
+                          ))}
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
                   )}
                 </div>
               </div>
@@ -195,26 +203,33 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
               <TableCell>{affiliateOffer.traffic_source || '-'}</TableCell>
               <TableCell>
                 <div className="flex flex-wrap gap-1">
-                  {formatGeoTargets(affiliateOffer.offer).slice(0, 2).map((geo, i) => (
-                    <Badge key={i} variant="outline" className="text-xs">
-                      {geo.flag} {geo.code}
-                    </Badge>
-                  ))}
-                  {formatGeoTargets(affiliateOffer.offer).length > 2 && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge variant="outline" className="text-xs">
-                            +{formatGeoTargets(affiliateOffer.offer).length - 2} more
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <div className="max-w-xs">
-                            {formatGeoTargets(affiliateOffer.offer).slice(2).map(geo => `${geo.flag} ${geo.code}`).join(', ')}
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                  {formatGeoTargets(affiliateOffer.offer).length <= 2 ? (
+                    // If 2 or fewer countries, show them all
+                    formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
+                      <Badge key={i} variant="outline" className="text-xs">
+                        {geo.flag} {geo.code}
+                      </Badge>
+                    ))
+                  ) : (
+                    // If more than 2 countries, show globe icon with hover
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <Badge variant="outline" className="text-xs cursor-pointer">
+                          <Globe className="h-3 w-3 mr-1" />
+                          {formatGeoTargets(affiliateOffer.offer).length} countries
+                        </Badge>
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-auto max-w-[300px]">
+                        <div className="font-medium mb-2">Targeted Countries:</div>
+                        <div className="flex flex-wrap gap-1">
+                          {formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
+                            <Badge key={i} variant="outline" className="text-xs">
+                              {geo.flag} {geo.code}
+                            </Badge>
+                          ))}
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
                   )}
                 </div>
               </TableCell>

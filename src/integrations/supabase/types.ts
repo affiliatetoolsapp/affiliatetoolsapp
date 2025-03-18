@@ -221,12 +221,14 @@ export type Database = {
           created_at: string | null
           description: string | null
           featured_until: string | null
+          geo_commissions: Json | null
           geo_targets: Json | null
           id: string
           is_featured: boolean
           marketing_materials: Json | null
           name: string
           niche: string | null
+          offer_image: string | null
           restricted_geos: string[] | null
           restrictions: string | null
           status: string | null
@@ -244,12 +246,14 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           featured_until?: string | null
+          geo_commissions?: Json | null
           geo_targets?: Json | null
           id?: string
           is_featured?: boolean
           marketing_materials?: Json | null
           name: string
           niche?: string | null
+          offer_image?: string | null
           restricted_geos?: string[] | null
           restrictions?: string | null
           status?: string | null
@@ -267,12 +271,14 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           featured_until?: string | null
+          geo_commissions?: Json | null
           geo_targets?: Json | null
           id?: string
           is_featured?: boolean
           marketing_materials?: Json | null
           name?: string
           niche?: string | null
+          offer_image?: string | null
           restricted_geos?: string[] | null
           restrictions?: string | null
           status?: string | null

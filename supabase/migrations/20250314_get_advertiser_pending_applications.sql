@@ -32,7 +32,9 @@ BEGIN
       'name', o.name,
       'description', o.description,
       'niche', o.niche,
-      'advertiser_id', o.advertiser_id
+      'advertiser_id', o.advertiser_id,
+      'offer_image', o.offer_image,
+      'geo_commissions', o.geo_commissions
     )::jsonb AS offers,
     json_build_object(
       'id', u.id,

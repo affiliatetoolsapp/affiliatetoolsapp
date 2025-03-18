@@ -1,311 +1,243 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle, 
-  CardFooter 
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { supabase } from '@/integrations/supabase/client';
-import { FileArchive, Image, File, Trash2, Download, Upload } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { 
+  Upload, 
+  FileType, 
+  File, 
+  Image as ImageIcon, 
+  X, 
+  Loader2 
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CreativesTabProps {
-  advertiserID: string;
-  formData: any;
-  setFormData: (data: any) => void;
-  onPrevious: () => void;
-  onNext: () => void;
+  offerId?: string;
+  advertiserId: string;
+  savedCreatives: any[];
+  onCreativesChange: (creatives: any[]) => void;
 }
 
-interface UploadedFile {
-  id: string;
-  name: string;
-  size: number;
-  type: string;
-  url: string;
-}
-
-const CreativesTab: React.FC<CreativesTabProps> = ({
-  advertiserID,
-  formData,
-  setFormData,
-  onPrevious,
-  onNext
+const CreativesTab: React.FC<CreativesTabProps> = ({ 
+  offerId, 
+  advertiserId, 
+  savedCreatives = [],
+  onCreativesChange 
 }) => {
   const { toast } = useToast();
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>(
-    formData.creatives ? [...formData.creatives] : []
-  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [creatives, setCreatives] = useState<any[]>(savedCreatives);
   
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || !files.length) return;
+    if (!files || files.length === 0) return;
     
-    setIsUploading(true);
+    setUploading(true);
     
     try {
-      const uploadPromises = Array.from(files).map(async (file) => {
-        // Validate file type
-        const isImage = file.type.startsWith('image/');
-        const isZip = file.type === 'application/zip' || 
-                    file.type === 'application/x-zip-compressed' ||
-                    file.name.endsWith('.zip');
+      const newCreatives = [...creatives];
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
         
-        if (!isImage && !isZip) {
-          toast({
-            variant: "destructive",
-            title: "Invalid file type",
-            description: "Only images and ZIP files are allowed."
-          });
-          return null;
-        }
+        // Create proper folder structure: advertiserId/offerId/fileName
+        const filePath = `${advertiserId}/${offerId || 'new'}/${fileName}`;
         
-        // Validate file size (10MB limit)
-        if (file.size > 10 * 1024 * 1024) {
-          toast({
-            variant: "destructive",
-            title: "File too large",
-            description: "Maximum file size is 10MB."
-          });
-          return null;
-        }
-        
-        // Create a unique file name to prevent collisions
-        const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`;
-        const filePath = `creatives/${advertiserID}/${fileName}`;
-        
-        // Upload to Supabase Storage
+        // Upload file to Supabase Storage
         const { data, error } = await supabase.storage
           .from('offer-assets')
-          .upload(filePath, file, {
-            upsert: false,
-            contentType: file.type
-          });
-          
+          .upload(filePath, file);
+        
         if (error) {
-          console.error("Upload error:", error);
+          console.error('Error uploading file:', error);
           toast({
-            variant: "destructive",
-            title: "Upload failed",
-            description: error.message || "Failed to upload file."
+            variant: 'destructive',
+            title: 'Upload Failed',
+            description: error.message,
           });
-          return null;
+          continue;
         }
         
-        const { data: urlData } = supabase.storage
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
           .from('offer-assets')
           .getPublicUrl(filePath);
-          
-        return {
-          id: data.path,
+        
+        newCreatives.push({
           name: file.name,
           size: file.size,
           type: file.type,
-          url: urlData.publicUrl
-        };
-      });
-      
-      const results = await Promise.all(uploadPromises);
-      const validResults = results.filter(Boolean) as UploadedFile[];
-      
-      if (validResults.length) {
-        const newFiles = [...uploadedFiles, ...validResults];
-        setUploadedFiles(newFiles);
-        setFormData({
-          ...formData,
-          creatives: newFiles
-        });
-        
-        toast({
-          title: "Files uploaded",
-          description: `Successfully uploaded ${validResults.length} file(s).`
+          path: filePath,
+          url: publicUrl,
         });
       }
-    } catch (error: any) {
-      console.error("Upload error:", error);
+      
+      setCreatives(newCreatives);
+      onCreativesChange(newCreatives);
+      
       toast({
-        variant: "destructive",
-        title: "Upload failed",
-        description: error.message || "An unexpected error occurred."
+        title: 'Files Uploaded',
+        description: `Successfully uploaded ${files.length} file(s)`,
+      });
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Error in upload process:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Upload Error',
+        description: 'An unexpected error occurred during upload',
       });
     } finally {
-      setIsUploading(false);
-      // Reset the input value so the same file can be selected again if needed
-      const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
+      setUploading(false);
     }
   };
   
-  const handleDeleteFile = async (fileId: string) => {
+  const handleRemoveCreative = async (index: number) => {
     try {
-      const { error } = await supabase.storage
-        .from('offer-assets')
-        .remove([fileId]);
+      const creative = creatives[index];
+      
+      // Delete from storage if it exists there
+      if (creative.path) {
+        const { error } = await supabase.storage
+          .from('offer-assets')
+          .remove([creative.path]);
         
-      if (error) {
-        console.error("Delete error:", error);
-        toast({
-          variant: "destructive",
-          title: "Deletion failed",
-          description: error.message || "Failed to delete file."
-        });
-        return;
+        if (error) {
+          console.error('Error removing file from storage:', error);
+          toast({
+            variant: 'destructive',
+            title: 'Remove Failed',
+            description: error.message,
+          });
+          return;
+        }
       }
       
-      const updatedFiles = uploadedFiles.filter(file => file.id !== fileId);
-      setUploadedFiles(updatedFiles);
-      setFormData({
-        ...formData,
-        creatives: updatedFiles
-      });
+      const newCreatives = [...creatives];
+      newCreatives.splice(index, 1);
+      setCreatives(newCreatives);
+      onCreativesChange(newCreatives);
       
       toast({
-        title: "File deleted",
-        description: "File was successfully deleted."
+        title: 'File Removed',
+        description: 'Creative asset removed successfully',
       });
-    } catch (error: any) {
-      console.error("Delete error:", error);
+    } catch (error) {
+      console.error('Error removing creative:', error);
       toast({
-        variant: "destructive",
-        title: "Deletion failed",
-        description: error.message || "An unexpected error occurred."
+        variant: 'destructive',
+        title: 'Remove Error',
+        description: 'An unexpected error occurred',
       });
     }
   };
   
-  const getFileIcon = (type: string) => {
-    if (type.startsWith('image/')) {
-      return <Image className="h-5 w-5 text-blue-500" />;
-    } else if (
-      type === 'application/zip' || 
-      type === 'application/x-zip-compressed'
-    ) {
-      return <FileArchive className="h-5 w-5 text-amber-500" />;
+  const getFileTypeIcon = (mimeType: string) => {
+    if (mimeType.startsWith('image/')) {
+      return <ImageIcon className="h-6 w-6 text-blue-500" />;
+    } else if (mimeType === 'application/zip' || mimeType === 'application/x-zip-compressed') {
+      return <FileType className="h-6 w-6 text-orange-500" />;
     } else {
-      return <File className="h-5 w-5 text-gray-500" />;
+      return <File className="h-6 w-6 text-gray-500" />;
     }
   };
   
   const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return bytes + ' B';
-    else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    else return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
   
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Marketing Creatives</CardTitle>
-        <CardDescription>
-          Upload images and asset packages for your affiliates to use in their promotions
-        </CardDescription>
-      </CardHeader>
-      
-      <CardContent className="space-y-6">
-        <div className="grid gap-3">
-          <Label htmlFor="file-upload">Upload Materials</Label>
-          <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 text-center">
-            <Input
-              id="file-upload"
-              type="file"
-              multiple
-              className="hidden"
-              onChange={handleFileUpload}
-              accept="image/*,.zip"
-            />
-            <div className="flex flex-col items-center justify-center gap-2">
-              <Upload className="h-10 w-10 text-muted-foreground" />
-              <div className="text-sm text-muted-foreground">
-                <Button
-                  variant="ghost"
-                  onClick={() => document.getElementById('file-upload')?.click()}
-                  disabled={isUploading}
-                >
-                  {isUploading ? 'Uploading...' : 'Click to upload files'}
-                </Button>{' '}
-                or drag and drop
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Supports images (PNG, JPG, GIF) and ZIP files (up to 10MB)
+      <CardContent className="pt-6">
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="creatives">Marketing Materials & Creatives</Label>
+            <p className="text-sm text-muted-foreground mb-2">
+              Upload images, banners, and other marketing materials for affiliates
+            </p>
+            <div className="flex items-center gap-4">
+              <Input
+                ref={fileInputRef}
+                id="creatives"
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleFileChange}
+                accept="image/*,application/zip,application/x-zip-compressed"
+              />
+              <Button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-2"
+              >
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+                Upload Files
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Accepted formats: JPG, PNG, GIF, ZIP (max 10MB)
               </p>
             </div>
           </div>
-        </div>
-        
-        {uploadedFiles.length > 0 && (
-          <div className="mt-8">
-            <h3 className="text-sm font-medium mb-3">Uploaded Creatives</h3>
-            <div className="bg-muted p-3 rounded-md">
-              <p className="text-sm text-muted-foreground mb-3">
-                These files will be available for download to approved affiliates.
-              </p>
-              <div className="space-y-2">
-                {uploadedFiles.map((file) => (
-                  <div 
-                    key={file.id} 
-                    className="flex items-center justify-between p-2 bg-background rounded border"
-                  >
-                    <div className="flex items-center space-x-3">
-                      {getFileIcon(file.type)}
-                      <div className="overflow-hidden">
-                        <p className="text-sm font-medium truncate">{file.name}</p>
-                        <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+          
+          {creatives.length > 0 && (
+            <div className="border rounded-md divide-y">
+              {creatives.map((file, index) => (
+                <div key={index} className="flex items-center justify-between p-3">
+                  <div className="flex items-center gap-3">
+                    {getFileTypeIcon(file.type)}
+                    <div>
+                      <p className="font-medium text-sm">{file.name}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {formatFileSize(file.size)}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {file.type.split('/')[1]?.toUpperCase()}
+                        </span>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <a 
-                        href={file.url} 
-                        download 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="p-1 hover:text-primary"
-                      >
-                        <Download className="h-4 w-4" />
-                      </a>
-                      <button 
-                        onClick={() => handleDeleteFile(file.id)}
-                        className="p-1 hover:text-destructive"
-                        type="button"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
                   </div>
-                ))}
-              </div>
-              <div className="flex justify-between items-center mt-3">
-                <Badge variant="outline">
-                  {uploadedFiles.length} file(s) uploaded
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => document.getElementById('file-upload')?.click()}
-                >
-                  Add More
-                </Button>
-              </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemoveCreative(index)}
+                    className="text-destructive hover:text-destructive/90 hover:bg-destructive/10"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
             </div>
-          </div>
-        )}
+          )}
+          
+          {creatives.length === 0 && (
+            <div className="border rounded-md p-6 text-center">
+              <p className="text-muted-foreground">No creatives uploaded yet</p>
+            </div>
+          )}
+        </div>
       </CardContent>
-      
-      <CardFooter className="flex justify-between">
-        <Button type="button" variant="outline" onClick={onPrevious}>
-          Back
-        </Button>
-        <Button type="button" onClick={onNext}>
-          Next: Tracking
-        </Button>
-      </CardFooter>
     </Card>
   );
 };

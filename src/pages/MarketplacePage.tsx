@@ -19,19 +19,27 @@ export default function MarketplacePage() {
     });
   }, [isLoading, user, session]);
   
-  // Session check will be handled by ProtectedRoute
+  // Use protected route to handle authentication
   return (
     <ProtectedRoute>
       {isLoading ? (
         <LoadingState />
       ) : (
-        /* If we have a user or session with role, render role-specific content */
-        user?.role === 'affiliate' || session?.user?.user_metadata?.role === 'affiliate' ? (
-          <OfferBrowser />
-        ) : (
-          <MarketplaceOverview />
-        )
+        getRoleBasedContent()
       )}
     </ProtectedRoute>
   );
+  
+  // Helper function to determine content based on role
+  function getRoleBasedContent() {
+    // First try to get role from user object
+    const role = user?.role || session?.user?.user_metadata?.role;
+    
+    // Render appropriate content based on role
+    if (role === 'affiliate') {
+      return <OfferBrowser />;
+    } else {
+      return <MarketplaceOverview />;
+    }
+  }
 }

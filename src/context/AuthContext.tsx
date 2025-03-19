@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@/types';
@@ -41,9 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       console.log('User profile fetched successfully:', data);
-      if (data) {
-        setUser(data as User);
-      }
       return data;
     } catch (error) {
       console.error('Unexpected error fetching user profile:', error);
@@ -51,86 +47,93 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Set up auth state listener once on mount
   useEffect(() => {
     console.log('AuthProvider: Setting up auth state');
-    let mounted = true;
+    let isMounted = true;
     
-    // Set a shorter timeout to prevent prolonged loading states
-    const loadingTimeout = setTimeout(() => {
-      if (mounted && isLoading) {
-        console.log('Auth loading timeout reached, setting isLoading to false');
-        setIsLoading(false);
-      }
-    }, 1500); // Further reduced from 2 seconds to 1.5 seconds
-
-    // Get initial session and set up auth listener
-    const initializeAuth = async () => {
+    // Initialize auth state
+    const initAuth = async () => {
       try {
+        // Get initial session with better error handling
         console.log('Auth: Getting initial session');
-        const { data: sessionData } = await supabase.auth.getSession();
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         
-        if (!mounted) return;
-        
-        console.log('Auth: Initial session data:', sessionData.session ? 'Session exists' : 'No session');
-        
-        if (sessionData.session) {
-          setSession(sessionData.session);
-          console.log('Auth: Session found, fetching user profile');
-          await fetchUserProfile(sessionData.session.user.id);
-        } else {
-          console.log('Auth: No session found, setting user to null');
-          setUser(null);
+        if (sessionError) {
+          console.error('Error getting session:', sessionError);
+          if (isMounted) setIsLoading(false);
+          return;
         }
-        
-        // Always finish loading after initial auth check
-        if (mounted) {
-          console.log('Auth: Initial auth check complete, setting isLoading to false');
-          setIsLoading(false);
+
+        if (!isMounted) return;
+
+        if (sessionData?.session) {
+          console.log('Auth: Initial session found', sessionData.session.user.id);
+          setSession(sessionData.session);
+          
+          // Fetch user profile
+          const userData = await fetchUserProfile(sessionData.session.user.id);
+          if (userData) {
+            setUser(userData as User);
+          }
+        } else {
+          console.log('Auth: No initial session found');
+          setSession(null);
+          setUser(null);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
-        if (mounted) {
+      } finally {
+        // Always set loading to false when initialization is complete
+        if (isMounted) {
+          console.log('Auth: Initialization complete, setting isLoading to false');
           setIsLoading(false);
         }
       }
     };
 
-    // Initialize auth immediately
-    initializeAuth();
+    // Set a timeout to ensure we don't keep the loading state forever
+    const loadingTimeout = setTimeout(() => {
+      if (isMounted && isLoading) {
+        console.log('Auth loading timeout reached, setting isLoading to false');
+        setIsLoading(false);
+      }
+    }, 2000); // Ensure loading state doesn't last more than 2 seconds
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      if (!mounted) return;
+    // Initialize auth
+    initAuth();
+
+    // Set up auth state change listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      console.log('Auth state change event:', event);
       
-      console.log('Auth state change event:', event, currentSession ? 'with session' : 'no session');
-      
-      // Update session state immediately to prevent stale state
-      setSession(currentSession);
-      
-      if (currentSession?.user) {
-        console.log('Auth change: Session found, fetching user profile');
-        try {
-          const profile = await fetchUserProfile(currentSession.user.id);
-          if (!profile) {
-            console.warn('Profile fetch failed but session exists');
-          }
-        } catch (error) {
-          console.error('Error in profile fetch during auth change:', error);
+      if (!isMounted) return;
+
+      if (currentSession) {
+        console.log('Auth change: Session found', currentSession.user.id);
+        setSession(currentSession);
+        
+        // Fetch user profile for the session
+        const userData = await fetchUserProfile(currentSession.user.id);
+        if (userData) {
+          setUser(userData as User);
         }
       } else {
-        console.log('Auth change: No session, setting user to null');
+        console.log('Auth change: No session');
+        setSession(null);
         setUser(null);
       }
       
-      // Always finish loading after auth state change
+      // Always ensure loading state is false after auth state change
       setIsLoading(false);
     });
 
+    // Clean up
     return () => {
       console.log('Auth: Cleaning up auth provider');
-      mounted = false;
+      isMounted = false;
       clearTimeout(loadingTimeout);
-      subscription.unsubscribe();
+      authListener.subscription.unsubscribe();
     };
   }, []);
 
@@ -139,7 +142,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('Attempting to sign in with email:', email);
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password,
+        options: {
+          // Explicitly set cookie options for better cross-environment compatibility
+          cookieOptions: {
+            name: 'sb-session',
+            lifetime: 60 * 60 * 24 * 7, // 1 week
+            sameSite: 'lax',
+            secure: window.location.protocol === 'https:'
+          }
+        }
+      });
       
       if (error) throw error;
       
@@ -171,6 +186,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           data: {
             role,
           },
+          // Explicitly set cookie options
+          cookieOptions: {
+            name: 'sb-session',
+            lifetime: 60 * 60 * 24 * 7, // 1 week
+            sameSite: 'lax',
+            secure: window.location.protocol === 'https:'
+          }
         }
       });
       
@@ -201,7 +223,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setSession(null);
       
-      const { error } = await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut({
+        scope: 'local' // Only clear local session, not on all devices
+      });
       
       if (error) {
         console.error('Sign out API error:', error);
@@ -216,6 +240,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           title: "Signed out",
           description: "You have been signed out successfully",
         });
+        
+        // Force reload the page to ensure clean state after logout
+        window.location.href = '/login';
       }
     } catch (error: any) {
       console.error('Sign out unexpected error:', error);

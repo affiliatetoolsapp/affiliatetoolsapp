@@ -24,36 +24,33 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     });
   }, [isLoading, user, session, allowedRoles, location]);
   
-  // Show loading state only if we're still determining auth
+  // Show loading state only if we're still determining auth - but limit this to avoid infinite loading
   if (isLoading) {
     console.log('ProtectedRoute: Still loading, showing loading state');
     return <LoadingState />;
   }
   
-  // Always prioritize session check, which is more reliable than user data
+  // Check for session existence - most reliable way to determine if user is authenticated
   if (!session) {
     console.log('ProtectedRoute: No session, redirecting to login');
     // Use replace: true to prevent breaking the back button
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
-  // With session available, handle role-based authorization
-  if (allowedRoles) {
-    // If we have user data, use it for role check
-    if (user && !allowedRoles.includes(user.role as UserRole)) {
-      console.log('ProtectedRoute: User role not authorized, redirecting to unauthorized');
-      return <Navigate to="/unauthorized" replace />;
-    }
+  // With session available, handle role-based authorization if needed
+  if (allowedRoles && allowedRoles.length > 0) {
+    // Get role from user data if available
+    const userRole = user?.role as UserRole | undefined;
     
-    // If no user data but session exists, use role from session metadata as fallback
-    if (!user && session) {
-      const sessionRole = session.user.user_metadata?.role || 'affiliate';
-      console.log('ProtectedRoute: No user data but session exists, using role from session:', sessionRole);
-      
-      if (!allowedRoles.includes(sessionRole as UserRole)) {
-        console.log('ProtectedRoute: Role from session not authorized, redirecting to unauthorized');
-        return <Navigate to="/unauthorized" replace />;
-      }
+    // Fallback to session metadata role if user data not available yet
+    const sessionRole = session?.user?.user_metadata?.role as UserRole | undefined;
+    
+    // Use whichever role data is available
+    const role = userRole || sessionRole;
+    
+    if (role && !allowedRoles.includes(role)) {
+      console.log('ProtectedRoute: Role not authorized, redirecting to unauthorized');
+      return <Navigate to="/unauthorized" replace />;
     }
   }
   

@@ -3,7 +3,6 @@ import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { PublicHeader } from '@/components/PublicHeader';
-import { LoadingState } from '@/components/LoadingState';
 
 export default function Index() {
   const { user, session, isLoading } = useAuth();
@@ -14,25 +13,22 @@ export default function Index() {
     // Log the current state for debugging
     console.log('Index page state:', { user, session, isLoading, path: location.pathname });
     
-    // ONLY handle navigation for the exact root path - this prevents redirect issues on refresh
+    // Only handle navigation for the exact root path - this prevents redirect issues on refresh
     if (location.pathname === '/') {
       // Wait until auth state is determined before redirecting
       if (!isLoading) {
         if (session) {
           console.log('Session authenticated, redirecting to dashboard');
           navigate('/dashboard', { replace: true });
-        } else if (user) {
-          console.log('User authenticated, redirecting to dashboard');
-          navigate('/dashboard', { replace: true });
         } else {
-          console.log('No session or user found, redirecting to login');
+          console.log('No session found, redirecting to login');
           navigate('/login', { replace: true });
         }
       }
     }
   }, [isLoading, user, session, navigate, location.pathname]);
 
-  // Only render loading component on the root path
+  // Only render loading component on the root path and when loading
   if (location.pathname === '/' && isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -45,6 +41,6 @@ export default function Index() {
     );
   }
   
-  // For other paths, let the router handle it
+  // For other paths or when not loading, let the router handle it
   return null;
 }

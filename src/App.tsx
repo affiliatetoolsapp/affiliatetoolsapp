@@ -28,13 +28,14 @@ import PartnersPage from '@/pages/PartnersPage';
 import SettingsPage from '@/pages/SettingsPage';
 import Index from '@/pages/Index';
 
-// Create a client
+// Create a client with optimized settings for preview environments
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      staleTime: 60 * 1000,
-      retry: 1,
+      staleTime: 30 * 1000, // 30 seconds
+      retry: 1, // Only retry once to prevent excessive loading
+      retryDelay: 500, // 500ms between retries
     },
   },
 });

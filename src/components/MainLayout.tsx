@@ -27,9 +27,9 @@ export default function MainLayout() {
     : user?.email?.slice(0, 2).toUpperCase();
   
   return (
-    <div className="min-h-screen bg-background flex">
+    <div className="min-h-screen h-screen bg-background flex overflow-hidden">
       {/* Desktop Sidebar */}
-      <div className="hidden md:block sticky top-0 h-screen">
+      <div className="hidden md:block h-screen">
         <Sidebar 
           className="h-screen border-r" 
           isCollapsed={isSidebarCollapsed}
@@ -50,9 +50,9 @@ export default function MainLayout() {
       </Sheet>
       
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen max-w-[100%]">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Fixed Header */}
-        <header className="h-16 border-b flex items-center justify-end px-6 sticky top-0 bg-background z-40">
+        <header className="h-16 border-b flex items-center justify-end px-6 bg-background z-40">
           <div className="flex items-center space-x-4">
             <ThemeToggle />
             <Button variant="ghost" size="icon">
@@ -90,11 +90,11 @@ export default function MainLayout() {
           </div>
         </header>
         
-        <main className="flex-1 p-4 md:p-6 w-full">
+        <main className="flex-1 p-4 md:p-6 overflow-y-auto">
           <Outlet />
         </main>
         
-        <footer className="border-t py-4 px-6 text-center text-sm text-gray-500">
+        <footer className="border-t py-3 px-6 text-center text-sm text-gray-500">
           &copy; {new Date().getFullYear()} Streamlined Affiliate Network
         </footer>
       </div>

@@ -16,6 +16,7 @@ import OfferDetailView from '@/components/affiliate/OfferDetailView';
 import AffiliatePostbackSetup from '@/components/affiliate/AffiliatePostbackSetup';
 import AdvertiserPostbackSetup from '@/components/advertiser/AdvertiserPostbackSetup';
 import { Offer } from '@/types';
+import { toast } from '@/hooks/use-toast';
 
 export default function OffersPage() {
   const { id } = useParams();

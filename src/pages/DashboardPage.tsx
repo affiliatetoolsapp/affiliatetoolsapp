@@ -39,45 +39,45 @@ export default function DashboardPage() {
     switch (user.role) {
       case 'admin':
         return (
-          <Tabs defaultValue="overview" className="space-y-6">
+          <Tabs defaultValue="overview" className="space-y-6 overflow-hidden">
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="advanced">Advanced Analytics</TabsTrigger>
             </TabsList>
-            <TabsContent value="overview">
+            <TabsContent value="overview" className="overflow-x-auto">
               <DashboardOverview />
             </TabsContent>
-            <TabsContent value="advanced">
+            <TabsContent value="advanced" className="overflow-x-auto">
               <AdminDashboard />
             </TabsContent>
           </Tabs>
         );
       case 'advertiser':
         return (
-          <Tabs defaultValue="overview" className="space-y-6">
+          <Tabs defaultValue="overview" className="space-y-6 overflow-hidden">
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="advanced">Campaign Analytics</TabsTrigger>
             </TabsList>
-            <TabsContent value="overview">
+            <TabsContent value="overview" className="overflow-x-auto">
               <DashboardOverview />
             </TabsContent>
-            <TabsContent value="advanced">
+            <TabsContent value="advanced" className="overflow-x-auto">
               <AdvertiserDashboard />
             </TabsContent>
           </Tabs>
         );
       case 'affiliate':
         return (
-          <Tabs defaultValue="overview" className="space-y-6">
+          <Tabs defaultValue="overview" className="space-y-6 overflow-hidden">
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="detailed">Detailed Analytics</TabsTrigger>
             </TabsList>
-            <TabsContent value="overview">
+            <TabsContent value="overview" className="overflow-x-auto">
               <DashboardOverview />
             </TabsContent>
-            <TabsContent value="detailed">
+            <TabsContent value="detailed" className="overflow-x-auto">
               <AffiliateDashboard />
             </TabsContent>
           </Tabs>
@@ -88,7 +88,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div>
+    <div className="w-full overflow-hidden">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Welcome, {user.contact_name || user.email}</h1>
         <p className="text-muted-foreground">
@@ -100,7 +100,7 @@ export default function DashboardPage() {
         </p>
       </div>
       
-      <div className="mt-6">
+      <div className="mt-6 overflow-x-hidden">
         {renderRoleDashboard()}
       </div>
     </div>

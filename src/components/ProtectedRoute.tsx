@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Navigate, useLocation } from 'react-router-dom';
 import { LoadingState } from '@/components/LoadingState';
@@ -14,15 +14,13 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   const { user, session, isLoading } = useAuth();
   const location = useLocation();
   
-  useEffect(() => {
-    console.log('ProtectedRoute:', { 
-      isLoading, 
-      hasUser: !!user, 
-      hasSession: !!session,
-      allowedRoles,
-      currentPath: location.pathname
-    });
-  }, [isLoading, user, session, allowedRoles, location]);
+  console.log('ProtectedRoute:', { 
+    isLoading, 
+    hasUser: !!user, 
+    hasSession: !!session,
+    allowedRoles,
+    currentPath: location.pathname
+  });
   
   // Show loading state only during initial load
   if (isLoading) {

@@ -10,7 +10,7 @@ export default function Index() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Only redirect when auth is loaded
+    // Only redirect when auth is not in loading state
     if (!isLoading) {
       if (session) {
         console.log('Session found, redirecting to dashboard');

@@ -25,90 +25,111 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Function to fetch user profile
-  async function fetchUserProfile(userId: string) {
-    try {
-      console.log('Fetching user profile for ID:', userId);
-      
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
+  // Function to fetch user profile with retries
+  async function fetchUserProfile(userId: string, maxRetries = 2) {
+    let retries = 0;
+    
+    while (retries <= maxRetries) {
+      try {
+        console.log('Fetching user profile for ID:', userId);
+        
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .single();
 
-      if (error) {
-        console.error('Error fetching user profile:', error);
-        return null;
+        if (error) {
+          console.error(`Error fetching user profile (attempt ${retries + 1}):`, error);
+          retries++;
+          
+          if (retries > maxRetries) {
+            console.log('Max retries reached, returning null');
+            return null;
+          }
+          
+          // Wait before retrying
+          await new Promise(r => setTimeout(r, 1000));
+          continue;
+        }
+
+        console.log('User profile fetched successfully:', data);
+        return data as User;
+      } catch (error) {
+        console.error(`Unexpected error fetching user profile (attempt ${retries + 1}):`, error);
+        retries++;
+        
+        if (retries > maxRetries) {
+          console.log('Max retries reached, returning null');
+          return null;
+        }
+        
+        // Wait before retrying
+        await new Promise(r => setTimeout(r, 1000));
       }
-
-      console.log('User profile fetched successfully:', data);
-      return data as User;
-    } catch (error) {
-      console.error('Unexpected error fetching user profile:', error);
-      return null;
     }
+    
+    return null;
+  }
+
+  // Create a fallback user from session data
+  function createFallbackUser(session: Session): User {
+    const metadata = session.user.user_metadata;
+    return {
+      id: session.user.id,
+      email: session.user.email || '',
+      role: (metadata?.role as string) || 'affiliate',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as User;
   }
 
   // Initialize auth state
   useEffect(() => {
     console.log('AuthProvider: Setting up auth state');
     let isMounted = true;
+    let loadingTimeout: NodeJS.Timeout;
 
     const initializeAuth = async () => {
       try {
         // Get current session
         const { data: { session: currentSession } } = await supabase.auth.getSession();
+        console.log('Auth: Getting initial session');
         
         if (!isMounted) return;
         
-        console.log('Auth: Initial session data:', currentSession ? 'Session exists' : 'No session');
-        
         if (currentSession) {
+          console.log('Auth: Initial session found');
           setSession(currentSession);
           
           // Fetch user profile
+          console.log('Auth change: Session found, fetching user profile');
           const profile = await fetchUserProfile(currentSession.user.id);
           
           if (profile && isMounted) {
+            console.log('User profile loaded successfully');
             setUser(profile);
           } else if (isMounted) {
-            // Create minimal user from session metadata as fallback
-            console.log('Creating minimal user object from session metadata');
-            const metadata = currentSession.user.user_metadata;
-            const email = currentSession.user.email || '';
-            
-            // Try to get the user from the database again or create a fallback
-            const { data } = await supabase
-              .from('users')
-              .select('*')
-              .eq('email', email)
-              .maybeSingle();
-              
-            if (data) {
-              setUser(data as User);
-            } else {
-              const fallbackUser = {
-                id: currentSession.user.id,
-                email: email,
-                role: (metadata?.role as string) || 'affiliate',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              } as User;
-              
-              setUser(fallbackUser);
-            }
+            console.log('Could not load user profile, creating fallback user');
+            // Create fallback user from session metadata
+            const fallbackUser = createFallbackUser(currentSession);
+            setUser(fallbackUser);
           }
         } else {
+          console.log('Auth: No initial session found');
           setSession(null);
           setUser(null);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
       } finally {
-        if (isMounted) {
-          console.log('Auth: Initialization complete, setting isLoading to false');
-          setIsLoading(false);
-        }
+        // Set a maximum loading time to prevent infinite loading states
+        loadingTimeout = setTimeout(() => {
+          if (isMounted) {
+            console.log('Auth loading timeout reached, setting isLoading to false');
+            setIsLoading(false);
+          }
+        }, 3000);
       }
     };
 
@@ -123,34 +144,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(newSession);
           
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            console.log('Auth change: Session found, fetching user profile');
             const profile = await fetchUserProfile(newSession.user.id);
+            
             if (profile && isMounted) {
+              console.log('User profile loaded successfully');
               setUser(profile);
             } else if (isMounted) {
-              // Create minimal user from session metadata as fallback
-              console.log('Creating minimal user object from session metadata');
-              const metadata = newSession.user.user_metadata;
-              const email = newSession.user.email || '';
-              
-              const { data } = await supabase
-                .from('users')
-                .select('*')
-                .eq('email', email)
-                .maybeSingle();
-                
-              if (data) {
-                setUser(data as User);
-              } else {
-                const fallbackUser = {
-                  id: newSession.user.id,
-                  email: email,
-                  role: (metadata?.role as string) || 'affiliate',
-                  created_at: new Date().toISOString(),
-                  updated_at: new Date().toISOString(),
-                } as User;
-                
-                setUser(fallbackUser);
-              }
+              console.log('Could not load user profile, creating fallback user');
+              // Create fallback user from session metadata
+              const fallbackUser = createFallbackUser(newSession);
+              setUser(fallbackUser);
             }
           }
         } else {
@@ -173,6 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       console.log('Auth: Cleaning up auth provider');
       isMounted = false;
+      clearTimeout(loadingTimeout);
       subscription.unsubscribe();
     };
   }, []);
@@ -182,7 +187,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('Attempting to sign in with email:', email);
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password,
+        options: {
+          // Add cookie options to improve session persistence
+          cookieOptions: {
+            sameSite: 'lax',
+            secure: true
+          }
+        }
+      });
       
       if (error) throw error;
       

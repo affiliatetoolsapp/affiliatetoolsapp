@@ -7,18 +7,19 @@ import { PublicHeader } from '@/components/PublicHeader';
 import { LoadingState } from '@/components/LoadingState';
 
 export default function LoginPage() {
-  const { session, isLoading } = useAuth();
+  const { session, isLoading, profileError } = useAuth();
   const navigate = useNavigate();
   
   // Handle redirection based on session with better logging
   useEffect(() => {
-    console.log('LoginPage: Checking auth state', { hasSession: !!session, isLoading });
+    console.log('LoginPage: Checking auth state', { hasSession: !!session, isLoading, hasProfileError: !!profileError });
     
-    if (!isLoading && session) {
+    // Only redirect if we have a session and no profile errors
+    if (!isLoading && session && !profileError) {
       console.log('LoginPage: Session detected, redirecting to dashboard');
       navigate('/dashboard');
     }
-  }, [session, isLoading, navigate]);
+  }, [session, isLoading, navigate, profileError]);
   
   // Show loading state during initialization
   if (isLoading) {
@@ -30,7 +31,7 @@ export default function LoginPage() {
     );
   }
   
-  // If there's no session, show login form
+  // If there's no session or there's a profile error, show login form
   return (
     <div className="min-h-screen bg-background">
       <PublicHeader />

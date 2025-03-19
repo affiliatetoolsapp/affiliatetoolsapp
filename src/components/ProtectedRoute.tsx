@@ -11,7 +11,7 @@ type ProtectedRouteProps = {
 };
 
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  const { user, session, isLoading } = useAuth();
+  const { user, session, isLoading, profileError, retryFetchProfile } = useAuth();
   const location = useLocation();
   
   // Enhanced debug logging
@@ -20,6 +20,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
       isLoading, 
       hasUser: !!user, 
       hasSession: !!session, 
+      hasProfileError: !!profileError,
       allowedRoles, 
       currentPath: location.pathname,
       sessionExpiry: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'none'
@@ -28,7 +29,13 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     return () => {
       console.log('ProtectedRoute unmounting from path:', location.pathname);
     };
-  }, [isLoading, user, session, allowedRoles, location.pathname]);
+  }, [isLoading, user, session, profileError, allowedRoles, location.pathname]);
+  
+  // Show error state if we have a profile error
+  if (profileError && session) {
+    console.log('ProtectedRoute: Profile error detected, showing error state');
+    return <LoadingState errorMessage={profileError} onRetry={retryFetchProfile} />;
+  }
   
   // Show loading state while auth is initializing
   if (isLoading) {

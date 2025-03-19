@@ -25,13 +25,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Function to fetch user profile with improved error handling
+  // Function to fetch user profile
   async function fetchUserProfile(userId: string) {
     try {
       console.log('Fetching user profile for ID:', userId);
-      
-      // Add a small delay to allow the database to sync
-      await new Promise(resolve => setTimeout(resolve, 100));
       
       const { data, error } = await supabase
         .from('users')
@@ -41,77 +38,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Error fetching user profile:', error);
-        
-        // Try one more time after a longer delay if first attempt fails
-        await new Promise(resolve => setTimeout(resolve, 300));
-        const retryResult = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', userId)
-          .single();
-          
-        if (retryResult.error) {
-          console.error('Retry failed to fetch user profile:', retryResult.error);
-          return null;
-        }
-        
-        console.log('User profile fetched successfully on retry:', retryResult.data);
-        setUser(retryResult.data as User);
-        return retryResult.data;
+        return null;
       }
 
       console.log('User profile fetched successfully:', data);
-      setUser(data as User);
-      return data;
+      return data as User;
     } catch (error) {
       console.error('Unexpected error fetching user profile:', error);
       return null;
     }
   }
 
+  // Initialize auth state
   useEffect(() => {
     console.log('AuthProvider: Setting up auth state');
     let isMounted = true;
-    
-    // Set a shorter timeout for better user experience
-    const loadingTimeout = setTimeout(() => {
-      if (isMounted && isLoading) {
-        console.log('Auth loading timeout reached, setting isLoading to false');
-        setIsLoading(false);
-      }
-    }, 2000); // 2 seconds timeout (shortened from 3)
 
-    // Get initial session
-    (async () => {
+    const initializeAuth = async () => {
       try {
-        console.log('Auth: Getting initial session');
-        const { data } = await supabase.auth.getSession();
+        // Get current session
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
         
         if (!isMounted) return;
         
-        console.log('Auth: Initial session data:', data.session ? 'Session exists' : 'No session');
+        console.log('Auth: Initial session data:', currentSession ? 'Session exists' : 'No session');
         
-        if (data.session) {
-          setSession(data.session);
-          console.log('Auth: Session found, fetching user profile');
-          const profile = await fetchUserProfile(data.session.user.id);
+        if (currentSession) {
+          setSession(currentSession);
           
-          // If profile fetch fails, fallback to creating a minimal user object from session
-          if (!profile && isMounted) {
+          // Fetch user profile
+          const profile = await fetchUserProfile(currentSession.user.id);
+          
+          if (profile && isMounted) {
+            setUser(profile);
+          } else if (isMounted) {
+            // Create minimal user from session metadata as fallback
             console.log('Creating minimal user object from session metadata');
-            const metadata = data.session.user.user_metadata;
-            const fallbackUser = {
-              id: data.session.user.id,
-              email: data.session.user.email || '',
-              role: (metadata?.role as string) || 'affiliate',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            } as User;
+            const metadata = currentSession.user.user_metadata;
+            const email = currentSession.user.email || '';
             
-            setUser(fallbackUser);
+            // Try to get the user from the database again or create a fallback
+            const { data } = await supabase
+              .from('users')
+              .select('*')
+              .eq('email', email)
+              .maybeSingle();
+              
+            if (data) {
+              setUser(data as User);
+            } else {
+              const fallbackUser = {
+                id: currentSession.user.id,
+                email: email,
+                role: (metadata?.role as string) || 'affiliate',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              } as User;
+              
+              setUser(fallbackUser);
+            }
           }
         } else {
-          console.log('Auth: No session found, setting user to null');
+          setSession(null);
           setUser(null);
         }
       } catch (error) {
@@ -122,55 +110,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsLoading(false);
         }
       }
-    })();
+    };
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      if (!isMounted) return;
-      
-      console.log('Auth state change event:', event, newSession ? 'with session' : 'no session');
-      
-      setSession(newSession);
-      
-      if (newSession?.user) {
-        console.log('Auth change: Session found, fetching user profile');
-        try {
-          const profile = await fetchUserProfile(newSession.user.id);
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, newSession) => {
+        if (!isMounted) return;
+        
+        console.log('Auth state change event:', event, newSession ? 'with session' : 'no session');
+        
+        if (newSession) {
+          setSession(newSession);
           
-          // If profile fetch fails, fallback to creating a minimal user object from session
-          if (!profile && isMounted) {
-            console.log('Creating minimal user object from session metadata');
-            const metadata = newSession.user.user_metadata;
-            const fallbackUser = {
-              id: newSession.user.id,
-              email: newSession.user.email || '',
-              role: (metadata?.role as string) || 'affiliate',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            } as User;
-            
-            setUser(fallbackUser);
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            const profile = await fetchUserProfile(newSession.user.id);
+            if (profile && isMounted) {
+              setUser(profile);
+            } else if (isMounted) {
+              // Create minimal user from session metadata as fallback
+              console.log('Creating minimal user object from session metadata');
+              const metadata = newSession.user.user_metadata;
+              const email = newSession.user.email || '';
+              
+              const { data } = await supabase
+                .from('users')
+                .select('*')
+                .eq('email', email)
+                .maybeSingle();
+                
+              if (data) {
+                setUser(data as User);
+              } else {
+                const fallbackUser = {
+                  id: newSession.user.id,
+                  email: email,
+                  role: (metadata?.role as string) || 'affiliate',
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                } as User;
+                
+                setUser(fallbackUser);
+              }
+            }
           }
-        } catch (error) {
-          console.error('Error in profile fetch during auth change:', error);
+        } else {
+          setSession(null);
+          setUser(null);
         }
-      } else {
-        console.log('Auth change: No session, setting user to null');
-        setUser(null);
+        
+        if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setSession(null);
+        }
+        
+        setIsLoading(false);
       }
-      
-      if (event === 'SIGNED_OUT') {
-        // Ensure user is set to null when signed out
-        setUser(null);
-      }
-      
-      setIsLoading(false);
-    });
+    );
+
+    // Initialize auth
+    initializeAuth();
 
     return () => {
       console.log('Auth: Cleaning up auth provider');
       isMounted = false;
-      clearTimeout(loadingTimeout);
       subscription.unsubscribe();
     };
   }, []);
@@ -186,9 +188,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log('Sign in successful, data:', data.session ? 'Session exists' : 'No session');
       
-      // Immediately set loading to false after successful sign-in
-      setIsLoading(false);
-      
       toast({
         title: "Success",
         description: "You have successfully signed in!",
@@ -200,8 +199,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: error.message || "An error occurred during sign in",
         variant: "destructive",
       });
-      setIsLoading(false);
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -251,7 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           variant: "destructive",
         });
       } else {
-        // Clear local state after successful sign-out
+        // Clear local state
         setUser(null);
         setSession(null);
         
@@ -269,7 +269,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         variant: "destructive",
       });
     } finally {
-      // Ensure we always end the loading state
       setIsLoading(false);
     }
   }

@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/context/AuthContext';
@@ -29,13 +28,14 @@ import SettingsPage from '@/pages/SettingsPage';
 import Index from '@/pages/Index';
 import './App.css';
 
-// Create a client with corrected configuration
+// Create a client with latest React Query configuration
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
       staleTime: 60 * 1000,
-      gcTime: 60 * 1000, // Updated from cacheTime to gcTime
+      gcTime: 60 * 1000, // Using gcTime instead of deprecated cacheTime
+      retry: 1,
     },
   },
 });

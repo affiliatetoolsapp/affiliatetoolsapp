@@ -4,28 +4,31 @@ import { useNavigate } from 'react-router-dom';
 import SignInForm from '@/components/SignInForm';
 import { useAuth } from '@/context/AuthContext';
 import { PublicHeader } from '@/components/PublicHeader';
+import { LoadingState } from '@/components/LoadingState';
 
 export default function LoginPage() {
-  const { user, session, isLoading } = useAuth();
+  const { session, isLoading } = useAuth();
   const navigate = useNavigate();
   
-  // Add console log to help debug
-  console.log('LoginPage render:', { user, session, isLoading });
-  
+  // Handle redirection based on session
   useEffect(() => {
-    // Only redirect when we're sure authentication is loaded
-    if (isLoading) {
-      return;
-    }
-
-    // If we have a session, navigate to dashboard regardless of user state
-    // This helps prevent a redirect loop if user data is slow to load
-    if (session) {
+    if (!isLoading && session) {
       console.log('LoginPage: Session detected, redirecting to dashboard');
       navigate('/dashboard');
     }
-  }, [user, session, isLoading, navigate]);
+  }, [session, isLoading, navigate]);
   
+  // Show loading state during initialization
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <PublicHeader />
+        <LoadingState />
+      </div>
+    );
+  }
+  
+  // If there's no session, show login form
   return (
     <div className="min-h-screen bg-background">
       <PublicHeader />

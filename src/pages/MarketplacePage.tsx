@@ -8,12 +8,8 @@ import { LoadingState } from '@/components/LoadingState';
 export default function MarketplacePage() {
   const { user, session, isLoading } = useAuth();
   
+  // Show loading state during initial load
   if (isLoading) {
-    return <LoadingState />;
-  }
-  
-  // If we have a session but no user data yet, show loading state
-  if (session && !user) {
     return <LoadingState />;
   }
   
@@ -26,7 +22,8 @@ export default function MarketplacePage() {
           <MarketplaceOverview />
         )
       ) : (
-        <LoadingState />
+        // If we have a session but no user data yet, show loading
+        session ? <LoadingState /> : <LoadingState />
       )}
     </ProtectedRoute>
   );

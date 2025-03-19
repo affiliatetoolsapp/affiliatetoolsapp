@@ -24,25 +24,20 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     });
   }, [isLoading, user, session, allowedRoles, location]);
   
-  // Add a guard to ensure we're not caught in a redirect loop
-  if (location.pathname === '/login') {
-    console.warn('ProtectedRoute being called on login page, this should not happen');
-    return <>{children}</>;
-  }
-  
+  // Show loading state only during initial load
   if (isLoading) {
     console.log('ProtectedRoute: Still loading, showing loading state');
     return <LoadingState />;
   }
   
-  // Check for session first - this is more reliable than checking the user
+  // If there's no session, redirect to login
   if (!session) {
     console.log('ProtectedRoute: No session, redirecting to login');
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
-  // If user data is not loaded yet but we have a session, we'll still render the children
-  // This helps prevent the redirect loop if user data is slow to load
+  // If we have a session but no user data, still proceed
+  // This helps when user data is slow to load but session is valid
   if (!user) {
     console.log('ProtectedRoute: Session exists but no user data yet, proceeding anyway');
     return <>{children}</>;

@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, debugCreateOffer } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -192,40 +192,41 @@ const CreateOffer = () => {
     if (!user) return;
 
     setIsSubmitting(true);
+    console.log("Form submission started with data:", data);
+    console.log("Geo commissions enabled:", geoCommissionsEnabled);
+    console.log("Geo commissions data:", geoCommissions);
 
     try {
-      // Explicitly ensure commission_type is included
+      // Prepare the offer data with proper typing
       const offerData = {
         name: data.name,
         description: data.description,
         url: data.url,
-        niche: data.niche,
-        target_audience: data.target_audience,
-        conversion_requirements: data.conversion_requirements,
-        restrictions: data.restrictions,
-        commission_type: data.commission_type, // Explicitly include commission_type
-        status: data.status,
-        allowed_traffic_sources: data.allowed_traffic_sources,
-        restricted_geos: data.restricted_geos,
-        offer_image: data.offer_image,
+        niche: data.niche || null,
+        target_audience: data.target_audience || null,
+        conversion_requirements: data.conversion_requirements || null,
+        restrictions: data.restrictions || null,
+        commission_type: data.commission_type,
+        status: data.status || 'active',
+        allowed_traffic_sources: data.allowed_traffic_sources || [],
+        restricted_geos: data.restricted_geos || [],
+        offer_image: data.offer_image || null,
         advertiser_id: user.id,
         geo_commissions: geoCommissionsEnabled && geoCommissions.length > 0 ? geoCommissions : null,
         marketing_materials: creatives.length > 0 ? creatives : null,
-        // Convert string numbers to actual numbers for the database
-        commission_amount: data.commission_amount ? parseFloat(data.commission_amount) : null,
-        commission_percent: data.commission_percent ? parseFloat(data.commission_percent) : null,
+        // Commission fields based on type and geo settings
+        commission_amount: !geoCommissionsEnabled && data.commission_amount ? parseFloat(data.commission_amount) : null,
+        commission_percent: !geoCommissionsEnabled && data.commission_percent ? parseFloat(data.commission_percent) : null,
         geo_targets: geoCommissionsEnabled ? data.geo_targets || [] : []
       };
 
-      // Insert into Supabase
-      const { data: offer, error } = await supabase
-        .from('offers')
-        .insert(offerData)
-        .select()
-        .single();
+      console.log("Prepared offer data:", offerData);
 
-      if (error) {
-        throw error;
+      // Use the debug helper to create the offer
+      const result = await debugCreateOffer(offerData);
+      
+      if (!result.success) {
+        throw result.error;
       }
 
       toast({

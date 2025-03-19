@@ -163,3 +163,27 @@ function formatDate(date: Date) {
   const day = date.getDate();
   return `${month}/${day}`;
 }
+
+// Debug helpers
+export async function debugCreateOffer(offerData: any) {
+  console.log('Attempting to create offer with data:', JSON.stringify(offerData, null, 2));
+  
+  try {
+    const { data, error } = await supabase
+      .from('offers')
+      .insert(offerData)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error creating offer:', error);
+      return { success: false, error };
+    }
+    
+    console.log('Offer created successfully:', data);
+    return { success: true, data };
+  } catch (error) {
+    console.error('Exception creating offer:', error);
+    return { success: false, error };
+  }
+}

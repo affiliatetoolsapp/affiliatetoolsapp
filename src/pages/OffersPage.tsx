@@ -93,6 +93,7 @@ export default function OffersPage() {
   
   // If we have an ID with "create", we show the creation form (only for advertisers and admins)
   if (id === 'create' && (user.role === 'advertiser' || user.role === 'admin')) {
+    console.log("[OffersPage] Rendering CreateOffer component");
     return <CreateOffer />;
   }
   

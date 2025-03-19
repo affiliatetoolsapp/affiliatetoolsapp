@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@/types';
@@ -25,15 +24,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Fetch user profile data
-  const fetchUserProfile = async (userId: string) => {
+  // Function to fetch user profile with improved error handling
+  async function fetchUserProfile(userId: string) {
     try {
       console.log('Fetching user profile for ID:', userId);
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', userId)
-        .maybeSingle();
+        .single();
 
       if (error) {
         console.error('Error fetching user profile:', error);
@@ -41,111 +40,101 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       console.log('User profile fetched successfully:', data);
+      setUser(data as User);
       return data;
     } catch (error) {
       console.error('Unexpected error fetching user profile:', error);
       return null;
     }
-  };
+  }
 
-  // Initialize auth state and set up listener
   useEffect(() => {
-    console.log('Setting up auth state');
-    let mounted = true;
-
-    const initializeAuth = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Get initial session
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Error getting initial session:', error);
-          if (mounted) {
-            setSession(null);
-            setUser(null);
-          }
-          return;
-        }
-        
-        if (!mounted) return;
-        
-        const currentSession = data.session;
-        console.log('Initial session check:', currentSession ? 'Found session' : 'No session');
-        
-        if (currentSession) {
-          setSession(currentSession);
-          
-          // Fetch user profile
-          const userData = await fetchUserProfile(currentSession.user.id);
-          if (userData && mounted) {
-            setUser(userData as User);
-          }
-        } else {
-          setSession(null);
-          setUser(null);
-        }
-      } catch (err) {
-        console.error('Auth initialization error:', err);
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
+    console.log('AuthProvider: Setting up auth state');
+    let isMounted = true;
+    
+    // Shorter timeout for better user experience
+    const loadingTimeout = setTimeout(() => {
+      if (isMounted && isLoading) {
+        console.log('Auth loading timeout reached, setting isLoading to false');
+        setIsLoading(false);
       }
-    };
+    }, 3000); // Reduced from 10 seconds to 3 seconds
 
-    // Set up auth state listener
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      console.log('Auth state changed:', event);
-      
-      if (!mounted) return;
-      
+    // Get initial session
+    (async () => {
       try {
-        if (newSession) {
-          console.log('New session detected, updating state');
-          setSession(newSession);
-          
-          // Fetch user profile
-          const userData = await fetchUserProfile(newSession.user.id);
-          if (userData && mounted) {
-            setUser(userData as User);
-          }
+        console.log('Auth: Getting initial session');
+        const { data } = await supabase.auth.getSession();
+        
+        if (!isMounted) return;
+        
+        console.log('Auth: Initial session data:', data.session ? 'Session exists' : 'No session');
+        
+        if (data.session) {
+          setSession(data.session);
+          console.log('Auth: Session found, fetching user profile');
+          await fetchUserProfile(data.session.user.id);
         } else {
-          console.log('No session detected, clearing state');
-          setSession(null);
+          console.log('Auth: No session found, setting user to null');
           setUser(null);
         }
       } catch (error) {
-        console.error('Error handling auth state change:', error);
+        console.error('Auth initialization error:', error);
       } finally {
-        if (mounted) {
+        if (isMounted) {
+          console.log('Auth: Initialization complete, setting isLoading to false');
           setIsLoading(false);
         }
       }
+    })();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+      
+      console.log('Auth state change event:', event, session ? 'with session' : 'no session');
+      
+      setSession(session);
+      
+      if (session?.user) {
+        console.log('Auth change: Session found, fetching user profile');
+        try {
+          const profile = await fetchUserProfile(session.user.id);
+          if (!profile) {
+            console.warn('Profile fetch failed but session exists');
+          }
+        } catch (error) {
+          console.error('Error in profile fetch during auth change:', error);
+        }
+      } else {
+        console.log('Auth change: No session, setting user to null');
+        setUser(null);
+      }
+      
+      setIsLoading(false);
     });
 
-    // Initialize auth
-    initializeAuth();
-
-    // Cleanup
     return () => {
-      console.log('Cleaning up auth provider');
-      mounted = false;
-      authListener.subscription.unsubscribe();
+      console.log('Auth: Cleaning up auth provider');
+      isMounted = false;
+      clearTimeout(loadingTimeout);
+      subscription.unsubscribe();
     };
   }, []);
 
-  // Sign in function
-  const signIn = async (email: string, password: string) => {
+  // Auth functions
+  async function signIn(email: string, password: string) {
+    console.log('Attempting to sign in with email:', email);
     setIsLoading(true);
     try {
-      console.log('Signing in user:', email);
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
+      
+      console.log('Sign in successful, data:', data.session ? 'Session exists' : 'No session');
+      
+      // Immediately set loading to false after successful sign-in
+      setIsLoading(false);
       
       toast({
         title: "Success",
@@ -158,21 +147,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: error.message || "An error occurred during sign in",
         variant: "destructive",
       });
-      throw error;
-    } finally {
       setIsLoading(false);
+      throw error;
     }
-  };
+  }
 
-  // Sign up function
-  const signUp = async (email: string, password: string, role: string) => {
+  async function signUp(email: string, password: string, role: string) {
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.signUp({ 
         email, 
         password,
         options: {
-          data: { role }
+          data: {
+            role,
+          },
         }
       });
       
@@ -192,18 +181,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
-  // Sign out function
-  const signOut = async () => {
+  async function signOut() {
     try {
-      console.log('Signing out');
+      console.log('Attempting to sign out...');
       setIsLoading(true);
+      
+      // Clear local state first to ensure immediate UI update
+      setUser(null);
+      setSession(null);
       
       const { error } = await supabase.auth.signOut();
       
       if (error) {
-        console.error('Sign out error:', error);
+        console.error('Sign out API error:', error);
         toast({
           title: "Error",
           description: error.message || "An error occurred during sign out",
@@ -211,33 +203,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       } else {
         console.log('Signed out successfully');
-        
-        // Immediately clear state
-        setUser(null);
-        setSession(null);
-        
         toast({
           title: "Signed out",
           description: "You have been signed out successfully",
         });
-        
-        // Force navigation to login page
-        window.location.href = '/login';
       }
     } catch (error: any) {
-      console.error('Sign out error:', error);
+      console.error('Sign out unexpected error:', error);
       toast({
         title: "Error",
         description: error.message || "An error occurred during sign out",
         variant: "destructive",
       });
     } finally {
+      // Ensure we always end the loading state
       setIsLoading(false);
     }
-  };
+  }
 
-  // Update profile function
-  const updateProfile = async (data: Partial<User>) => {
+  async function updateProfile(data: Partial<User>) {
     if (!user) return;
     
     setIsLoading(true);
@@ -264,10 +248,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
-  // Update password function
-  const updatePassword = async (newPassword: string) => {
+  async function updatePassword(newPassword: string) {
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.updateUser({
@@ -290,10 +273,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
-  // Reset password function
-  const resetPassword = async (email: string) => {
+  async function resetPassword(email: string) {
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -315,7 +297,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
   const value = {
     session,

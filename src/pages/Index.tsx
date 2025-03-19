@@ -5,26 +5,28 @@ import { useAuth } from '@/context/AuthContext';
 import { PublicHeader } from '@/components/PublicHeader';
 
 export default function Index() {
-  const { session, isLoading } = useAuth();
+  const { user, session, isLoading } = useAuth();
   const navigate = useNavigate();
-  
-  // Add more logging
+
   useEffect(() => {
-    console.log('Index page state:', { session, isLoading });
+    // Log the current state for debugging
+    console.log('Index page state:', { user, session, isLoading });
     
-    // Use a simpler approach with a safety check for race conditions
+    // Immediate navigation if auth state is already loaded
     if (!isLoading) {
       if (session) {
-        console.log('Session found, redirecting to dashboard');
-        navigate('/dashboard', { replace: true });
+        console.log('Session authenticated, redirecting to dashboard');
+        navigate('/dashboard');
+      } else if (user) {
+        console.log('User authenticated, redirecting to dashboard');
+        navigate('/dashboard');
       } else {
-        console.log('No session found, redirecting to login');
-        navigate('/login', { replace: true });
+        console.log('No session or user found, redirecting to login');
+        navigate('/login');
       }
     }
-  }, [isLoading, session, navigate]);
-  
-  // Always show a loading state on the index page
+  }, [isLoading, user, session, navigate]);
+
   return (
     <div className="min-h-screen bg-background">
       <PublicHeader />

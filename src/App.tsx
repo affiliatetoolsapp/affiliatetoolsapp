@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/context/AuthContext';
@@ -27,16 +26,15 @@ import EarningsPage from '@/pages/EarningsPage';
 import PartnersPage from '@/pages/PartnersPage';
 import SettingsPage from '@/pages/SettingsPage';
 import Index from '@/pages/Index';
+import { UserRole } from '@/types';
+import './App.css';
 
-// Create a client with optimized settings specifically for preview environments
+// Create a client
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      retry: 1, // Only retry once to prevent excessive loading
-      retryDelay: 500, // 500ms between retries
-      gcTime: 10 * 60 * 1000, // 10 minutes (renamed from cacheTime in newer versions)
+      staleTime: 60 * 1000,
     },
   },
 });
@@ -46,8 +44,8 @@ function AppContent() {
   
   return (
     <Theme accentColor="iris" radius="large" appearance={theme as 'light' | 'dark'}>
-      <Router>
-        <AuthProvider>
+      <AuthProvider>
+        <Router>
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Index />} />
@@ -90,9 +88,9 @@ function AppContent() {
               <Route path="partners" element={<PartnersPage />} />
             </Route>
           </Routes>
-          <Toaster />
-        </AuthProvider>
-      </Router>
+        </Router>
+        <Toaster />
+      </AuthProvider>
     </Theme>
   );
 }

@@ -6,19 +6,26 @@ import { useAuth } from '@/context/AuthContext';
 import { PublicHeader } from '@/components/PublicHeader';
 
 export default function LoginPage() {
-  const { session, isLoading } = useAuth();
+  const { user, session, isLoading } = useAuth();
   const navigate = useNavigate();
   
-  // Add console logs to help debug
-  console.log('LoginPage render:', { session, isLoading });
+  // Add console log to help debug
+  console.log('LoginPage render:', { user, session, isLoading });
   
   useEffect(() => {
-    // Only redirect if we have a session and loading is complete
-    if (session && !isLoading) {
+    // Check for session first (more reliable than checking user)
+    if (!isLoading && session) {
       console.log('LoginPage: Session detected, redirecting to dashboard');
-      navigate('/dashboard', { replace: true });
+      navigate('/dashboard');
+      return;
     }
-  }, [session, isLoading, navigate]);
+    
+    // As a fallback, also check for user object
+    if (!isLoading && user) {
+      console.log('LoginPage: User detected, redirecting to dashboard');
+      navigate('/dashboard');
+    }
+  }, [user, session, isLoading, navigate]);
   
   return (
     <div className="min-h-screen bg-background">

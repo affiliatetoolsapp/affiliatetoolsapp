@@ -14,7 +14,7 @@ export default function Index() {
     // Log the current state for debugging
     console.log('Index page state:', { user, session, isLoading, path: location.pathname });
     
-    // If the user is directly accessing the root path and not a sub-route
+    // Only attempt navigation when on the exact root path
     if (location.pathname === '/') {
       // Only navigate once auth state is determined (no longer loading)
       if (!isLoading) {
@@ -32,7 +32,7 @@ export default function Index() {
     }
   }, [isLoading, user, session, navigate, location.pathname]);
 
-  // If we're on the root path, show loading while determining auth
+  // Only render loading component on the root path
   if (location.pathname === '/') {
     return (
       <div className="min-h-screen bg-background">

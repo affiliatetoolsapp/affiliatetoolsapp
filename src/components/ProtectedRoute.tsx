@@ -24,6 +24,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     });
   }, [isLoading, user, session, allowedRoles, location]);
   
+  // If auth is still loading, show loading state
   if (isLoading) {
     console.log('ProtectedRoute: Still loading, showing loading state');
     return <LoadingState />;

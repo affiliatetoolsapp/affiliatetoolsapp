@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@/types';
@@ -23,9 +24,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
-
-  // Function to fetch user profile with retries
-  async function fetchUserProfile(userId: string, maxRetries = 2) {
+  
+  // Function to fetch user profile with retries and better error handling
+  async function fetchUserProfile(userId: string, maxRetries = 3) {
     let retries = 0;
     
     while (retries <= maxRetries) {
@@ -40,6 +41,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (error) {
           console.error(`Error fetching user profile (attempt ${retries + 1}):`, error);
+          
+          // Check if the error is due to no rows returned - we might need to create a user
+          if (error.code === 'PGRST116' && retries === maxRetries) {
+            console.log('No user profile found, will create fallback user');
+            return null;
+          }
+          
           retries++;
           
           if (retries > maxRetries) {
@@ -47,8 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return null;
           }
           
-          // Wait before retrying
-          await new Promise(r => setTimeout(r, 1000));
+          // Wait before retrying with exponential backoff
+          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, retries - 1)));
           continue;
         }
 
@@ -63,8 +71,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return null;
         }
         
-        // Wait before retrying
-        await new Promise(r => setTimeout(r, 1000));
+        // Wait before retrying with exponential backoff
+        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, retries - 1)));
       }
     }
     
@@ -72,15 +80,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   // Create a fallback user from session data
-  function createFallbackUser(session: Session): User {
-    const metadata = session.user.user_metadata;
-    return {
-      id: session.user.id,
-      email: session.user.email || '',
-      role: (metadata?.role as string) || 'affiliate',
+  async function createFallbackUser(currentSession: Session): Promise<User | null> {
+    const metadata = currentSession.user.user_metadata;
+    const role = (metadata?.role as string) || 'affiliate';
+    
+    const fallbackUser = {
+      id: currentSession.user.id,
+      email: currentSession.user.email || '',
+      role: role,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     } as User;
+    
+    console.log('Creating fallback user:', fallbackUser);
+    
+    try {
+      // Try to insert the user - this might fail if the user already exists
+      const { error } = await supabase
+        .from('users')
+        .insert([fallbackUser]);
+      
+      if (error) {
+        console.error('Error creating fallback user:', error);
+        // If insert fails, but not because of duplicate, return the fallback user anyway
+        if (error.code !== '23505') { // PostgreSQL unique violation code
+          return fallbackUser;
+        }
+      } else {
+        console.log('Fallback user created successfully');
+      }
+      
+      // One more attempt to fetch after creating
+      const profile = await fetchUserProfile(currentSession.user.id, 1);
+      return profile || fallbackUser;
+    } catch (error) {
+      console.error('Unexpected error creating fallback user:', error);
+      return fallbackUser;
+    }
   }
 
   // Initialize auth state
@@ -93,12 +129,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         // Get current session
         const { data: { session: currentSession } } = await supabase.auth.getSession();
-        console.log('Auth: Getting initial session');
+        console.log('Auth: Getting initial session', currentSession ? 'found' : 'not found');
         
         if (!isMounted) return;
         
         if (currentSession) {
-          console.log('Auth: Initial session found');
+          console.log('Auth: Initial session found for user ID:', currentSession.user.id);
           setSession(currentSession);
           
           // Fetch user profile
@@ -108,27 +144,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (profile && isMounted) {
             console.log('User profile loaded successfully');
             setUser(profile);
+            setIsLoading(false);
           } else if (isMounted) {
             console.log('Could not load user profile, creating fallback user');
             // Create fallback user from session metadata
-            const fallbackUser = createFallbackUser(currentSession);
-            setUser(fallbackUser);
+            const fallbackUser = await createFallbackUser(currentSession);
+            if (fallbackUser && isMounted) {
+              setUser(fallbackUser);
+            }
+            setIsLoading(false);
           }
         } else {
           console.log('Auth: No initial session found');
           setSession(null);
           setUser(null);
+          setIsLoading(false);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
+        setIsLoading(false);
       } finally {
         // Set a maximum loading time to prevent infinite loading states
-        loadingTimeout = setTimeout(() => {
-          if (isMounted) {
-            console.log('Auth loading timeout reached, setting isLoading to false');
-            setIsLoading(false);
-          }
-        }, 3000);
+        if (isMounted && isLoading) {
+          loadingTimeout = setTimeout(() => {
+            if (isMounted) {
+              console.log('Auth loading timeout reached, setting isLoading to false');
+              setIsLoading(false);
+            }
+          }, 3000);
+        }
       }
     };
 
@@ -143,6 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(newSession);
           
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            setIsLoading(true); // Set loading true while fetching profile
             console.log('Auth change: Session found, fetching user profile');
             const profile = await fetchUserProfile(newSession.user.id);
             
@@ -152,21 +197,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } else if (isMounted) {
               console.log('Could not load user profile, creating fallback user');
               // Create fallback user from session metadata
-              const fallbackUser = createFallbackUser(newSession);
-              setUser(fallbackUser);
+              const fallbackUser = await createFallbackUser(newSession);
+              if (fallbackUser && isMounted) {
+                setUser(fallbackUser);
+              }
             }
+            setIsLoading(false);
           }
         } else {
           setSession(null);
           setUser(null);
+          setIsLoading(false);
         }
         
         if (event === 'SIGNED_OUT') {
           setUser(null);
           setSession(null);
+          setIsLoading(false);
         }
-        
-        setIsLoading(false);
       }
     );
 

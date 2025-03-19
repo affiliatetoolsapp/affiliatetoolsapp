@@ -102,7 +102,11 @@ export default function OffersPage() {
   // Let the ProtectedRoute component handle redirection to login
   if (!isLoading && !user) {
     console.log("[OffersPage] No user after auth loading complete");
-    return null;
+    return (
+      <ProtectedRoute>
+        <LoadingState />
+      </ProtectedRoute>
+    );
   }
   
   // If we have an ID with "create", we show the creation form (only for advertisers and admins)

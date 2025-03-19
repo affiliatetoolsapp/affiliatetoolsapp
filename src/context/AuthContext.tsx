@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@/types';
@@ -28,7 +27,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileError, setProfileError] = useState<string | null>(null);
   const { toast } = useToast();
   
-  // Fetch user profile with retry logic and silent recovery
+  // Create user from session without network request
+  function createUserFromSession(currentSession: Session): User {
+    const userId = currentSession.user.id;
+    const userEmail = currentSession.user.email || '';
+    const userRole = (currentSession.user.user_metadata?.role || 'affiliate') as string;
+    
+    console.log('Creating user from session data:', {
+      id: userId,
+      email: userEmail,
+      role: userRole
+    });
+    
+    // Create a user object with all required fields
+    return {
+      id: userId,
+      email: userEmail,
+      role: userRole,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      // Add nullable fields required by User type
+      bio: null,
+      company_name: null,
+      contact_name: null,
+      phone: null,
+      website: null
+    };
+  }
+  
+  // Fetch user profile only when explicitly needed
   async function fetchUserProfile(userId: string): Promise<User | null> {
     if (!userId) {
       console.error('Cannot fetch user profile: No user ID provided');
@@ -80,45 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         retryCount++;
         
         if (retryCount >= maxRetries) {
-          console.log("All retry attempts failed, attempting silent recovery...");
-          
-          // Final fallback: Try to get basic user info from auth
-          try {
-            const { data: authData } = await supabase.auth.getUser();
-            if (authData?.user) {
-              console.log("Recovered basic user info from auth:", authData.user);
-              
-              // Create a minimal user object from auth data with all required fields
-              const minimalUser: User = {
-                id: authData.user.id,
-                email: authData.user.email || '',
-                role: (authData.user.user_metadata?.role || 'affiliate') as any,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-                // Add all nullable fields required by the User type
-                bio: null,
-                company_name: null,
-                contact_name: null,
-                phone: null,
-                website: null
-              };
-              
-              setProfileError(null);
-              return minimalUser;
-            }
-          } catch (authError) {
-            console.error("Auth recovery failed:", authError);
-          }
-          
-          // If we're here, all recovery attempts failed
-          setProfileError('Failed to load your profile data. The app will reload to try again.');
-          
-          // Schedule a page reload after a short delay
-          setTimeout(() => {
-            console.log("Silently refreshing the page...");
-            window.location.reload();
-          }, 100); // Short delay to allow state updates
-          
+          console.log("All retry attempts failed, using session data instead...");
           return null;
         }
         
@@ -129,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     
-    return null; // This line should not be reached due to the returns in the loop
+    return null;
   }
 
   // Initialize auth state
@@ -161,20 +150,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Update session state
         setSession(currentSession);
         
-        // If we have a session, fetch the user profile
+        // If we have a session, create user from session data
         if (currentSession?.user) {
-          try {
-            const profile = await fetchUserProfile(currentSession.user.id);
-            
-            if (mounted) {
-              setUser(profile);
-              setIsLoading(false);
-            }
-          } catch (profileError) {
-            console.error('Error during profile initialization:', profileError);
-            if (mounted) {
-              setIsLoading(false);
-            }
+          // Create a user object from session data - avoid network request
+          const sessionUser = createUserFromSession(currentSession);
+          
+          if (mounted) {
+            setUser(sessionUser);
+            setProfileError(null);
+            setIsLoading(false);
+            console.log('User created from session data:', sessionUser);
           }
         } else {
           if (mounted) {
@@ -203,19 +188,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           if (newSession) {
             setIsLoading(true);
-            try {
-              const profile = await fetchUserProfile(newSession.user.id);
-              
-              if (mounted) {
-                setUser(profile);
-                setIsLoading(false);
+            
+            // First create user from session data
+            const sessionUser = createUserFromSession(newSession);
+            setUser(sessionUser);
+            
+            // Set loading to false immediately so UI can render
+            setIsLoading(false);
+            
+            // Optionally try to fetch additional profile data in the background
+            // This won't block the UI from rendering with the basic user data
+            fetchUserProfile(newSession.user.id).then(profileData => {
+              if (profileData && mounted) {
+                setUser(profileData);
               }
-            } catch (profileError) {
-              console.error('Error fetching profile during auth change:', profileError);
-              if (mounted) {
-                setIsLoading(false);
-              }
-            }
+            }).catch(error => {
+              console.error('Background profile fetch error:', error);
+              // User already set from session, so we can ignore this error
+            });
           }
         } else if (event === 'SIGNED_OUT') {
           // Clear local state on sign out
@@ -254,13 +244,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     try {
       const profile = await fetchUserProfile(session.user.id);
-      setUser(profile);
       
       if (profile) {
+        setUser(profile);
         toast({
           title: "Success",
           description: "Profile data loaded successfully.",
         });
+      } else {
+        // Use session data as fallback
+        const sessionUser = createUserFromSession(session);
+        setUser(sessionUser);
       }
     } catch (error) {
       console.error('Retry fetch error:', error);

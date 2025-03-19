@@ -16,10 +16,11 @@ import OfferDetailView from '@/components/affiliate/OfferDetailView';
 import AffiliatePostbackSetup from '@/components/affiliate/AffiliatePostbackSetup';
 import AdvertiserPostbackSetup from '@/components/advertiser/AdvertiserPostbackSetup';
 import { Offer } from '@/types';
+import { LoadingState } from '@/components/LoadingState';
 
 export default function OffersPage() {
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user, session, isLoading } = useAuth();
   const navigate = useNavigate();
   const [applicationStatus, setApplicationStatus] = useState<string | null>(null);
   
@@ -34,10 +35,12 @@ export default function OffersPage() {
   useEffect(() => {
     console.log("[OffersPage] Loaded with id:", id);
     console.log("[OffersPage] Current user:", user);
-  }, [id, user]);
+    console.log("[OffersPage] Auth loading state:", isLoading);
+    console.log("[OffersPage] Session exists:", !!session);
+  }, [id, user, isLoading, session]);
 
   // Fetch application status if this is an affiliate viewing an offer
-  const { data: offerData } = useQuery({
+  const { data: offerData, isLoading: isOfferLoading } = useQuery({
     queryKey: ['offer', id],
     queryFn: async () => {
       if (!id || !user) return null;
@@ -59,7 +62,7 @@ export default function OffersPage() {
   });
 
   // Fetch application status for affiliate
-  const { data: applicationData } = useQuery({
+  const { data: applicationData, isLoading: isApplicationLoading } = useQuery({
     queryKey: ['offer-application', id, user?.id],
     queryFn: async () => {
       if (!id || !user || user.role !== 'affiliate') return null;
@@ -89,30 +92,47 @@ export default function OffersPage() {
     }
   }, [applicationData]);
   
-  if (!user) return null;
+  // Show loading state while auth is being determined
+  if (isLoading) {
+    console.log("[OffersPage] Showing loading state while auth is being determined");
+    return <LoadingState />;
+  }
+  
+  // If authentication has completed but we don't have a user, 
+  // Let the ProtectedRoute component handle redirection to login
+  if (!isLoading && !user) {
+    console.log("[OffersPage] No user after auth loading complete");
+    return null;
+  }
   
   // If we have an ID with "create", we show the creation form (only for advertisers and admins)
-  if (id === 'create' && (user.role === 'advertiser' || user.role === 'admin')) {
+  if (id === 'create' && (user?.role === 'advertiser' || user?.role === 'admin')) {
     console.log("[OffersPage] Rendering CreateOffer component");
     return <CreateOffer />;
   }
   
   // If we have "approve" in the URL, show the approval interface (only for advertisers)
-  if (id === 'approve' && user.role === 'advertiser') {
+  if (id === 'approve' && user?.role === 'advertiser') {
     console.log("[OffersPage] Loading approval interface for advertiser");
     return <AffiliateApprovals />;
   }
   
   // If we have "postback" in the URL, show the postback setup interface (only for affiliates)
-  if (id === 'postback' && user.role === 'affiliate') {
+  if (id === 'postback' && user?.role === 'affiliate') {
     console.log("[OffersPage] Loading postback setup interface for affiliate");
     return <AffiliatePostbackSetup />;
   }
   
   // If we have "postback" in the URL, show the postback setup interface (only for advertisers)
-  if (id === 'postback' && user.role === 'advertiser') {
+  if (id === 'postback' && user?.role === 'advertiser') {
     console.log("[OffersPage] Loading postback setup interface for advertiser");
     return <AdvertiserPostbackSetup />;
+  }
+  
+  // Show loading state while fetching offer data
+  if (id && isOfferLoading) {
+    console.log("[OffersPage] Showing loading state while fetching offer data");
+    return <LoadingState />;
   }
   
   // If we have an ID, we show the offer details based on user role
@@ -140,7 +160,7 @@ export default function OffersPage() {
   }
   
   // For the main offers page, we show different views based on the user role
-  if (user.role === 'affiliate') {
+  if (user?.role === 'affiliate') {
     console.log("[OffersPage] Loading affiliate offers view");
     return (
       <ProtectedRoute allowedRoles={['affiliate']}>
@@ -149,7 +169,7 @@ export default function OffersPage() {
     );
   }
   
-  if (user.role === 'advertiser') {
+  if (user?.role === 'advertiser') {
     console.log("[OffersPage] Loading advertiser offer management");
     return (
       <ProtectedRoute allowedRoles={['advertiser']}>
@@ -158,7 +178,7 @@ export default function OffersPage() {
     );
   }
   
-  if (user.role === 'admin') {
+  if (user?.role === 'admin') {
     return (
       <ProtectedRoute allowedRoles={['admin']}>
         <OffersList />
@@ -166,5 +186,6 @@ export default function OffersPage() {
     );
   }
   
-  return null;
+  // As a fallback, show a loading state
+  return <LoadingState />;
 }

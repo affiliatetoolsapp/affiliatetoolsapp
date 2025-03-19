@@ -46,7 +46,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     }
     
     // If no user data but session exists, use role from session metadata as fallback
-    if (!user) {
+    if (!user && session) {
       const sessionRole = session.user.user_metadata?.role || 'affiliate';
       console.log('ProtectedRoute: No user data but session exists, using role from session:', sessionRole);
       

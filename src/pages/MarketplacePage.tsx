@@ -15,24 +15,22 @@ export default function MarketplacePage() {
       isLoading, 
       hasUser: !!user, 
       hasSession: !!session,
-      userRole: user?.role
+      userRole: user?.role || session?.user?.user_metadata?.role || 'unknown'
     });
   }, [isLoading, user, session]);
-  
-  // During initial load, show loading state
-  if (isLoading) {
-    console.log('[MarketplacePage] Auth is still loading, showing loading state');
-    return <LoadingState />;
-  }
   
   // Session check will be handled by ProtectedRoute
   return (
     <ProtectedRoute>
-      {/* If we have a user, render role-specific content */}
-      {user?.role === 'affiliate' ? (
-        <OfferBrowser />
+      {isLoading ? (
+        <LoadingState />
       ) : (
-        <MarketplaceOverview />
+        /* If we have a user or session with role, render role-specific content */
+        user?.role === 'affiliate' || session?.user?.user_metadata?.role === 'affiliate' ? (
+          <OfferBrowser />
+        ) : (
+          <MarketplaceOverview />
+        )
       )}
     </ProtectedRoute>
   );

@@ -33,7 +33,7 @@ export default function Index() {
   }, [isLoading, user, session, navigate, location.pathname]);
 
   // Only render loading component on the root path
-  if (location.pathname === '/') {
+  if (location.pathname === '/' && isLoading) {
     return (
       <div className="min-h-screen bg-background">
         <PublicHeader />

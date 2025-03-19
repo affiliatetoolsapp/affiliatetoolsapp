@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/context/AuthContext';
@@ -26,8 +27,6 @@ import EarningsPage from '@/pages/EarningsPage';
 import PartnersPage from '@/pages/PartnersPage';
 import SettingsPage from '@/pages/SettingsPage';
 import Index from '@/pages/Index';
-import { UserRole } from '@/types';
-import './App.css';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -35,6 +34,7 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       staleTime: 60 * 1000,
+      retry: 1,
     },
   },
 });

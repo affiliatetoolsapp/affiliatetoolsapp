@@ -4,10 +4,20 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import OfferBrowser from '@/components/affiliate/OfferBrowser';
 import MarketplaceOverview from '@/components/marketplace/MarketplaceOverview';
 import { LoadingState } from '@/components/LoadingState';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function MarketplacePage() {
   const { user, session, isLoading } = useAuth();
+  const [showLoading, setShowLoading] = useState(true);
+  
+  // Add timeout to prevent infinite loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowLoading(false);
+    }, 3000);
+    
+    return () => clearTimeout(timer);
+  }, []);
   
   // Log the component state for debugging
   useEffect(() => {
@@ -22,7 +32,7 @@ export default function MarketplacePage() {
   // Use protected route to handle authentication
   return (
     <ProtectedRoute>
-      {isLoading ? (
+      {isLoading && showLoading ? (
         <LoadingState />
       ) : (
         getRoleBasedContent()

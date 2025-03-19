@@ -1,5 +1,5 @@
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { PublicHeader } from '@/components/PublicHeader';
@@ -8,15 +8,21 @@ export default function Index() {
   const { session, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [showLoading, setShowLoading] = useState(true);
 
   useEffect(() => {
     // Log the current state for debugging
     console.log('Index page state:', { session, isLoading, path: location.pathname });
     
+    // Set a timeout to avoid quick loading flickers
+    const timer = setTimeout(() => {
+      setShowLoading(false);
+    }, 3000);
+    
     // Only handle navigation for the exact root path
     if (location.pathname === '/') {
-      // Wait until auth state is determined before redirecting
-      if (!isLoading) {
+      // Defer redirect until loading completes or timeout
+      if (!isLoading || !showLoading) {
         if (session) {
           console.log('Session authenticated, redirecting to dashboard');
           navigate('/dashboard', { replace: true });
@@ -26,10 +32,12 @@ export default function Index() {
         }
       }
     }
-  }, [isLoading, session, navigate, location.pathname]);
+    
+    return () => clearTimeout(timer);
+  }, [isLoading, session, navigate, location.pathname, showLoading]);
 
-  // Only render loading component on the root path and when loading
-  if (location.pathname === '/' && isLoading) {
+  // Only render loading component on the root path and when loading/timeout not expired
+  if (location.pathname === '/' && (isLoading && showLoading)) {
     return (
       <div className="min-h-screen bg-background">
         <PublicHeader />

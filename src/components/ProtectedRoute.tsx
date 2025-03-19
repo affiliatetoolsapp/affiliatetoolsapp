@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Navigate, useLocation } from 'react-router-dom';
 import { LoadingState } from '@/components/LoadingState';
@@ -13,6 +13,7 @@ type ProtectedRouteProps = {
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user, session, isLoading } = useAuth();
   const location = useLocation();
+  const [showLoading, setShowLoading] = useState(true);
   
   useEffect(() => {
     console.log('ProtectedRoute:', { 
@@ -22,16 +23,23 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
       allowedRoles,
       currentPath: location.pathname
     });
+    
+    // Set a timeout to avoid quick loading flickers
+    const timer = setTimeout(() => {
+      setShowLoading(false);
+    }, 3000); // Show loading for max 3 seconds to prevent infinite loading
+    
+    return () => clearTimeout(timer);
   }, [isLoading, user, session, allowedRoles, location]);
   
-  // If still loading, show loading state
-  if (isLoading) {
-    console.log('ProtectedRoute: Still loading, showing loading state');
+  // While loading and we haven't exceeded the timeout, show loading state
+  if (isLoading && showLoading) {
+    console.log('ProtectedRoute: Loading state shown');
     return <LoadingState />;
   }
   
-  // If no session, redirect to login
-  if (!session) {
+  // If not loading and no session, redirect to login
+  if (!isLoading && !session) {
     console.log('ProtectedRoute: No session, redirecting to login');
     return <Navigate to="/login" state={{ from: location }} replace />;
   }

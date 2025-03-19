@@ -25,7 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Simplified function to fetch user profile - focus on reliability
+  // Simplify user profile fetching - focus on reliability
   async function fetchUserProfile(userId: string) {
     try {
       console.log('Fetching user profile for ID:', userId);
@@ -48,36 +48,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Set up auth state listener on mount - simplified for reliability
+  // Set up auth state listener - completely rewritten for reliability
   useEffect(() => {
-    console.log('AuthProvider: Setting up auth state');
+    console.log('AuthProvider: Setting up auth state listener');
     let mounted = true;
     
     // Initialize auth state
     const initializeAuth = async () => {
       try {
         console.log('Getting initial session');
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        setIsLoading(true);
         
-        if (sessionError) {
-          console.error('Error getting session:', sessionError);
-          if (mounted) setIsLoading(false);
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          if (mounted) {
+            setSession(null);
+            setUser(null);
+            setIsLoading(false);
+          }
           return;
         }
 
         if (!mounted) return;
 
-        if (sessionData?.session) {
-          console.log('Initial session found', sessionData.session.user.id);
-          setSession(sessionData.session);
+        console.log('Initial session check result:', currentSession ? 'Session found' : 'No session');
+        
+        if (currentSession) {
+          setSession(currentSession);
           
-          // Fetch user profile
-          const userData = await fetchUserProfile(sessionData.session.user.id);
-          if (userData) {
-            setUser(userData as User);
+          // Fetch user profile if session exists
+          try {
+            const userData = await fetchUserProfile(currentSession.user.id);
+            if (userData && mounted) {
+              setUser(userData as User);
+            }
+          } catch (profileError) {
+            console.error('Error fetching initial user profile:', profileError);
           }
         } else {
-          console.log('No initial session found');
           setSession(null);
           setUser(null);
         }
@@ -96,23 +106,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('Auth state change event:', event);
       
       if (!mounted) return;
-
-      if (currentSession) {
-        console.log('Auth state change: Session found', currentSession.user.id);
-        setSession(currentSession);
-        
-        // Fetch user profile for the session
-        const userData = await fetchUserProfile(currentSession.user.id);
-        if (userData) {
-          setUser(userData as User);
-        }
-      } else {
-        console.log('Auth state change: No session');
-        setSession(null);
-        setUser(null);
-      }
       
-      setIsLoading(false);
+      setIsLoading(true);
+
+      try {
+        if (currentSession) {
+          console.log('Auth state change: Session found', currentSession.user.id);
+          setSession(currentSession);
+          
+          // Fetch user profile for the session
+          const userData = await fetchUserProfile(currentSession.user.id);
+          if (userData && mounted) {
+            setUser(userData as User);
+          }
+        } else {
+          console.log('Auth state change: No session');
+          setSession(null);
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Error handling auth state change:', error);
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
+      }
     });
 
     // Initialize auth
@@ -126,7 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Auth functions with simplified implementation
+  // Authentication functions - fully rewritten
   async function signIn(email: string, password: string) {
     console.log('Signing in with email:', email);
     setIsLoading(true);
@@ -151,8 +169,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: error.message || "An error occurred during sign in",
         variant: "destructive",
       });
-      setIsLoading(false);
       throw error;
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -204,7 +223,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         console.log('Signed out successfully');
         
-        // Clear state immediately
+        // Clear state immediately to avoid any state inconsistencies
         setUser(null);
         setSession(null);
         
@@ -213,7 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           description: "You have been signed out successfully",
         });
         
-        // Force reload to clear any cached state
+        // Force reload to ensure clean state and clear any browser cache/state
         window.location.href = '/login';
       }
     } catch (error: any) {
@@ -228,7 +247,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Profile management functions
+  // Profile management functions - simplified for reliability
   async function updateProfile(data: Partial<User>) {
     if (!user) return;
     

@@ -28,14 +28,15 @@ import PartnersPage from '@/pages/PartnersPage';
 import SettingsPage from '@/pages/SettingsPage';
 import Index from '@/pages/Index';
 
-// Create a client with optimized settings for preview environments
+// Create a client with optimized settings specifically for preview environments
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      staleTime: 30 * 1000, // 30 seconds
+      staleTime: 5 * 60 * 1000, // 5 minutes
       retry: 1, // Only retry once to prevent excessive loading
       retryDelay: 500, // 500ms between retries
+      cacheTime: 10 * 60 * 1000, // 10 minutes
     },
   },
 });
@@ -45,8 +46,8 @@ function AppContent() {
   
   return (
     <Theme accentColor="iris" radius="large" appearance={theme as 'light' | 'dark'}>
-      <AuthProvider>
-        <Router>
+      <Router>
+        <AuthProvider>
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Index />} />
@@ -89,9 +90,9 @@ function AppContent() {
               <Route path="partners" element={<PartnersPage />} />
             </Route>
           </Routes>
-        </Router>
-        <Toaster />
-      </AuthProvider>
+          <Toaster />
+        </AuthProvider>
+      </Router>
     </Theme>
   );
 }

@@ -14,7 +14,7 @@ export default function MarketplacePage() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowLoading(false);
-    }, 3000);
+    }, 2000);
     
     return () => clearTimeout(timer);
   }, []);

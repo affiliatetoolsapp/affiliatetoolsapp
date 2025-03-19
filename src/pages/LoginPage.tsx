@@ -1,34 +1,24 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SignInForm from '@/components/SignInForm';
 import { useAuth } from '@/context/AuthContext';
 import { PublicHeader } from '@/components/PublicHeader';
 
 export default function LoginPage() {
-  const { user, session, isLoading } = useAuth();
+  const { session, isLoading } = useAuth();
   const navigate = useNavigate();
-  const [showLoading, setShowLoading] = useState(true);
   
-  // Add console log to help debug
-  console.log('LoginPage render:', { user, session, isLoading });
-  
-  // Use a timeout to avoid infinite loading states
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowLoading(false);
-    }, 3000);
-    
-    return () => clearTimeout(timer);
-  }, []);
+  // Add console logs to help debug
+  console.log('LoginPage render:', { session, isLoading });
   
   useEffect(() => {
-    // Only redirect if we have a session and either loading is complete or timeout exceeded
-    if (session && (!isLoading || !showLoading)) {
+    // Only redirect if we have a session and loading is complete
+    if (session && !isLoading) {
       console.log('LoginPage: Session detected, redirecting to dashboard');
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     }
-  }, [user, session, isLoading, navigate, showLoading]);
+  }, [session, isLoading, navigate]);
   
   return (
     <div className="min-h-screen bg-background">

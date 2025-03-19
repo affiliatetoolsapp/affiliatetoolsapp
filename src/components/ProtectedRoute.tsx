@@ -24,22 +24,22 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
       currentPath: location.pathname
     });
     
-    // Set a timeout to avoid quick loading flickers
+    // Set a timeout to avoid infinite loading state
     const timer = setTimeout(() => {
       setShowLoading(false);
-    }, 3000); // Show loading for max 3 seconds to prevent infinite loading
+    }, 2000);
     
     return () => clearTimeout(timer);
   }, [isLoading, user, session, allowedRoles, location]);
   
-  // While loading and we haven't exceeded the timeout, show loading state
+  // Show loading state if we're still loading auth state (but only for a maximum time)
   if (isLoading && showLoading) {
-    console.log('ProtectedRoute: Loading state shown');
+    console.log('ProtectedRoute: Showing loading state');
     return <LoadingState />;
   }
   
   // If not loading and no session, redirect to login
-  if (!isLoading && !session) {
+  if (!session) {
     console.log('ProtectedRoute: No session, redirecting to login');
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
@@ -57,6 +57,6 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     }
   }
   
-  console.log('ProtectedRoute: Authentication and authorization passed, rendering children');
+  console.log('ProtectedRoute: Authentication passed, rendering children');
   return <>{children}</>;
 }

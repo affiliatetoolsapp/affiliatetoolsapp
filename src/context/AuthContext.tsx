@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@/types';
@@ -189,14 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ 
         email, 
-        password,
-        options: {
-          // Add cookie options to improve session persistence
-          cookieOptions: {
-            sameSite: 'lax',
-            secure: true
-          }
-        }
+        password
       });
       
       if (error) throw error;

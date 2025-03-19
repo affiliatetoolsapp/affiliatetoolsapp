@@ -17,11 +17,12 @@ import { ArrowUpRight, ArrowDownRight, DollarSign, Users, LineChart, Clock } fro
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, getAdvertiserDashboardStats } from '@/integrations/supabase/client';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '../ui/chart';
 
 // Define explicit types to avoid excessive type instantiation
 type TimeRange = '7d' | '30d' | '90d' | 'all';
-type ChartData = Array<{ name: string; value: number; }>;
+type ChartData = Array<{ name: string; clicks: number; conversions: number; revenue: number; }>;
 
 // Define base stats type and role-specific stats types
 interface BaseStats {
@@ -29,6 +30,7 @@ interface BaseStats {
   clicks: number;
   conversions: number;
   conversionRate: string;
+  chartData: ChartData;
 }
 
 interface AdminStats extends BaseStats {
@@ -59,78 +61,145 @@ export default function DashboardOverview() {
   const { user } = useAuth();
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
   
-  // Mock data for overview charts
-  const mockData: ChartData = [
-    { name: 'Mon', value: 400 },
-    { name: 'Tue', value: 300 },
-    { name: 'Wed', value: 500 },
-    { name: 'Thu', value: 280 },
-    { name: 'Fri', value: 590 },
-    { name: 'Sat', value: 320 },
-    { name: 'Sun', value: 480 }
-  ];
+  // Function to get real data based on user role
+  const fetchDashboardData = async (): Promise<DashboardStats> => {
+    if (!user) throw new Error('User not authenticated');
+    
+    // For advertisers, we can now use our dedicated function
+    if (user.role === 'advertiser') {
+      return getAdvertiserDashboardStats(user.id, timeRange);
+    }
+    
+    // For affiliates, admins, and fallback, we'll use a similar approach 
+    // (but will keep mock data for now)
+    
+    // First get time range boundaries
+    const now = new Date();
+    let startDate = new Date();
+    
+    switch(timeRange) {
+      case '7d':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case '30d':
+        startDate.setDate(now.getDate() - 30);
+        break;
+      case '90d':
+        startDate.setDate(now.getDate() - 90);
+        break;
+      case 'all':
+        startDate = new Date(2000, 0, 1); // Far in the past
+        break;
+    }
+    
+    const isoStartDate = startDate.toISOString();
+    
+    // Generate chart data
+    const mockChartData = generateMockChartData(timeRange);
+    
+    if (user.role === 'affiliate') {
+      // Get affiliate's tracking links
+      const { data: trackingLinks } = await supabase
+        .from('tracking_links')
+        .select('id, tracking_code')
+        .eq('affiliate_id', user.id);
+      
+      const trackingCodes = trackingLinks?.map(link => link.tracking_code) || [];
+      
+      // Get clicks for this affiliate
+      const { data: clicks } = await supabase
+        .from('clicks')
+        .select('id, created_at')
+        .eq('affiliate_id', user.id)
+        .gte('created_at', isoStartDate);
+      
+      // Get conversions
+      const { data: conversions } = await supabase
+        .from('conversions')
+        .select('id, revenue, created_at')
+        .gte('created_at', isoStartDate);
+      
+      // Get approved offers
+      const { data: affiliateOffers } = await supabase
+        .from('affiliate_offers')
+        .select('id, offer_id')
+        .eq('affiliate_id', user.id)
+        .eq('status', 'approved');
+      
+      // Get wallet info
+      const { data: wallet } = await supabase
+        .from('wallets')
+        .select('pending')
+        .eq('user_id', user.id)
+        .single();
+      
+      return {
+        revenue: Math.floor((conversions?.reduce((sum, conv) => sum + (conv.revenue || 0), 0) || 0)),
+        clicks: clicks?.length || 0,
+        conversions: conversions?.length || 0,
+        conversionRate: clicks?.length ? 
+          ((conversions?.length || 0) / clicks.length * 100).toFixed(1) + '%' : '0.0%',
+        approvedOffers: affiliateOffers?.length || 0,
+        activeLinks: trackingLinks?.length || 0,
+        averageCTR: '3.5%', // We would need more data to calculate this properly
+        pendingCommissions: wallet?.pending || 0,
+        chartData: mockChartData
+      };
+    } else if (user.role === 'admin') {
+      // Admin stats - for now using mock data
+      // In a real implementation, we would query for all users, offers, etc.
+      return {
+        revenue: 12500,
+        clicks: 48750,
+        conversions: 975,
+        conversionRate: '2.0%',
+        totalUsers: 250,
+        activeAffiliates: 150,
+        activeAdvertisers: 75,
+        pendingApprovals: 12,
+        chartData: mockChartData
+      };
+    }
+    
+    // Fallback to mock data if we can't determine the user role
+    return {
+      revenue: 0,
+      clicks: 0,
+      conversions: 0,
+      conversionRate: '0.0%',
+      chartData: mockChartData
+    };
+  };
   
-  // Define more mock data for different metrics
-  const mockDataImpressions: ChartData = mockData.map(item => ({ ...item, value: item.value * 2 }));
-  const mockDataRevenue: ChartData = mockData.map(item => ({ ...item, value: item.value / 10 }));
-  const mockDataClicks: ChartData = mockData.map(item => ({ ...item, value: item.value / 2 }));
+  function generateMockChartData(timeRange: TimeRange): ChartData {
+    const daysToGenerate = timeRange === '7d' ? 7 : 
+                          timeRange === '30d' ? 30 : 
+                          timeRange === '90d' ? 90 : 365;
+    
+    const result: ChartData = [];
+    const now = new Date();
+    
+    for (let i = daysToGenerate - 1; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      
+      const day = date.getDate();
+      const month = date.getMonth() + 1;
+      
+      result.push({
+        name: `${month}/${day}`,
+        clicks: Math.floor(Math.random() * 100) + 50,
+        conversions: Math.floor(Math.random() * 10) + 1,
+        revenue: Math.floor(Math.random() * 200) + 50
+      });
+    }
+    
+    return result;
+  }
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ['dashboard-stats', user?.id, timeRange],
-    queryFn: async () => {
-      if (!user) return null;
-      
-      // This would be replaced with actual API calls to get real data
-      const range = {
-        '7d': { days: 7, multiplier: 1 },
-        '30d': { days: 30, multiplier: 1.5 },
-        '90d': { days: 90, multiplier: 2 },
-        'all': { days: 365, multiplier: 3 }
-      }[timeRange];
-      
-      // Simulate different stats based on user role
-      let roleSpecificStats: Partial<AdminStats & AdvertiserStats & AffiliateStats> = {};
-      
-      switch (user.role) {
-        case 'admin':
-          roleSpecificStats = {
-            totalUsers: Math.floor(120 * range.multiplier),
-            activeAffiliates: Math.floor(45 * range.multiplier),
-            activeAdvertisers: Math.floor(25 * range.multiplier),
-            pendingApprovals: Math.floor(8 * range.multiplier)
-          };
-          break;
-        case 'advertiser':
-          roleSpecificStats = {
-            activeOffers: Math.floor(12 * range.multiplier),
-            totalAffiliates: Math.floor(30 * range.multiplier),
-            pendingAffiliates: Math.floor(5 * range.multiplier),
-            averageConversion: (2.8 * range.multiplier).toFixed(1) + '%'
-          };
-          break;
-        case 'affiliate':
-          roleSpecificStats = {
-            approvedOffers: Math.floor(18 * range.multiplier),
-            activeLinks: Math.floor(36 * range.multiplier),
-            averageCTR: (3.4 * range.multiplier).toFixed(1) + '%',
-            pendingCommissions: Math.floor(150 * range.multiplier)
-          };
-          break;
-      }
-      
-      const baseStats: BaseStats = {
-        revenue: Math.floor(1200 * range.multiplier),
-        clicks: Math.floor(5400 * range.multiplier),
-        conversions: Math.floor(120 * range.multiplier),
-        conversionRate: (2.2 * range.multiplier).toFixed(1) + '%'
-      };
-      
-      // Return combined stats
-      return {
-        ...baseStats,
-        ...roleSpecificStats
-      } as DashboardStats;
-    },
+    queryFn: fetchDashboardData,
     enabled: !!user
   });
 
@@ -162,6 +231,31 @@ export default function DashboardOverview() {
       </div>
     );
   }
+
+  // Chart configuration
+  const chartConfig = {
+    clicks: {
+      label: 'Clicks',
+      theme: {
+        light: '#8884d8',
+        dark: '#8884d8'
+      }
+    },
+    conversions: {
+      label: 'Conversions',
+      theme: {
+        light: '#82ca9d',
+        dark: '#82ca9d'
+      }
+    },
+    revenue: {
+      label: 'Revenue',
+      theme: {
+        light: '#ffc658',
+        dark: '#ffc658'
+      }
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -267,27 +361,27 @@ export default function DashboardOverview() {
             <CardTitle>Performance Over Time</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={mockData}>
+            <ChartContainer config={chartConfig} className="h-[300px]">
+              <AreaChart data={stats.chartData}>
                 <defs>
-                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ffc658" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#ffc658" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="name" />
                 <YAxis />
                 <CartesianGrid strokeDasharray="3 3" />
-                <Tooltip />
+                <ChartTooltip content={<ChartTooltipContent />} />
                 <Area 
                   type="monotone" 
-                  dataKey="value" 
-                  stroke="#8884d8" 
+                  dataKey="revenue" 
+                  stroke="#ffc658" 
                   fillOpacity={1} 
-                  fill="url(#colorValue)" 
+                  fill="url(#colorRevenue)" 
                 />
               </AreaChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           </CardContent>
         </Card>
         
@@ -296,17 +390,17 @@ export default function DashboardOverview() {
             <CardTitle>Clicks & Conversions</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={mockData}>
+            <ChartContainer config={chartConfig} className="h-[300px]">
+              <BarChart data={stats.chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
-                <Tooltip />
+                <ChartTooltip content={<ChartTooltipContent />} />
                 <Legend />
-                <Bar dataKey="value" name="Clicks" fill="#8884d8" />
-                <Bar dataKey="value" name="Conversions" fill="#82ca9d" />
+                <Bar dataKey="clicks" name="Clicks" fill="#8884d8" />
+                <Bar dataKey="conversions" name="Conversions" fill="#82ca9d" />
               </BarChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           </CardContent>
         </Card>
       </div>

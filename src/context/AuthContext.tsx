@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@/types';
@@ -82,11 +81,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Create a fallback user from session data
   async function createFallbackUser(currentSession: Session): Promise<User | null> {
     const metadata = currentSession.user.user_metadata;
+    const email = currentSession.user.email || '';
     const role = (metadata?.role as string) || 'affiliate';
     
     const fallbackUser = {
       id: currentSession.user.id,
-      email: currentSession.user.email || '',
+      email: email,
       role: role,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -106,13 +106,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error.code !== '23505') { // PostgreSQL unique violation code
           return fallbackUser;
         }
+        
+        // If it's a duplicate key error, try to fetch one more time
+        console.log('User already exists, trying to fetch again');
+        const profile = await fetchUserProfile(currentSession.user.id, 1);
+        return profile || fallbackUser;
       } else {
         console.log('Fallback user created successfully');
+        return fallbackUser;
       }
-      
-      // One more attempt to fetch after creating
-      const profile = await fetchUserProfile(currentSession.user.id, 1);
-      return profile || fallbackUser;
     } catch (error) {
       console.error('Unexpected error creating fallback user:', error);
       return fallbackUser;
@@ -144,7 +146,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (profile && isMounted) {
             console.log('User profile loaded successfully');
             setUser(profile);
-            setIsLoading(false);
           } else if (isMounted) {
             console.log('Could not load user profile, creating fallback user');
             // Create fallback user from session metadata
@@ -152,26 +153,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (fallbackUser && isMounted) {
               setUser(fallbackUser);
             }
-            setIsLoading(false);
           }
         } else {
           console.log('Auth: No initial session found');
           setSession(null);
           setUser(null);
-          setIsLoading(false);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
-        setIsLoading(false);
       } finally {
-        // Set a maximum loading time to prevent infinite loading states
-        if (isMounted && isLoading) {
+        if (isMounted) {
+          setIsLoading(false);
+          
+          // Set a maximum loading time to prevent infinite loading states
           loadingTimeout = setTimeout(() => {
-            if (isMounted) {
+            if (isMounted && isLoading) {
               console.log('Auth loading timeout reached, setting isLoading to false');
               setIsLoading(false);
             }
-          }, 3000);
+          }, 5000);
         }
       }
     };
@@ -202,15 +202,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setUser(fallbackUser);
               }
             }
-            setIsLoading(false);
+            
+            if (isMounted) {
+              setIsLoading(false);
+            }
           }
-        } else {
-          setSession(null);
-          setUser(null);
-          setIsLoading(false);
-        }
-        
-        if (event === 'SIGNED_OUT') {
+        } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setSession(null);
           setIsLoading(false);
@@ -256,7 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       throw error;
     } finally {
-      setIsLoading(false);
+      // We'll let the auth state change listener update the loading state
     }
   }
 

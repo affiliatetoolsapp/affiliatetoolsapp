@@ -19,7 +19,7 @@ export default function MarketplaceOverview() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
   // Fetch both featured offers and advertiser's own offers
   const { data: topOffers, isLoading: featuredLoading } = useQuery({

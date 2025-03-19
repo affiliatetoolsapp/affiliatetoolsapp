@@ -24,65 +24,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   
-  // Function to fetch user profile with retries and better error handling
-  async function fetchUserProfile(userId: string, maxRetries = 3) {
-    let retries = 0;
-    
-    while (retries <= maxRetries) {
-      try {
-        console.log('Fetching user profile for ID:', userId);
-        
-        const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', userId)
-          .single();
-
-        if (error) {
-          console.error(`Error fetching user profile (attempt ${retries + 1}):`, error);
-          
-          // Check if the error is due to no rows returned - we might need to create a user
-          if (error.code === 'PGRST116' && retries === maxRetries) {
-            console.log('No user profile found, will create fallback user');
-            return null;
-          }
-          
-          retries++;
-          
-          if (retries > maxRetries) {
-            console.log('Max retries reached, returning null');
-            return null;
-          }
-          
-          // Wait before retrying with exponential backoff
-          await new Promise(r => setTimeout(r, 1000 * Math.pow(2, retries - 1)));
-          continue;
-        }
-
-        console.log('User profile fetched successfully:', data);
-        return data as User;
-      } catch (error) {
-        console.error(`Unexpected error fetching user profile (attempt ${retries + 1}):`, error);
-        retries++;
-        
-        if (retries > maxRetries) {
-          console.log('Max retries reached, returning null');
-          return null;
-        }
-        
-        // Wait before retrying with exponential backoff
-        await new Promise(r => setTimeout(r, 1000 * Math.pow(2, retries - 1)));
-      }
+  // Improved user profile fetching with better error handling and caching
+  async function fetchUserProfile(userId: string, attempts = 0): Promise<User | null> {
+    if (!userId) {
+      console.error('Invalid user ID provided to fetchUserProfile');
+      return null;
     }
     
-    return null;
+    try {
+      console.log(`Fetching user profile for ID: ${userId} (attempt ${attempts + 1})`);
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error(`Error fetching user profile (attempt ${attempts + 1}):`, error);
+        
+        // If no rows returned and this is the first attempt, try to create a fallback user
+        if (error.code === 'PGRST116' && attempts === 0) {
+          const currentSession = await supabase.auth.getSession();
+          if (currentSession?.data?.session) {
+            console.log('No user profile found, creating fallback user');
+            return createFallbackUser(currentSession.data.session);
+          }
+        }
+        
+        // If we still have attempts left, try again
+        if (attempts < 2) {
+          await new Promise(r => setTimeout(r, 500)); // Brief delay between attempts
+          return fetchUserProfile(userId, attempts + 1);
+        }
+        
+        return null;
+      }
+
+      console.log('User profile fetched successfully:', data);
+      return data as User;
+    } catch (error) {
+      console.error(`Unexpected error fetching user profile:`, error);
+      
+      // Retry logic for unexpected errors
+      if (attempts < 2) {
+        await new Promise(r => setTimeout(r, 500));
+        return fetchUserProfile(userId, attempts + 1);
+      }
+      
+      return null;
+    }
   }
 
-  // Create a fallback user from session data
+  // Create a fallback user from session data with improved error handling
   async function createFallbackUser(currentSession: Session): Promise<User | null> {
-    const metadata = currentSession.user.user_metadata;
+    if (!currentSession || !currentSession.user) {
+      console.error('Invalid session provided to createFallbackUser');
+      return null;
+    }
+    
+    const metadata = currentSession.user.user_metadata || {};
     const email = currentSession.user.email || '';
-    const role = (metadata?.role as string) || 'affiliate';
+    const role = (metadata.role as string) || 'affiliate';
     
     const fallbackUser = {
       id: currentSession.user.id,
@@ -102,36 +105,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (error) {
         console.error('Error creating fallback user:', error);
-        // If insert fails, but not because of duplicate, return the fallback user anyway
-        if (error.code !== '23505') { // PostgreSQL unique violation code
-          return fallbackUser;
+        
+        // If insert fails because user already exists, try to fetch one more time
+        if (error.code === '23505') { // PostgreSQL unique violation code
+          console.log('User already exists, trying to fetch again');
+          const profile = await fetchUserProfile(currentSession.user.id);
+          return profile;
         }
         
-        // If it's a duplicate key error, try to fetch one more time
-        console.log('User already exists, trying to fetch again');
-        const profile = await fetchUserProfile(currentSession.user.id, 1);
-        return profile || fallbackUser;
+        // For other errors, still return the fallback user
+        return fallbackUser;
       } else {
         console.log('Fallback user created successfully');
         return fallbackUser;
       }
     } catch (error) {
       console.error('Unexpected error creating fallback user:', error);
+      // Still return the fallback user even if we couldn't save it
       return fallbackUser;
     }
   }
 
-  // Initialize auth state
+  // Initialize auth state - cleaned up and more robust
   useEffect(() => {
     console.log('AuthProvider: Setting up auth state');
     let isMounted = true;
-    let loadingTimeout: NodeJS.Timeout;
-
-    const initializeAuth = async () => {
+    
+    async function initializeAuth() {
       try {
+        setIsLoading(true);
+        
         // Get current session
         const { data: { session: currentSession } } = await supabase.auth.getSession();
-        console.log('Auth: Getting initial session', currentSession ? 'found' : 'not found');
         
         if (!isMounted) return;
         
@@ -139,20 +144,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log('Auth: Initial session found for user ID:', currentSession.user.id);
           setSession(currentSession);
           
-          // Fetch user profile
-          console.log('Auth change: Session found, fetching user profile');
+          // Fetch user profile immediately when session is available
           const profile = await fetchUserProfile(currentSession.user.id);
           
           if (profile && isMounted) {
             console.log('User profile loaded successfully');
             setUser(profile);
-          } else if (isMounted) {
-            console.log('Could not load user profile, creating fallback user');
-            // Create fallback user from session metadata
-            const fallbackUser = await createFallbackUser(currentSession);
-            if (fallbackUser && isMounted) {
-              setUser(fallbackUser);
-            }
           }
         } else {
           console.log('Auth: No initial session found');
@@ -164,53 +161,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } finally {
         if (isMounted) {
           setIsLoading(false);
-          
-          // Set a maximum loading time to prevent infinite loading states
-          loadingTimeout = setTimeout(() => {
-            if (isMounted && isLoading) {
-              console.log('Auth loading timeout reached, setting isLoading to false');
-              setIsLoading(false);
-            }
-          }, 5000);
         }
       }
-    };
+    }
 
-    // Set up auth state change listener
+    // Set up auth state change listener - more reliable
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         if (!isMounted) return;
         
         console.log('Auth state change event:', event, newSession ? 'with session' : 'no session');
         
+        // First update the session state immediately
         if (newSession) {
           setSession(newSession);
-          
-          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            setIsLoading(true); // Set loading true while fetching profile
-            console.log('Auth change: Session found, fetching user profile');
-            const profile = await fetchUserProfile(newSession.user.id);
-            
-            if (profile && isMounted) {
-              console.log('User profile loaded successfully');
-              setUser(profile);
-            } else if (isMounted) {
-              console.log('Could not load user profile, creating fallback user');
-              // Create fallback user from session metadata
-              const fallbackUser = await createFallbackUser(newSession);
-              if (fallbackUser && isMounted) {
-                setUser(fallbackUser);
-              }
-            }
-            
-            if (isMounted) {
-              setIsLoading(false);
-            }
-          }
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setSession(null);
           setIsLoading(false);
+          return;
+        }
+        
+        // For events that might affect the user profile
+        if (newSession && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
+          setIsLoading(true);
+          
+          const profile = await fetchUserProfile(newSession.user.id);
+          
+          if (isMounted) {
+            if (profile) {
+              setUser(profile);
+            }
+            setIsLoading(false);
+          }
         }
       }
     );
@@ -221,7 +204,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       console.log('Auth: Cleaning up auth provider');
       isMounted = false;
-      clearTimeout(loadingTimeout);
       subscription.unsubscribe();
     };
   }, []);
@@ -373,7 +355,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: error.message || "Failed to update password",
         variant: "destructive",
       });
-      throw error;
     } finally {
       setIsLoading(false);
     }

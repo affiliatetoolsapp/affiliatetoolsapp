@@ -30,12 +30,12 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     const timeoutId = setTimeout(() => {
       setShowLoading(false);
       console.log('Loading timeout reached, proceeding anyway');
-    }, 1500); // Reduced from 2000ms to 1500ms
+    }, 1000); // Reduced further to 1000ms
     
     const maxWaitTimeoutId = setTimeout(() => {
       setLoadingTimeout(true);
       console.log('Maximum wait time reached, forcing proceed');
-    }, 3000); // Hard limit of 3 seconds
+    }, 2000); // Reduced to 2 seconds for faster experience
     
     return () => {
       clearTimeout(timeoutId);
@@ -43,7 +43,7 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     };
   }, []);
   
-  // Handle no session case
+  // Handle no session case - only redirect if we're not loading AND there's no session
   if (!isLoading && !session) {
     console.log('ProtectedRoute: No session, redirecting to login');
     return <Navigate to="/login" state={{ from: location }} replace />;
@@ -53,6 +53,13 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   if (isLoading && showLoading && !loadingTimeout) {
     console.log('ProtectedRoute: Still loading, showing loading state');
     return <LoadingState />;
+  }
+  
+  // If there's a session but no user data and we've hit a timeout, proceed anyway
+  // This handles refresh cases where profile might be slow to load
+  if (session && !user && (loadingTimeout || !showLoading)) {
+    console.log('ProtectedRoute: Session exists but no user data yet, proceeding anyway');
+    return <>{children}</>;
   }
   
   // Check role-based access if we have user data

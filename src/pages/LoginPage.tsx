@@ -7,19 +7,24 @@ import { PublicHeader } from '@/components/PublicHeader';
 import { LoadingState } from '@/components/LoadingState';
 
 export default function LoginPage() {
-  const { session, isLoading, profileError } = useAuth();
+  const { session, isLoading, profileError, user } = useAuth();
   const navigate = useNavigate();
   
   // Handle redirection based on session with better logging
   useEffect(() => {
-    console.log('LoginPage: Checking auth state', { hasSession: !!session, isLoading, hasProfileError: !!profileError });
+    console.log('LoginPage: Checking auth state', { 
+      hasSession: !!session, 
+      isLoading, 
+      hasProfileError: !!profileError,
+      hasUser: !!user
+    });
     
-    // Only redirect if we have a session and no profile errors
-    if (!isLoading && session && !profileError) {
-      console.log('LoginPage: Session detected, redirecting to dashboard');
+    // Only redirect if we have a session and user data
+    if (!isLoading && session && user) {
+      console.log('LoginPage: Session and user data detected, redirecting to dashboard');
       navigate('/dashboard');
     }
-  }, [session, isLoading, navigate, profileError]);
+  }, [session, isLoading, navigate, profileError, user]);
   
   // Show loading state during initialization
   if (isLoading) {

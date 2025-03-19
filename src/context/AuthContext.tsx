@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileError, setProfileError] = useState<string | null>(null);
   const { toast } = useToast();
   
-  // Fetch user profile with timeout and better error handling
+  // Fetch user profile with retry logic and silent recovery
   async function fetchUserProfile(userId: string): Promise<User | null> {
     if (!userId) {
       console.error('Cannot fetch user profile: No user ID provided');
@@ -35,58 +35,94 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null;
     }
     
-    try {
-      console.log(`Fetching user profile for ID: ${userId}`);
-      
-      // Create a timeout promise that rejects after 10 seconds
-      const timeoutPromise = new Promise<null>((_, reject) => {
-        setTimeout(() => reject(new Error('User profile fetch timed out after 10 seconds')), 10000);
-      });
-      
-      // Race between the fetch and the timeout
-      const profilePromise = supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
+    const maxRetries = 3;
+    let retryCount = 0;
+    let delay = 1000; // Start with 1 second delay
+    
+    while (retryCount < maxRetries) {
+      try {
+        console.log(`Fetching user profile for ID: ${userId} (Attempt ${retryCount + 1}/${maxRetries})`);
         
-      const { data, error } = await Promise.race([
-        profilePromise,
-        timeoutPromise.then(() => {
-          throw new Error('User profile fetch timed out');
-        })
-      ]);
-
-      if (error) {
-        console.error('Error fetching user profile:', error);
-        setProfileError('Failed to load your profile data. Please try logging in again.');
-        toast({
-          title: "Error",
-          description: "Failed to load user profile. Please try refreshing the page.",
-          variant: "destructive",
+        // Create a timeout promise that rejects after 5 seconds
+        const timeoutPromise = new Promise<null>((_, reject) => {
+          setTimeout(() => reject(new Error(`User profile fetch timed out after 5 seconds (Attempt ${retryCount + 1})`)), 5000);
         });
-        return null;
-      }
+        
+        // Race between the fetch and the timeout
+        const profilePromise = supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .single();
+          
+        const { data, error } = await Promise.race([
+          profilePromise,
+          timeoutPromise.then(() => {
+            throw new Error(`User profile fetch timed out (Attempt ${retryCount + 1})`);
+          })
+        ]);
 
-      if (!data) {
-        console.error('No user profile found for ID:', userId);
-        setProfileError('No user profile found. Please try logging in again.');
-        return null;
-      }
+        if (error) {
+          throw error;
+        }
 
-      console.log('User profile fetched successfully:', data);
-      setProfileError(null);
-      return data as User;
-    } catch (error: any) {
-      console.error('Unexpected error fetching user profile:', error);
-      setProfileError('Failed to load your profile data. Please try logging in again.');
-      toast({
-        title: "Error",
-        description: error.message || "Failed to load your profile data.",
-        variant: "destructive",
-      });
-      return null;
+        if (!data) {
+          throw new Error(`No user profile found for ID: ${userId}`);
+        }
+
+        console.log('User profile fetched successfully:', data);
+        setProfileError(null);
+        return data as User;
+      } catch (error: any) {
+        console.error(`Profile fetch attempt ${retryCount + 1} failed:`, error);
+        
+        retryCount++;
+        
+        if (retryCount >= maxRetries) {
+          console.log("All retry attempts failed, attempting silent recovery...");
+          
+          // Final fallback: Try to get basic user info from auth
+          try {
+            const { data: authData } = await supabase.auth.getUser();
+            if (authData?.user) {
+              console.log("Recovered basic user info from auth:", authData.user);
+              
+              // Create a minimal user object from auth data
+              const minimalUser: User = {
+                id: authData.user.id,
+                email: authData.user.email || '',
+                role: (authData.user.user_metadata?.role || 'affiliate') as any,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              };
+              
+              setProfileError(null);
+              return minimalUser;
+            }
+          } catch (authError) {
+            console.error("Auth recovery failed:", authError);
+          }
+          
+          // If we're here, all recovery attempts failed
+          setProfileError('Failed to load your profile data. The app will reload to try again.');
+          
+          // Schedule a page reload after a short delay
+          setTimeout(() => {
+            console.log("Silently refreshing the page...");
+            window.location.reload();
+          }, 100); // Short delay to allow state updates
+          
+          return null;
+        }
+        
+        // Wait before retrying with exponential backoff
+        console.log(`Waiting ${delay}ms before retry ${retryCount}...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff
+      }
     }
+    
+    return null; // This line should not be reached due to the returns in the loop
   }
 
   // Initialize auth state
@@ -121,18 +157,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // If we have a session, fetch the user profile
         if (currentSession?.user) {
           try {
-            // Set a timeout for the profile fetch
             const profile = await fetchUserProfile(currentSession.user.id);
             
             if (mounted) {
               setUser(profile);
+              setIsLoading(false);
             }
           } catch (profileError) {
             console.error('Error during profile initialization:', profileError);
-            if (mounted) {
-              setProfileError('Failed to load your profile data. Please try logging in again.');
-            }
-          } finally {
             if (mounted) {
               setIsLoading(false);
             }
@@ -146,7 +178,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Auth initialization error:', error);
         if (mounted) {
           setIsLoading(false);
-          setProfileError('Failed to initialize authentication. Please try logging in again.');
         }
       }
     }
@@ -170,13 +201,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               
               if (mounted) {
                 setUser(profile);
+                setIsLoading(false);
               }
             } catch (profileError) {
               console.error('Error fetching profile during auth change:', profileError);
-              if (mounted) {
-                setProfileError('Failed to load your profile data. Please try logging in again.');
-              }
-            } finally {
               if (mounted) {
                 setIsLoading(false);
               }
@@ -234,7 +262,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Keep the existing auth functions intact
   async function signIn(email: string, password: string) {
     console.log('Attempting to sign in with email:', email);
     setIsLoading(true);

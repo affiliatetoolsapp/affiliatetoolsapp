@@ -22,14 +22,19 @@ export default function MarketplacePage() {
     };
   }, [user, isLoading, profileError]);
   
-  // Show error state if there's a profile error
+  // Still loading, show loading state
+  if (isLoading) {
+    return <LoadingState />;
+  }
+  
+  // We have a profile error but we can retry
   if (profileError) {
     return <LoadingState errorMessage={profileError} onRetry={retryFetchProfile} />;
   }
   
-  // Show loading state while auth is initializing or user data is being fetched
-  if (isLoading || !user) {
-    return <LoadingState />;
+  // If no user data despite finishing loading, show a different error
+  if (!user) {
+    return <LoadingState errorMessage="Could not load user profile. Please try refreshing the page." />;
   }
   
   // If we have user data, render the appropriate component based on role

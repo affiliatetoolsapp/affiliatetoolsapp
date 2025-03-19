@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -28,10 +29,14 @@ import {
   ChevronLeft,
   Image as ImageIcon,
   Upload,
-  Loader2
+  Loader2,
+  Trash2,
+  X
 } from 'lucide-react';
 import GeoCommissionSelector from './GeoCommissionSelector';
 import CreativesTab from './CreativesTab';
+import { OfferPreviewDialog } from './OfferPreviewDialog';
+import { Offer } from '@/types';
 
 // Form schema
 const offerSchema = z.object({
@@ -69,6 +74,7 @@ const CreateOffer = () => {
   const [geoCommissions, setGeoCommissions] = useState<{country: string, amount: string}[]>([]);
   const [creatives, setCreatives] = useState<any[]>([]);
   const [geoCommissionsEnabled, setGeoCommissionsEnabled] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   
   const form = useForm<OfferFormValues>({
@@ -104,9 +110,8 @@ const CreateOffer = () => {
   
   const commissionType = watch('commission_type');
   
-  // Handle image upload for offer image
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  // Handle image upload for offer image with drag and drop
+  const handleImageUpload = async (file: File) => {
     if (!file || !user) return;
     
     setUploading(true);
@@ -156,6 +161,72 @@ const CreateOffer = () => {
     }
   };
 
+  // Handle drag over event for image upload
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.classList.add('border-primary', 'bg-primary/10');
+  };
+
+  // Handle drag leave event for image upload
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('border-primary', 'bg-primary/10');
+  };
+
+  // Handle drop event for image upload
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('border-primary', 'bg-primary/10');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      handleImageUpload(file);
+    }
+  };
+
+  // Handle input change for image upload
+  const handleImageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleImageUpload(file);
+    }
+  };
+
+  // Remove uploaded image
+  const handleRemoveImage = async () => {
+    const imagePath = imagePreview?.split('/').slice(-2).join('/');
+    if (imagePath && user) {
+      try {
+        const { error } = await supabase.storage
+          .from('offer-assets')
+          .remove([`${user.id}/offer-images/${imagePath.split('/').pop()}`]);
+        
+        if (error) {
+          console.error('Error removing image:', error);
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Failed to remove image',
+          });
+          return;
+        }
+        
+        setValue('offer_image', '');
+        setImagePreview(null);
+        toast({
+          title: 'Image Removed',
+          description: 'Offer image has been removed',
+        });
+      } catch (error) {
+        console.error('Error removing image:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'An unexpected error occurred',
+        });
+      }
+    }
+  };
+
   // Handle moving between tabs
   const handleTabChange = (value: string) => {
     setActiveTab(value);
@@ -172,7 +243,7 @@ const CreateOffer = () => {
     setValue('geo_targets', countries);
   };
   
-  // NEW: Handle direct geo targets changes when not using geo commissions
+  // Handle direct geo targets changes when not using geo commissions
   const handleGeoTargetsChange = useCallback(
     (value: string[]) => {
       setValue('geo_targets', value);
@@ -195,11 +266,17 @@ const CreateOffer = () => {
     setCreatives(newCreatives);
   };
 
-  // Submit the form
-  const onSubmit = async (data: OfferFormValues) => {
+  // Start the form submission process by showing preview
+  const handleFormSubmit = (data: OfferFormValues) => {
+    setShowPreview(true);
+  };
+
+  // Submit the form after confirmation
+  const handleFinalSubmit = async () => {
     if (!user) return;
 
     setIsSubmitting(true);
+    const data = getValues();
     console.log("Form submission started with data:", data);
     console.log("Geo commissions enabled:", geoCommissionsEnabled);
     console.log("Geo commissions data:", geoCommissions);
@@ -251,6 +328,7 @@ const CreateOffer = () => {
         title: 'Error Creating Offer',
         description: error.message || 'An unexpected error occurred',
       });
+      setShowPreview(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -312,6 +390,23 @@ const CreateOffer = () => {
     [setValue]
   );
 
+  // Prepare offer data for preview
+  const getOfferPreviewData = (): Partial<Offer> => {
+    const formValues = getValues();
+    return {
+      name: formValues.name,
+      description: formValues.description,
+      niche: formValues.niche,
+      commission_type: formValues.commission_type as any,
+      commission_amount: formValues.commission_amount ? parseFloat(formValues.commission_amount) : undefined,
+      commission_percent: formValues.commission_percent ? parseFloat(formValues.commission_percent) : undefined,
+      geo_targets: formValues.geo_targets,
+      offer_image: formValues.offer_image,
+      is_featured: false,
+      status: formValues.status as any,
+    };
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -321,7 +416,7 @@ const CreateOffer = () => {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form onSubmit={handleSubmit(handleFormSubmit)}>
         <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
@@ -429,43 +524,55 @@ const CreateOffer = () => {
                   
                   <div className="space-y-2">
                     <Label htmlFor="offer_image">Offer Image</Label>
-                    <div className="flex items-center gap-4">
-                      <input
-                        ref={imageInputRef}
-                        type="file"
-                        id="image-upload"
-                        className="hidden"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                      />
-                      
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => imageInputRef.current?.click()}
-                        disabled={uploading}
-                        className="flex items-center gap-2"
-                      >
-                        {uploading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Upload className="h-4 w-4" />
-                        )}
-                        Upload Image
-                      </Button>
-                      
-                      <p className="text-sm text-muted-foreground">
-                        Upload an image for your offer (JPG, PNG, GIF)
-                      </p>
-                    </div>
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      id="image-upload"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleImageInputChange}
+                    />
                     
-                    {imagePreview && (
-                      <div className="mt-2 border rounded-md p-2 max-w-xs">
+                    {imagePreview ? (
+                      <div className="mt-2 border rounded-md p-3 relative">
                         <img 
                           src={imagePreview} 
                           alt="Offer preview" 
-                          className="max-h-40 object-contain"
+                          className="max-h-48 object-contain mx-auto"
                         />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                          onClick={handleRemoveImage}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition-colors"
+                        onClick={() => imageInputRef.current?.click()}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                      >
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <Upload className="h-10 w-10 text-muted-foreground mb-2" />
+                          <p className="text-sm font-medium">
+                            Click or drag and drop to upload an image
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Supported formats: JPG, PNG, GIF (max 5MB)
+                          </p>
+                          {uploading && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <span className="text-sm">Uploading...</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -723,20 +830,21 @@ const CreateOffer = () => {
                 <ChevronLeft className="mr-1 h-4 w-4" />
                 Previous
               </Button>
-              <Button type="submit" disabled={isSubmitting} className="ml-auto">
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create Offer'
-                )}
+              <Button type="submit" disabled={isSubmitting}>
+                Create Offer
               </Button>
             </div>
           </TabsContent>
         </Tabs>
       </form>
+
+      <OfferPreviewDialog
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        offer={getOfferPreviewData()}
+        onConfirm={handleFinalSubmit}
+        isSubmitting={isSubmitting}
+      />
     </div>
   );
 };

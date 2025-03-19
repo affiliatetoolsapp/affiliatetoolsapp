@@ -3,18 +3,25 @@ import { useAuth } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import OfferBrowser from '@/components/affiliate/OfferBrowser';
 import MarketplaceOverview from '@/components/marketplace/MarketplaceOverview';
+import { LoadingState } from '@/components/LoadingState';
 
 export default function MarketplacePage() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   
-  if (!user) return null;
+  if (isLoading) {
+    return <LoadingState />;
+  }
   
   return (
     <ProtectedRoute>
-      {user.role === 'affiliate' ? (
-        <OfferBrowser />
+      {user ? (
+        user.role === 'affiliate' ? (
+          <OfferBrowser />
+        ) : (
+          <MarketplaceOverview />
+        )
       ) : (
-        <MarketplaceOverview />
+        <LoadingState />
       )}
     </ProtectedRoute>
   );

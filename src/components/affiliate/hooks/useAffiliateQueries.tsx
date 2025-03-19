@@ -65,7 +65,6 @@ export const useAffiliateQueries = (userId: string | undefined) => {
       return data as AffiliateOfferWithOffer[];
     },
     enabled: !!userId,
-    refetchInterval: 5000, // More frequent updates
   });
   
   // Get rejected applications for this affiliate

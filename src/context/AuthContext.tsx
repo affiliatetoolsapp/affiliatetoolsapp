@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@/types';
@@ -58,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('Auth loading timeout reached, setting isLoading to false');
         setIsLoading(false);
       }
-    }, 3000); // Reduced from 10 seconds to 3 seconds
+    }, 3000); // 3 seconds timeout
 
     // Get initial session
     (async () => {
@@ -89,17 +90,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!isMounted) return;
       
-      console.log('Auth state change event:', event, session ? 'with session' : 'no session');
+      console.log('Auth state change event:', event, newSession ? 'with session' : 'no session');
       
-      setSession(session);
+      setSession(newSession);
       
-      if (session?.user) {
+      if (newSession?.user) {
         console.log('Auth change: Session found, fetching user profile');
         try {
-          const profile = await fetchUserProfile(session.user.id);
+          const profile = await fetchUserProfile(newSession.user.id);
           if (!profile) {
             console.warn('Profile fetch failed but session exists');
           }
@@ -188,10 +189,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('Attempting to sign out...');
       setIsLoading(true);
       
-      // Clear local state first to ensure immediate UI update
-      setUser(null);
-      setSession(null);
-      
       const { error } = await supabase.auth.signOut();
       
       if (error) {
@@ -202,6 +199,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           variant: "destructive",
         });
       } else {
+        // Clear local state after successful sign-out
+        setUser(null);
+        setSession(null);
+        
         console.log('Signed out successfully');
         toast({
           title: "Signed out",

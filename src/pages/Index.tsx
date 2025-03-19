@@ -9,10 +9,16 @@ export default function Index() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Log the current state for debugging
-    console.log('Index page state:', { user, session, isLoading });
+    // Add a more detailed log for debugging
+    console.log('Index page state:', { 
+      user, 
+      session, 
+      isLoading,
+      hasUser: !!user,
+      hasSession: !!session
+    });
     
-    // Immediate navigation if auth state is already loaded
+    // If auth state is loaded, determine where to redirect
     if (!isLoading) {
       if (session) {
         console.log('Session authenticated, redirecting to dashboard');

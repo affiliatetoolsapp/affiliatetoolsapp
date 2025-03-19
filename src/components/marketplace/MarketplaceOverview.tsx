@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -131,7 +132,7 @@ export default function MarketplaceOverview() {
                         </div>
                       )}
                       
-                      {/* Display geo targeting info - Fixed hover implementation */}
+                      {/* Display geo targeting info */}
                       <div className="flex items-start text-sm">
                         <Globe className="h-4 w-4 mr-1 text-indigo-500 mt-0.5" />
                         <div>

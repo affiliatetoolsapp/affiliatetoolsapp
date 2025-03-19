@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/context/AuthContext';
@@ -40,71 +41,71 @@ const queryClient = new QueryClient({
   },
 });
 
-function AppContent() {
-  const { theme } = useTheme();
-  
-  return (
-    <Theme accentColor="iris" radius="large" appearance={theme as 'light' | 'dark'}>
-      <AuthProvider>
-        <Router>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignupPage />} />
-            <Route path="/signup-success" element={<SignupSuccessPage />} />
-            <Route path="/unauthorized" element={<UnauthorizedPage />} />
-            
-            {/* Redirect Routes */}
-            <Route path="/r/:trackingCode" element={<LinkRedirectPage />} />
-            <Route path="/click/:trackingCode" element={<ClickRedirectPage />} />
-            
-            {/* Protected Routes */}
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <MainLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="profile" element={<ProfilePage />} />
-              
-              {/* Common routes */}
-              <Route path="offers" element={<OffersPage />} />
-              <Route path="offers/:id" element={<OffersPage />} />
-              <Route path="reports" element={<ReportsPage />} />
-              <Route path="payments" element={<PaymentsPage />} />
-              <Route path="wallet" element={<WalletPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-              
-              {/* Affiliate-specific routes */}
-              <Route path="marketplace" element={<MarketplacePage />} />
-              <Route path="links" element={<LinksPage />} />
-              <Route path="performance" element={<PerformancePage />} />
-              <Route path="earnings" element={<EarningsPage />} />
-              
-              {/* Advertiser-specific routes */}
-              <Route path="partners" element={<PartnersPage />} />
-            </Route>
-          </Routes>
-        </Router>
-        <Toaster />
-      </AuthProvider>
-    </Theme>
-  );
-}
-
 function App() {
   console.log('App component rendering');
   
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AppContent />
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
+  );
+}
+
+function AppContent() {
+  const { theme } = useTheme();
+  
+  return (
+    <Theme accentColor="iris" radius="large" appearance={theme as 'light' | 'dark'}>
+      <Router>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Index />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/signup-success" element={<SignupSuccessPage />} />
+          <Route path="/unauthorized" element={<UnauthorizedPage />} />
+          
+          {/* Redirect Routes */}
+          <Route path="/r/:trackingCode" element={<LinkRedirectPage />} />
+          <Route path="/click/:trackingCode" element={<ClickRedirectPage />} />
+          
+          {/* Protected Routes */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <MainLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            
+            {/* Common routes */}
+            <Route path="offers" element={<OffersPage />} />
+            <Route path="offers/:id" element={<OffersPage />} />
+            <Route path="reports" element={<ReportsPage />} />
+            <Route path="payments" element={<PaymentsPage />} />
+            <Route path="wallet" element={<WalletPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+            
+            {/* Affiliate-specific routes */}
+            <Route path="marketplace" element={<MarketplacePage />} />
+            <Route path="links" element={<LinksPage />} />
+            <Route path="performance" element={<PerformancePage />} />
+            <Route path="earnings" element={<EarningsPage />} />
+            
+            {/* Advertiser-specific routes */}
+            <Route path="partners" element={<PartnersPage />} />
+          </Route>
+        </Routes>
+        <Toaster />
+      </Router>
+    </Theme>
   );
 }
 

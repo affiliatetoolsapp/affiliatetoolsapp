@@ -6,14 +6,14 @@ import { LoadingState } from '@/components/LoadingState';
 import { useEffect, useState } from 'react';
 
 export default function MarketplacePage() {
-  const { user, session, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
   const [showLoading, setShowLoading] = useState(true);
   
   // Add a timeout to prevent infinite loading state
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowLoading(false);
-    }, 3000);
+    }, 2000);
     
     return () => clearTimeout(timer);
   }, []);

@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Navigate, useLocation } from 'react-router-dom';
 import { LoadingState } from '@/components/LoadingState';
@@ -13,6 +13,7 @@ type ProtectedRouteProps = {
 export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user, session, isLoading } = useAuth();
   const location = useLocation();
+  const [showLoading, setShowLoading] = useState(true);
   
   console.log('ProtectedRoute:', { 
     isLoading, 
@@ -23,16 +24,14 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   });
   
   // Show loading state only for a short time during initial load
-  // If loading takes too long (3s), we still render the children
   useEffect(() => {
-    if (isLoading) {
-      const timeoutId = setTimeout(() => {
-        console.log('Loading timeout reached, proceeding anyway');
-      }, 3000);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [isLoading]);
+    const timeoutId = setTimeout(() => {
+      setShowLoading(false);
+      console.log('Loading timeout reached, proceeding anyway');
+    }, 2000);
+    
+    return () => clearTimeout(timeoutId);
+  }, []);
   
   // If there's no session, redirect to login
   if (!session && !isLoading) {
@@ -40,21 +39,16 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
-  // If we have a session but no user data, still proceed after a brief loading period
-  if (session && !user) {
-    if (isLoading) {
-      console.log('ProtectedRoute: Session exists but still loading user data');
-      return <LoadingState />;
-    }
-    
-    console.log('ProtectedRoute: Session exists but no user data loaded, proceeding anyway');
-    return <>{children}</>;
-  }
-  
-  // If we're still in initial loading state and it hasn't been too long, show loading
-  if (isLoading) {
+  // If we're still in initial loading state and within timeout, show loading
+  if (isLoading && showLoading) {
     console.log('ProtectedRoute: Still loading, showing loading state');
     return <LoadingState />;
+  }
+  
+  // If we have a session but no user data, proceed anyway after loading timeout
+  if (session && !user) {
+    console.log('ProtectedRoute: Session exists but no user data yet, proceeding anyway');
+    return <>{children}</>;
   }
   
   // Role-based access control (only if we have user data)

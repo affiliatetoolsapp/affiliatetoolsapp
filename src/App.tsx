@@ -36,7 +36,7 @@ const queryClient = new QueryClient({
       staleTime: 5 * 60 * 1000, // 5 minutes
       retry: 1, // Only retry once to prevent excessive loading
       retryDelay: 500, // 500ms between retries
-      cacheTime: 10 * 60 * 1000, // 10 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes (renamed from cacheTime in newer versions)
     },
   },
 });

@@ -7,12 +7,8 @@ import { LoadingState } from '@/components/LoadingState';
 export default function MarketplacePage() {
   const { user, isLoading } = useAuth();
   
-  if (isLoading) {
-    return <LoadingState />;
-  }
-  
-  // If we don't have user data yet, show loading
-  if (!user) {
+  // Show loading state while auth is initializing or user data is being fetched
+  if (isLoading || !user) {
     return <LoadingState />;
   }
   

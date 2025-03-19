@@ -15,15 +15,23 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   const location = useLocation();
   
   // Basic debug logging
-  console.log('ProtectedRoute:', { isLoading, hasUser: !!user, hasSession: !!session, allowedRoles, currentPath: location.pathname });
+  console.log('ProtectedRoute:', { 
+    isLoading, 
+    hasUser: !!user, 
+    hasSession: !!session, 
+    allowedRoles, 
+    currentPath: location.pathname 
+  });
   
   // Show loading state while auth is initializing
   if (isLoading) {
+    console.log('ProtectedRoute: Still loading, showing loading state');
     return <LoadingState />;
   }
   
   // If not logged in, redirect to login
   if (!session) {
+    console.log('ProtectedRoute: No session, redirecting to login');
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
@@ -31,15 +39,18 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   if (allowedRoles && allowedRoles.length > 0) {
     // If we don't have user data yet but have a session, show loading
     if (!user) {
+      console.log('ProtectedRoute: Has session but no user data yet, showing loading state');
       return <LoadingState />;
     }
     
     // Check if user has one of the allowed roles
     if (!allowedRoles.includes(user.role as UserRole)) {
+      console.log('ProtectedRoute: User role not allowed, redirecting to unauthorized');
       return <Navigate to="/unauthorized" replace />;
     }
   }
   
   // User is authorized - render the children
+  console.log('ProtectedRoute: User is authorized, rendering children');
   return <>{children}</>;
 }

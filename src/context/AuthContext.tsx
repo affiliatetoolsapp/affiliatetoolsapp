@@ -24,9 +24,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   
-  // Fetch user profile function
+  // Fetch user profile with better error handling
   async function fetchUserProfile(userId: string): Promise<User | null> {
-    if (!userId) return null;
+    if (!userId) {
+      console.error('Cannot fetch user profile: No user ID provided');
+      return null;
+    }
     
     try {
       console.log(`Fetching user profile for ID: ${userId}`);
@@ -39,10 +42,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Error fetching user profile:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load user profile. Please try again.",
+          variant: "destructive",
+        });
         return null;
       }
 
-      console.log('User profile fetched successfully:', data);
+      if (!data) {
+        console.error('No user profile found for ID:', userId);
+        return null;
+      }
+
+      console.log('User profile fetched successfully');
       return data as User;
     } catch (error) {
       console.error('Unexpected error fetching user profile:', error);
@@ -73,13 +86,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // If we have a session, fetch the user profile
         if (currentSession?.user) {
           const profile = await fetchUserProfile(currentSession.user.id);
+          
           if (mounted) {
             setUser(profile);
+            setIsLoading(false);
           }
+        } else {
+          setIsLoading(false);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
-      } finally {
         if (mounted) {
           setIsLoading(false);
         }
@@ -109,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else if (event === 'SIGNED_OUT') {
           // Clear local state on sign out
           setUser(null);
+          setIsLoading(false);
         }
       }
     );
@@ -122,7 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [toast]);
 
   // Keep the existing auth functions intact
   async function signIn(email: string, password: string) {

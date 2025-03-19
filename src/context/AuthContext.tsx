@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@/types';
@@ -24,7 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   
-  // Fetch user profile with better error handling
+  // Fetch user profile with timeout and better error handling
   async function fetchUserProfile(userId: string): Promise<User | null> {
     if (!userId) {
       console.error('Cannot fetch user profile: No user ID provided');
@@ -34,17 +35,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       console.log(`Fetching user profile for ID: ${userId}`);
       
-      const { data, error } = await supabase
+      // Create a timeout promise that rejects after 5 seconds
+      const timeoutPromise = new Promise<null>((_, reject) => {
+        setTimeout(() => reject(new Error('User profile fetch timed out after 5 seconds')), 5000);
+      });
+      
+      // Race between the fetch and the timeout
+      const profilePromise = supabase
         .from('users')
         .select('*')
         .eq('id', userId)
         .single();
+        
+      const { data, error } = await Promise.race([
+        profilePromise,
+        timeoutPromise.then(() => {
+          throw new Error('Fetch timed out');
+        })
+      ]);
 
       if (error) {
         console.error('Error fetching user profile:', error);
         toast({
           title: "Error",
-          description: "Failed to load user profile. Please try again.",
+          description: "Failed to load user profile. Please try refreshing the page.",
           variant: "destructive",
         });
         return null;
@@ -55,10 +69,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      console.log('User profile fetched successfully');
+      console.log('User profile fetched successfully:', data);
       return data as User;
     } catch (error) {
       console.error('Unexpected error fetching user profile:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load your profile data. Please try logging in again.",
+        variant: "destructive",
+      });
       return null;
     }
   }
@@ -74,7 +93,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsLoading(true);
         
         // Get current session
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Error getting session:', sessionError);
+          if (mounted) setIsLoading(false);
+          return;
+        }
         
         if (!mounted) return;
         
@@ -85,14 +110,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         // If we have a session, fetch the user profile
         if (currentSession?.user) {
-          const profile = await fetchUserProfile(currentSession.user.id);
-          
-          if (mounted) {
-            setUser(profile);
-            setIsLoading(false);
+          try {
+            // Set a timeout for the profile fetch
+            const profileFetchPromise = fetchUserProfile(currentSession.user.id);
+            const timeoutPromise = new Promise<null>((_, reject) => {
+              setTimeout(() => reject(new Error('Profile initialization timed out')), 5000);
+            });
+            
+            const profile = await Promise.race([profileFetchPromise, timeoutPromise]);
+            
+            if (mounted) {
+              setUser(profile);
+            }
+          } catch (profileError) {
+            console.error('Error during profile initialization:', profileError);
+            // Continue with null user but don't stay in loading state
+          } finally {
+            if (mounted) {
+              setIsLoading(false);
+            }
           }
         } else {
-          setIsLoading(false);
+          if (mounted) {
+            setIsLoading(false);
+          }
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
@@ -116,10 +157,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           if (newSession) {
             setIsLoading(true);
-            const profile = await fetchUserProfile(newSession.user.id);
-            if (mounted) {
-              setUser(profile);
-              setIsLoading(false);
+            try {
+              const profilePromise = fetchUserProfile(newSession.user.id);
+              const timeoutPromise = new Promise<null>((_, reject) => {
+                setTimeout(() => reject(new Error('Profile fetch during auth change timed out')), 5000);
+              });
+              
+              const profile = await Promise.race([profilePromise, timeoutPromise]);
+              
+              if (mounted) {
+                setUser(profile);
+              }
+            } catch (profileError) {
+              console.error('Error fetching profile during auth change:', profileError);
+              // Continue without user data
+            } finally {
+              if (mounted) {
+                setIsLoading(false);
+              }
             }
           }
         } else if (event === 'SIGNED_OUT') {

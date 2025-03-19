@@ -10,8 +10,10 @@ export default function LoginPage() {
   const { session, isLoading } = useAuth();
   const navigate = useNavigate();
   
-  // Handle redirection based on session
+  // Handle redirection based on session with better logging
   useEffect(() => {
+    console.log('LoginPage: Checking auth state', { hasSession: !!session, isLoading });
+    
     if (!isLoading && session) {
       console.log('LoginPage: Session detected, redirecting to dashboard');
       navigate('/dashboard');

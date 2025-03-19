@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Navigate, useLocation } from 'react-router-dom';
 import { LoadingState } from '@/components/LoadingState';
@@ -14,14 +14,21 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   const { user, session, isLoading } = useAuth();
   const location = useLocation();
   
-  // Basic debug logging
-  console.log('ProtectedRoute:', { 
-    isLoading, 
-    hasUser: !!user, 
-    hasSession: !!session, 
-    allowedRoles, 
-    currentPath: location.pathname 
-  });
+  // Enhanced debug logging
+  useEffect(() => {
+    console.log('ProtectedRoute mounted/updated:', { 
+      isLoading, 
+      hasUser: !!user, 
+      hasSession: !!session, 
+      allowedRoles, 
+      currentPath: location.pathname,
+      sessionExpiry: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'none'
+    });
+    
+    return () => {
+      console.log('ProtectedRoute unmounting from path:', location.pathname);
+    };
+  }, [isLoading, user, session, allowedRoles, location.pathname]);
   
   // Show loading state while auth is initializing
   if (isLoading) {

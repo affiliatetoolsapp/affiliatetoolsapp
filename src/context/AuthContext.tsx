@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@/types';
@@ -87,13 +88,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (authData?.user) {
               console.log("Recovered basic user info from auth:", authData.user);
               
-              // Create a minimal user object from auth data
+              // Create a minimal user object from auth data with all required fields
               const minimalUser: User = {
                 id: authData.user.id,
                 email: authData.user.email || '',
                 role: (authData.user.user_metadata?.role || 'affiliate') as any,
                 created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
+                // Add all nullable fields required by the User type
+                bio: null,
+                company_name: null,
+                contact_name: null,
+                phone: null,
+                website: null
               };
               
               setProfileError(null);

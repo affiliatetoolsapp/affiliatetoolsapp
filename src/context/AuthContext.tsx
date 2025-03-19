@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@/types';
@@ -24,7 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Function to fetch user profile with improved error handling
+  // Simplified function to fetch user profile - focus on reliability
   async function fetchUserProfile(userId: string) {
     try {
       console.log('Fetching user profile for ID:', userId);
@@ -39,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      console.log('User profile fetched successfully:', data);
+      console.log('User profile fetched:', data);
       return data;
     } catch (error) {
       console.error('Unexpected error fetching user profile:', error);
@@ -47,28 +48,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Set up auth state listener once on mount
+  // Set up auth state listener on mount - simplified for reliability
   useEffect(() => {
     console.log('AuthProvider: Setting up auth state');
-    let isMounted = true;
+    let mounted = true;
     
     // Initialize auth state
-    const initAuth = async () => {
+    const initializeAuth = async () => {
       try {
-        // Get initial session with better error handling
-        console.log('Auth: Getting initial session');
+        console.log('Getting initial session');
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
           console.error('Error getting session:', sessionError);
-          if (isMounted) setIsLoading(false);
+          if (mounted) setIsLoading(false);
           return;
         }
 
-        if (!isMounted) return;
+        if (!mounted) return;
 
         if (sessionData?.session) {
-          console.log('Auth: Initial session found', sessionData.session.user.id);
+          console.log('Initial session found', sessionData.session.user.id);
           setSession(sessionData.session);
           
           // Fetch user profile
@@ -77,40 +77,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(userData as User);
           }
         } else {
-          console.log('Auth: No initial session found');
+          console.log('No initial session found');
           setSession(null);
           setUser(null);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
       } finally {
-        // Always set loading to false when initialization is complete
-        if (isMounted) {
-          console.log('Auth: Initialization complete, setting isLoading to false');
+        if (mounted) {
+          console.log('Auth initialization complete');
           setIsLoading(false);
         }
       }
     };
 
-    // Set a timeout to ensure we don't keep the loading state forever
-    const loadingTimeout = setTimeout(() => {
-      if (isMounted && isLoading) {
-        console.log('Auth loading timeout reached, setting isLoading to false');
-        setIsLoading(false);
-      }
-    }, 2000); // Ensure loading state doesn't last more than 2 seconds
-
-    // Initialize auth
-    initAuth();
-
     // Set up auth state change listener
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       console.log('Auth state change event:', event);
       
-      if (!isMounted) return;
+      if (!mounted) return;
 
       if (currentSession) {
-        console.log('Auth change: Session found', currentSession.user.id);
+        console.log('Auth state change: Session found', currentSession.user.id);
         setSession(currentSession);
         
         // Fetch user profile for the session
@@ -119,27 +107,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(userData as User);
         }
       } else {
-        console.log('Auth change: No session');
+        console.log('Auth state change: No session');
         setSession(null);
         setUser(null);
       }
       
-      // Always ensure loading state is false after auth state change
       setIsLoading(false);
     });
 
+    // Initialize auth
+    initializeAuth();
+
     // Clean up
     return () => {
-      console.log('Auth: Cleaning up auth provider');
-      isMounted = false;
-      clearTimeout(loadingTimeout);
+      console.log('Cleaning up auth provider');
+      mounted = false;
       authListener.subscription.unsubscribe();
     };
   }, []);
 
-  // Auth functions
+  // Auth functions with simplified implementation
   async function signIn(email: string, password: string) {
-    console.log('Attempting to sign in with email:', email);
+    console.log('Signing in with email:', email);
     setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ 
@@ -149,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (error) throw error;
       
-      console.log('Sign in successful, data:', data.session ? 'Session exists' : 'No session');
+      console.log('Sign in successful');
       
       toast({
         title: "Success",
@@ -200,19 +189,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     try {
-      console.log('Attempting to sign out...');
+      console.log('Signing out...');
       setIsLoading(true);
       
-      // Clear local state first to ensure immediate UI update
-      setUser(null);
-      setSession(null);
-      
-      const { error } = await supabase.auth.signOut({
-        scope: 'local' // Only clear local session, not on all devices
-      });
+      const { error } = await supabase.auth.signOut();
       
       if (error) {
-        console.error('Sign out API error:', error);
+        console.error('Sign out error:', error);
         toast({
           title: "Error",
           description: error.message || "An error occurred during sign out",
@@ -220,27 +203,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       } else {
         console.log('Signed out successfully');
+        
+        // Clear state immediately
+        setUser(null);
+        setSession(null);
+        
         toast({
           title: "Signed out",
           description: "You have been signed out successfully",
         });
         
-        // Force reload the page to ensure clean state after logout
+        // Force reload to clear any cached state
         window.location.href = '/login';
       }
     } catch (error: any) {
-      console.error('Sign out unexpected error:', error);
+      console.error('Sign out error:', error);
       toast({
         title: "Error",
         description: error.message || "An error occurred during sign out",
         variant: "destructive",
       });
     } finally {
-      // Ensure we always end the loading state
       setIsLoading(false);
     }
   }
 
+  // Profile management functions
   async function updateProfile(data: Partial<User>) {
     if (!user) return;
     

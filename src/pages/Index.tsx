@@ -5,15 +5,15 @@ import { useAuth } from '@/context/AuthContext';
 import { PublicHeader } from '@/components/PublicHeader';
 
 export default function Index() {
-  const { user, session, isLoading } = useAuth();
+  const { session, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     // Log the current state for debugging
-    console.log('Index page state:', { user, session, isLoading, path: location.pathname });
+    console.log('Index page state:', { session, isLoading, path: location.pathname });
     
-    // Only handle navigation for the exact root path - this prevents redirect issues on refresh
+    // Only handle navigation for the exact root path
     if (location.pathname === '/') {
       // Wait until auth state is determined before redirecting
       if (!isLoading) {
@@ -26,7 +26,7 @@ export default function Index() {
         }
       }
     }
-  }, [isLoading, user, session, navigate, location.pathname]);
+  }, [isLoading, session, navigate, location.pathname]);
 
   // Only render loading component on the root path and when loading
   if (location.pathname === '/' && isLoading) {

@@ -24,28 +24,23 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     });
   }, [isLoading, user, session, allowedRoles, location]);
   
-  // Show loading state only if we're still determining auth - but limit this to avoid infinite loading
+  // If still loading, show loading state
   if (isLoading) {
     console.log('ProtectedRoute: Still loading, showing loading state');
     return <LoadingState />;
   }
   
-  // Check for session existence - most reliable way to determine if user is authenticated
+  // If no session, redirect to login
   if (!session) {
     console.log('ProtectedRoute: No session, redirecting to login');
-    // Use replace: true to prevent breaking the back button
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
   // With session available, handle role-based authorization if needed
   if (allowedRoles && allowedRoles.length > 0) {
-    // Get role from user data if available
+    // Get role from user data or session metadata
     const userRole = user?.role as UserRole | undefined;
-    
-    // Fallback to session metadata role if user data not available yet
     const sessionRole = session?.user?.user_metadata?.role as UserRole | undefined;
-    
-    // Use whichever role data is available
     const role = userRole || sessionRole;
     
     if (role && !allowedRoles.includes(role)) {

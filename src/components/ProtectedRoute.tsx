@@ -24,6 +24,12 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     });
   }, [isLoading, user, session, allowedRoles, location]);
   
+  // Add a guard to ensure we're not caught in a redirect loop
+  if (location.pathname === '/login') {
+    console.warn('ProtectedRoute being called on login page, this should not happen');
+    return <>{children}</>;
+  }
+  
   if (isLoading) {
     console.log('ProtectedRoute: Still loading, showing loading state');
     return <LoadingState />;
@@ -35,19 +41,15 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
-  // If we have a session but no user data (profile fetch might have failed)
-  // We can still allow access but check roles from session claims if needed
-  if (!user && allowedRoles) {
-    // Extract role from session claims/user metadata as fallback
-    const sessionRole = session.user.user_metadata?.role || 'affiliate';
-    console.log('ProtectedRoute: No user data but session exists, using role from session:', sessionRole);
-    
-    if (!allowedRoles.includes(sessionRole as UserRole)) {
-      console.log('ProtectedRoute: Role from session not authorized, redirecting to unauthorized');
-      return <Navigate to="/unauthorized" replace />;
-    }
-  } else if (user && allowedRoles && !allowedRoles.includes(user.role as UserRole)) {
-    // Normal role check if we have user data
+  // If user data is not loaded yet but we have a session, we'll still render the children
+  // This helps prevent the redirect loop if user data is slow to load
+  if (!user) {
+    console.log('ProtectedRoute: Session exists but no user data yet, proceeding anyway');
+    return <>{children}</>;
+  }
+  
+  // Role-based access control
+  if (allowedRoles && !allowedRoles.includes(user.role as UserRole)) {
     console.log('ProtectedRoute: User role not authorized, redirecting to unauthorized');
     return <Navigate to="/unauthorized" replace />;
   }

@@ -18,16 +18,10 @@ export default function LoginPage() {
       return;
     }
 
-    // Check for session first (more reliable than checking user)
+    // If we have a session, navigate to dashboard regardless of user state
+    // This helps prevent a redirect loop if user data is slow to load
     if (session) {
       console.log('LoginPage: Session detected, redirecting to dashboard');
-      navigate('/dashboard');
-      return;
-    }
-    
-    // As a fallback, also check for user object
-    if (user) {
-      console.log('LoginPage: User detected, redirecting to dashboard');
       navigate('/dashboard');
     }
   }, [user, session, isLoading, navigate]);

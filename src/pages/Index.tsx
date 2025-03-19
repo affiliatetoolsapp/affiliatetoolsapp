@@ -9,7 +9,7 @@ export default function Index() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Add a more detailed log for debugging
+    // Log for debugging
     console.log('Index page state:', { 
       user, 
       session, 
@@ -20,14 +20,13 @@ export default function Index() {
     
     // If auth state is loaded, determine where to redirect
     if (!isLoading) {
+      // If we have a session, navigate to dashboard regardless of user state
+      // This helps prevent a redirect loop if user data is slow to load
       if (session) {
         console.log('Session authenticated, redirecting to dashboard');
         navigate('/dashboard');
-      } else if (user) {
-        console.log('User authenticated, redirecting to dashboard');
-        navigate('/dashboard');
       } else {
-        console.log('No session or user found, redirecting to login');
+        console.log('No session found, redirecting to login');
         navigate('/login');
       }
     }

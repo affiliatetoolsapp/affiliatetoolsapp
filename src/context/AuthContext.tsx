@@ -29,6 +29,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function fetchUserProfile(userId: string) {
     try {
       console.log('Fetching user profile for ID:', userId);
+      
+      // Add a small delay to allow the database to sync
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const { data, error } = await supabase
         .from('users')
         .select('*')
@@ -37,7 +41,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Error fetching user profile:', error);
-        return null;
+        
+        // Try one more time after a longer delay if first attempt fails
+        await new Promise(resolve => setTimeout(resolve, 300));
+        const retryResult = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .single();
+          
+        if (retryResult.error) {
+          console.error('Retry failed to fetch user profile:', retryResult.error);
+          return null;
+        }
+        
+        console.log('User profile fetched successfully on retry:', retryResult.data);
+        setUser(retryResult.data as User);
+        return retryResult.data;
       }
 
       console.log('User profile fetched successfully:', data);
@@ -53,13 +73,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('AuthProvider: Setting up auth state');
     let isMounted = true;
     
-    // Shorter timeout for better user experience
+    // Set a shorter timeout for better user experience
     const loadingTimeout = setTimeout(() => {
       if (isMounted && isLoading) {
         console.log('Auth loading timeout reached, setting isLoading to false');
         setIsLoading(false);
       }
-    }, 3000); // 3 seconds timeout
+    }, 2000); // 2 seconds timeout (shortened from 3)
 
     // Get initial session
     (async () => {
@@ -74,7 +94,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data.session) {
           setSession(data.session);
           console.log('Auth: Session found, fetching user profile');
-          await fetchUserProfile(data.session.user.id);
+          const profile = await fetchUserProfile(data.session.user.id);
+          
+          // If profile fetch fails, fallback to creating a minimal user object from session
+          if (!profile && isMounted) {
+            console.log('Creating minimal user object from session metadata');
+            const metadata = data.session.user.user_metadata;
+            const fallbackUser = {
+              id: data.session.user.id,
+              email: data.session.user.email || '',
+              role: (metadata?.role as string) || 'affiliate',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            } as User;
+            
+            setUser(fallbackUser);
+          }
         } else {
           console.log('Auth: No session found, setting user to null');
           setUser(null);
@@ -101,14 +136,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('Auth change: Session found, fetching user profile');
         try {
           const profile = await fetchUserProfile(newSession.user.id);
-          if (!profile) {
-            console.warn('Profile fetch failed but session exists');
+          
+          // If profile fetch fails, fallback to creating a minimal user object from session
+          if (!profile && isMounted) {
+            console.log('Creating minimal user object from session metadata');
+            const metadata = newSession.user.user_metadata;
+            const fallbackUser = {
+              id: newSession.user.id,
+              email: newSession.user.email || '',
+              role: (metadata?.role as string) || 'affiliate',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            } as User;
+            
+            setUser(fallbackUser);
           }
         } catch (error) {
           console.error('Error in profile fetch during auth change:', error);
         }
       } else {
         console.log('Auth change: No session, setting user to null');
+        setUser(null);
+      }
+      
+      if (event === 'SIGNED_OUT') {
+        // Ensure user is set to null when signed out
         setUser(null);
       }
       

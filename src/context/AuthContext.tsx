@@ -24,15 +24,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   
-  // Improved user profile fetching with better error handling and caching
-  async function fetchUserProfile(userId: string, attempts = 0): Promise<User | null> {
-    if (!userId) {
-      console.error('Invalid user ID provided to fetchUserProfile');
-      return null;
-    }
+  // Simple, reliable user profile fetching
+  async function fetchUserProfile(userId: string): Promise<User | null> {
+    if (!userId) return null;
     
     try {
-      console.log(`Fetching user profile for ID: ${userId} (attempt ${attempts + 1})`);
+      console.log(`Fetching user profile for ID: ${userId}`);
       
       const { data, error } = await supabase
         .from('users')
@@ -41,120 +38,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error) {
-        console.error(`Error fetching user profile (attempt ${attempts + 1}):`, error);
-        
-        // If no rows returned and this is the first attempt, try to create a fallback user
-        if (error.code === 'PGRST116' && attempts === 0) {
-          const currentSession = await supabase.auth.getSession();
-          if (currentSession?.data?.session) {
-            console.log('No user profile found, creating fallback user');
-            return createFallbackUser(currentSession.data.session);
-          }
-        }
-        
-        // If we still have attempts left, try again
-        if (attempts < 2) {
-          await new Promise(r => setTimeout(r, 500)); // Brief delay between attempts
-          return fetchUserProfile(userId, attempts + 1);
-        }
-        
+        console.error('Error fetching user profile:', error);
         return null;
       }
 
       console.log('User profile fetched successfully:', data);
       return data as User;
     } catch (error) {
-      console.error(`Unexpected error fetching user profile:`, error);
-      
-      // Retry logic for unexpected errors
-      if (attempts < 2) {
-        await new Promise(r => setTimeout(r, 500));
-        return fetchUserProfile(userId, attempts + 1);
-      }
-      
+      console.error('Unexpected error fetching user profile:', error);
       return null;
     }
   }
 
-  // Create a fallback user from session data with improved error handling
-  async function createFallbackUser(currentSession: Session): Promise<User | null> {
-    if (!currentSession || !currentSession.user) {
-      console.error('Invalid session provided to createFallbackUser');
-      return null;
-    }
-    
-    const metadata = currentSession.user.user_metadata || {};
-    const email = currentSession.user.email || '';
-    const role = (metadata.role as string) || 'affiliate';
-    
-    const fallbackUser = {
-      id: currentSession.user.id,
-      email: email,
-      role: role,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    } as User;
-    
-    console.log('Creating fallback user:', fallbackUser);
-    
-    try {
-      // Try to insert the user - this might fail if the user already exists
-      const { error } = await supabase
-        .from('users')
-        .insert([fallbackUser]);
-      
-      if (error) {
-        console.error('Error creating fallback user:', error);
-        
-        // If insert fails because user already exists, try to fetch one more time
-        if (error.code === '23505') { // PostgreSQL unique violation code
-          console.log('User already exists, trying to fetch again');
-          const profile = await fetchUserProfile(currentSession.user.id);
-          return profile;
-        }
-        
-        // For other errors, still return the fallback user
-        return fallbackUser;
-      } else {
-        console.log('Fallback user created successfully');
-        return fallbackUser;
-      }
-    } catch (error) {
-      console.error('Unexpected error creating fallback user:', error);
-      // Still return the fallback user even if we couldn't save it
-      return fallbackUser;
-    }
-  }
-
-  // Initialize auth state - cleaned up and more robust
+  // Initialize auth state - simple, focused approach
   useEffect(() => {
     console.log('AuthProvider: Setting up auth state');
     let isMounted = true;
     
     async function initializeAuth() {
       try {
-        setIsLoading(true);
-        
         // Get current session
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         
         if (!isMounted) return;
         
+        // Update session state immediately
+        setSession(currentSession);
+        
         if (currentSession) {
           console.log('Auth: Initial session found for user ID:', currentSession.user.id);
-          setSession(currentSession);
           
-          // Fetch user profile immediately when session is available
+          // Fetch user profile for existing session
           const profile = await fetchUserProfile(currentSession.user.id);
           
-          if (profile && isMounted) {
-            console.log('User profile loaded successfully');
+          if (isMounted) {
             setUser(profile);
           }
-        } else {
-          console.log('Auth: No initial session found');
-          setSession(null);
-          setUser(null);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
@@ -165,33 +84,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Set up auth state change listener - more reliable
+    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         if (!isMounted) return;
         
         console.log('Auth state change event:', event, newSession ? 'with session' : 'no session');
         
-        // First update the session state immediately
-        if (newSession) {
-          setSession(newSession);
-        } else if (event === 'SIGNED_OUT') {
+        // Update session state immediately
+        setSession(newSession);
+        
+        // Handle sign out event
+        if (event === 'SIGNED_OUT') {
           setUser(null);
-          setSession(null);
           setIsLoading(false);
           return;
         }
         
-        // For events that might affect the user profile
+        // Fetch user profile for sign in and other relevant events
         if (newSession && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
           setIsLoading(true);
           
           const profile = await fetchUserProfile(newSession.user.id);
           
           if (isMounted) {
-            if (profile) {
-              setUser(profile);
-            }
+            setUser(profile);
             setIsLoading(false);
           }
         }
@@ -208,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Auth functions
+  // Keep the existing auth functions intact
   async function signIn(email: string, password: string) {
     console.log('Attempting to sign in with email:', email);
     setIsLoading(true);

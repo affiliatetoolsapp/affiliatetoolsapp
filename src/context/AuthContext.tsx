@@ -144,16 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ 
         email, 
-        password,
-        options: {
-          // Explicitly set cookie options for better cross-environment compatibility
-          cookieOptions: {
-            name: 'sb-session',
-            lifetime: 60 * 60 * 24 * 7, // 1 week
-            sameSite: 'lax',
-            secure: window.location.protocol === 'https:'
-          }
-        }
+        password
       });
       
       if (error) throw error;
@@ -185,13 +176,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         options: {
           data: {
             role,
-          },
-          // Explicitly set cookie options
-          cookieOptions: {
-            name: 'sb-session',
-            lifetime: 60 * 60 * 24 * 7, // 1 week
-            sameSite: 'lax',
-            secure: window.location.protocol === 'https:'
           }
         }
       });

@@ -39,45 +39,45 @@ export default function DashboardPage() {
     switch (user.role) {
       case 'admin':
         return (
-          <Tabs defaultValue="overview" className="space-y-6 overflow-hidden">
+          <Tabs defaultValue="overview" className="space-y-6">
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="advanced">Advanced Analytics</TabsTrigger>
             </TabsList>
-            <TabsContent value="overview" className="overflow-x-auto">
+            <TabsContent value="overview" className="space-y-6">
               <DashboardOverview />
             </TabsContent>
-            <TabsContent value="advanced" className="overflow-x-auto">
+            <TabsContent value="advanced" className="space-y-6">
               <AdminDashboard />
             </TabsContent>
           </Tabs>
         );
       case 'advertiser':
         return (
-          <Tabs defaultValue="overview" className="space-y-6 overflow-hidden">
+          <Tabs defaultValue="overview" className="space-y-6">
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="advanced">Campaign Analytics</TabsTrigger>
             </TabsList>
-            <TabsContent value="overview" className="overflow-x-auto">
+            <TabsContent value="overview" className="space-y-6">
               <DashboardOverview />
             </TabsContent>
-            <TabsContent value="advanced" className="overflow-x-auto">
+            <TabsContent value="advanced" className="space-y-6">
               <AdvertiserDashboard />
             </TabsContent>
           </Tabs>
         );
       case 'affiliate':
         return (
-          <Tabs defaultValue="overview" className="space-y-6 overflow-hidden">
+          <Tabs defaultValue="overview" className="space-y-6">
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="detailed">Detailed Analytics</TabsTrigger>
             </TabsList>
-            <TabsContent value="overview" className="overflow-x-auto">
+            <TabsContent value="overview" className="space-y-6">
               <DashboardOverview />
             </TabsContent>
-            <TabsContent value="detailed" className="overflow-x-auto">
+            <TabsContent value="detailed" className="space-y-6">
               <AffiliateDashboard />
             </TabsContent>
           </Tabs>
@@ -88,7 +88,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="w-full overflow-hidden">
+    <div className="w-full max-w-full">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Welcome, {user.contact_name || user.email}</h1>
         <p className="text-muted-foreground">
@@ -100,7 +100,7 @@ export default function DashboardPage() {
         </p>
       </div>
       
-      <div className="mt-6 overflow-x-hidden">
+      <div className="mt-6 max-w-full">
         {renderRoleDashboard()}
       </div>
     </div>

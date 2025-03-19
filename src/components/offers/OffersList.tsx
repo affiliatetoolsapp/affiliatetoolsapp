@@ -4,12 +4,15 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { formatGeoTargets } from '@/components/affiliate/utils/offerUtils';
 import { Offer } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, Search, Filter } from 'lucide-react';
+import { PlusCircle, Search, Filter, DollarSign, Globe, AlertTriangle, Tag, Target } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import AffiliateApprovals from './AffiliateApprovals';
 
 export default function OffersList() {
@@ -163,17 +166,76 @@ export default function OffersList() {
                       <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
                     </CardHeader>
                     <CardContent className="p-4 pt-0 grid gap-2">
-                      <div className="text-sm">
+                      <div className="text-sm flex items-center">
+                        <DollarSign className="h-4 w-4 mr-1 text-green-500" />
                         <span className="font-medium">Commission: </span>
-                        {offer.commission_type === 'RevShare' 
-                          ? `${offer.commission_percent}% RevShare` 
-                          : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
+                        <span className="ml-1">
+                          {offer.commission_type === 'RevShare' 
+                            ? `${offer.commission_percent}% RevShare` 
+                            : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
+                        </span>
                       </div>
+                      
                       {offer.niche && (
-                        <div className="text-sm">
-                          <span className="font-medium">Niche: </span>{offer.niche}
+                        <div className="text-sm flex items-center">
+                          <Tag className="h-4 w-4 mr-1 text-blue-500" />
+                          <span className="font-medium">Niche: </span>
+                          <span className="ml-1">{offer.niche}</span>
                         </div>
                       )}
+                      
+                      {/* Geo targets display */}
+                      <div className="text-sm flex items-center">
+                        <Globe className="h-4 w-4 mr-1 text-indigo-500" />
+                        <span className="font-medium">Geo: </span>
+                        {formatGeoTargets(offer).length > 0 ? (
+                          <HoverCard openDelay={0} closeDelay={0}>
+                            <HoverCardTrigger asChild>
+                              <Badge variant="outline" className="text-xs cursor-pointer ml-1">
+                                {formatGeoTargets(offer).length} {formatGeoTargets(offer).length === 1 ? 'country' : 'countries'}
+                              </Badge>
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                              <div className="font-medium mb-2">Targeted GEO's:</div>
+                              <div className="flex flex-wrap gap-1 max-w-[300px]">
+                                {formatGeoTargets(offer).map((geo, i) => (
+                                  <Badge key={i} variant="outline" className="text-xs">
+                                    {geo.flag} {geo.code}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </HoverCardContent>
+                          </HoverCard>
+                        ) : (
+                          <span className="text-muted-foreground ml-1">Global</span>
+                        )}
+                      </div>
+                      
+                      {/* Restricted geos display */}
+                      {offer.restricted_geos && offer.restricted_geos.length > 0 && (
+                        <div className="text-sm flex items-center">
+                          <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />
+                          <span className="font-medium">Restricted: </span>
+                          <HoverCard openDelay={0} closeDelay={0}>
+                            <HoverCardTrigger asChild>
+                              <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs cursor-pointer ml-1">
+                                {offer.restricted_geos.length} {offer.restricted_geos.length === 1 ? 'country' : 'countries'}
+                              </Badge>
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                              <div className="font-medium mb-2">Restricted GEO's:</div>
+                              <div className="flex flex-wrap gap-1 max-w-[300px]">
+                                {offer.restricted_geos.map((geo, i) => (
+                                  <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs">
+                                    {geo}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </HoverCardContent>
+                          </HoverCard>
+                        </div>
+                      )}
+                      
                       <div className="text-sm">
                         <span className="font-medium">Status: </span>
                         <span className="capitalize">{offer.status}</span>
@@ -215,22 +277,72 @@ export default function OffersList() {
               {filteredOffers.map((offer) => (
                 <Card key={offer.id} className="overflow-hidden">
                   <CardHeader className="p-4">
-                    <CardTitle className="text-lg">{offer.name}</CardTitle>
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-lg">{offer.name}</CardTitle>
+                      <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                        <DollarSign className="h-3 w-3 mr-1" />
+                        {offer.commission_type === 'RevShare' 
+                          ? `${offer.commission_percent}% RevShare` 
+                          : `$${offer.commission_amount} ${offer.commission_type.slice(2)}`}
+                      </Badge>
+                    </div>
                     <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
                   </CardHeader>
                   <CardContent className="p-4 pt-0 grid gap-2">
-                    <div className="text-sm">
-                      <span className="font-medium">Commission: </span>
-                      {offer.commission_type === 'RevShare' 
-                        ? `${offer.commission_percent}% RevShare` 
-                        : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
-                    </div>
-                    {offer.niche && (
-                      <div className="text-sm">
-                        <span className="font-medium">Niche: </span>{offer.niche}
+                    {offer.offer_image && (
+                      <div className="mb-3 rounded-md overflow-hidden h-32 bg-gray-100">
+                        <img 
+                          src={offer.offer_image} 
+                          alt={offer.name} 
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                     )}
-                    {/* Application button will be added in the Find Offers tab of the Affiliate Dashboard */}
+                  
+                    <div className="text-sm flex items-center">
+                      <DollarSign className="h-4 w-4 mr-1 text-green-500" />
+                      <span className="font-medium">Commission: </span>
+                      <span className="ml-1">
+                        {offer.commission_type === 'RevShare' 
+                          ? `${offer.commission_percent}% RevShare` 
+                          : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
+                      </span>
+                    </div>
+                    
+                    {offer.niche && (
+                      <div className="text-sm flex items-center">
+                        <Tag className="h-4 w-4 mr-1 text-blue-500" />
+                        <span className="font-medium">Niche: </span>
+                        <span className="ml-1">{offer.niche}</span>
+                      </div>
+                    )}
+                    
+                    {/* Geo targets display */}
+                    <div className="text-sm flex items-center">
+                      <Globe className="h-4 w-4 mr-1 text-indigo-500" />
+                      <span className="font-medium">Geo: </span>
+                      {formatGeoTargets(offer).length > 0 ? (
+                        <HoverCard openDelay={0} closeDelay={0}>
+                          <HoverCardTrigger asChild>
+                            <Badge variant="outline" className="text-xs cursor-pointer ml-1">
+                              {formatGeoTargets(offer).length} {formatGeoTargets(offer).length === 1 ? 'country' : 'countries'}
+                            </Badge>
+                          </HoverCardTrigger>
+                          <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                            <div className="font-medium mb-2">Targeted GEO's:</div>
+                            <div className="flex flex-wrap gap-1 max-w-[300px]">
+                              {formatGeoTargets(offer).map((geo, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {geo.flag} {geo.code}
+                                </Badge>
+                              ))}
+                            </div>
+                          </HoverCardContent>
+                        </HoverCard>
+                      ) : (
+                        <span className="text-muted-foreground ml-1">Global</span>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))}

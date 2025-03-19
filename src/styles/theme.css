@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -122,3 +123,44 @@
   background-color: hsl(225 6% 15%);
   border-color: hsl(225 6% 14%);
 } 
+
+/* Fix charts container width */
+.recharts-wrapper {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 300px;
+}
+
+.recharts-surface {
+  width: 100% !important;
+  overflow: visible;
+}
+
+/* Ensure responsive layout for dashboard */
+#root {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Ensure table rows maintain readability on hover */
+.hover\:bg-slate-50:hover {
+  background-color: rgba(248, 250, 252, 0.8);
+}
+
+.dark .hover\:bg-slate-800\/50:hover {
+  background-color: rgba(30, 41, 59, 0.5);
+}
+
+/* Make sure the overflow is properly managed in charts */
+.recharts-responsive-container {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 300px;
+}
+
+/* Fix for recharts container in cards */
+.card .recharts-wrapper,
+.card .recharts-responsive-container {
+  overflow: visible;
+}

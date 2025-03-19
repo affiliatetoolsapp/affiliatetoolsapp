@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -196,9 +195,10 @@ export default function MarketplaceOverview() {
   // Render an offer in list view
   const renderOfferListItem = (offer: Offer) => {
     const geoData = formatGeoTargets(offer);
+    const restrictedGeos = offer.restricted_geos || [];
     
     return (
-      <div key={offer.id} className="flex border rounded-md p-4 mb-4 hover:bg-gray-50 transition-colors duration-200">
+      <div key={offer.id} className="flex border rounded-md p-4 mb-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors duration-200">
         {offer.offer_image && (
           <div className="mr-4 w-20 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
             <img 
@@ -215,12 +215,20 @@ export default function MarketplaceOverview() {
               <h3 className="font-medium text-lg">{offer.name}</h3>
               {offer.description && <p className="text-sm text-gray-500 line-clamp-1">{offer.description}</p>}
             </div>
-            {offer.is_featured && (
-              <Badge>
-                <Award className="h-3 w-3 mr-1" />
-                Featured
+            <div className="flex items-center gap-2">
+              {offer.is_featured && (
+                <Badge>
+                  <Award className="h-3 w-3 mr-1" />
+                  Featured
+                </Badge>
+              )}
+              <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                <DollarSign className="h-3 w-3 mr-1" />
+                {offer.commission_type === 'RevShare' 
+                  ? `${offer.commission_percent}% RevShare` 
+                  : `$${offer.commission_amount} ${offer.commission_type.slice(2)}`}
               </Badge>
-            )}
+            </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-4 gap-y-1 mt-2">
@@ -237,6 +245,56 @@ export default function MarketplaceOverview() {
                 <Tag className="h-4 w-4 mr-1 text-blue-500" />
                 <span className="font-medium mr-1">Niche:</span>
                 {offer.niche}
+              </div>
+            )}
+            
+            <div className="flex items-center text-sm">
+              <Globe className="h-4 w-4 mr-1 text-indigo-500" />
+              <span className="font-medium mr-1">Geo:</span>
+              {geoData.length > 0 ? (
+                <HoverCard openDelay={0} closeDelay={0}>
+                  <HoverCardTrigger asChild>
+                    <Badge variant="outline" className="text-xs cursor-pointer ml-1">
+                      {geoData.length} {geoData.length === 1 ? 'country' : 'countries'}
+                    </Badge>
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                    <div className="font-medium mb-2">Targeted GEO's:</div>
+                    <div className="flex flex-wrap gap-1 max-w-[300px]">
+                      {geoData.map((geo, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          {geo.flag} {geo.code}
+                        </Badge>
+                      ))}
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              ) : (
+                <span className="text-muted-foreground ml-1">Global</span>
+              )}
+            </div>
+            
+            {restrictedGeos.length > 0 && (
+              <div className="flex items-center text-sm">
+                <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />
+                <span className="font-medium mr-1">Restricted:</span>
+                <HoverCard openDelay={0} closeDelay={0}>
+                  <HoverCardTrigger asChild>
+                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs cursor-pointer ml-1">
+                      {restrictedGeos.length} {restrictedGeos.length === 1 ? 'country' : 'countries'}
+                    </Badge>
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                    <div className="font-medium mb-2">Restricted GEO's:</div>
+                    <div className="flex flex-wrap gap-1 max-w-[300px]">
+                      {restrictedGeos.map((geo, i) => (
+                        <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs">
+                          {geo}
+                        </Badge>
+                      ))}
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
               </div>
             )}
             

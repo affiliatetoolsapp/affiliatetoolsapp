@@ -236,6 +236,216 @@ export default function OfferBrowser() {
     );
   }
 
+  const renderOfferListItem = (offer: Offer) => {
+    const application = getApplicationStatus(offer.id);
+    const geoData = formatGeoTargets(offer);
+    const restrictedGeos = formatRestrictedGeos(offer);
+    
+    return (
+      <tr key={offer.id} className="hover:bg-muted/50">
+        <td className="p-3">
+          <div className="font-medium">{offer.name}</div>
+          <div className="text-sm text-muted-foreground line-clamp-1">{offer.description}</div>
+        </td>
+        <td className="p-3">
+          {offer.niche ? (
+            <Badge variant="outline" className="text-xs">
+              {offer.niche}
+            </Badge>
+          ) : '-'}
+        </td>
+        <td className="p-3">
+          <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+            <DollarSign className="h-3 w-3 mr-1" />
+            {offer.commission_amount}
+            <Badge variant="outline" className="ml-1 py-0 px-1 text-xs">
+              {offer.commission_type.slice(2)}
+            </Badge>
+          </Badge>
+        </td>
+        <td className="p-3 hide-on-mobile">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1">
+              <div className="text-xs font-medium">Targeted:</div>
+              {geoData.length <= 3 ? (
+                <div className="flex flex-wrap gap-1">
+                  {geoData.map((geo, index) => (
+                    <Badge key={index} variant="outline" className="flex items-center">
+                      {geo.flag} {geo.code}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <HoverCard openDelay={0} closeDelay={0}>
+                  <HoverCardTrigger asChild>
+                    <Badge variant="outline" className="text-xs cursor-pointer">
+                      <Globe className="h-3 w-3 mr-1" />
+                      {geoData.length} GEO's
+                    </Badge>
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
+                    <div className="font-medium mb-2">Targeted GEO's:</div>
+                    <div className="flex flex-wrap gap-1 max-w-[300px]">
+                      {geoData.map((geo, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          {geo.flag} {geo.code}
+                        </Badge>
+                      ))}
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              )}
+            </div>
+            
+            {restrictedGeos && restrictedGeos.length > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="text-xs font-medium text-amber-700">Restricted:</div>
+                <HoverCard openDelay={0} closeDelay={0}>
+                  <HoverCardTrigger asChild>
+                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs cursor-pointer">
+                      {restrictedGeos.length} {restrictedGeos.length === 1 ? 'country' : 'countries'}
+                    </Badge>
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
+                    <div className="font-medium mb-2">Restricted GEO's:</div>
+                    <div className="flex flex-wrap gap-1 max-w-[300px]">
+                      {restrictedGeos.map((geo, i) => (
+                        <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs">
+                          {geo}
+                        </Badge>
+                      ))}
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              </div>
+            )}
+          </div>
+        </td>
+        <td className="p-3">
+          {application?.status === 'approved' ? (
+            <Badge variant="default">Approved</Badge>
+          ) : application?.status === 'pending' ? (
+            <Badge variant="outline">
+              <Clock className="h-3 w-3 mr-1" />
+              Pending
+            </Badge>
+          ) : application?.status === 'rejected' ? (
+            <Badge variant="destructive">Rejected</Badge>
+          ) : (
+            <Badge variant="outline">Not Applied</Badge>
+          )}
+        </td>
+        <td className="p-3">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleViewOffer(offer)}
+            >
+              <Eye className="h-4 w-4 mr-1" />
+              View
+            </Button>
+            
+            {application?.status === 'pending' && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-destructive">
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Cancel
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cancel Application</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to cancel your application for "{offer.name}"? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>No, keep it</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleCancelApplication(application.id)}>
+                      Yes, cancel application
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            
+            {!application && (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="sm">Apply</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Apply to Promote: {offer.name}</DialogTitle>
+                    <DialogDescription>
+                      Tell the advertiser how you plan to promote their offer
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="traffic-source">Traffic Source</Label>
+                      <Input
+                        id="traffic-source"
+                        placeholder="e.g., Email, Social Media, Blog"
+                        value={trafficSource}
+                        onChange={(e) => setTrafficSource(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="notes">Additional Notes (Optional)</Label>
+                      <Input
+                        id="notes"
+                        placeholder="Tell the advertiser more about your promotion plan"
+                        value={applicationNotes}
+                        onChange={(e) => setApplicationNotes(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button 
+                      onClick={() => {
+                        setSelectedOffer(offer);
+                        handleApply();
+                      }}
+                      disabled={!trafficSource || applyToOffer.isPending}
+                    >
+                      {applyToOffer.isPending ? 'Submitting...' : 'Submit Application'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  if (offersLoading || applicationsLoading) {
+    return (
+      <div className="flex justify-center items-center p-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (showOfferDetail && currentOfferId) {
+    const offer = offers?.find(o => o.id === currentOfferId);
+    if (!offer) return null;
+    
+    const applicationStatus = getApplicationStatus(currentOfferId)?.status || null;
+    
+    return (
+      <OfferDetailView 
+        offer={offer} 
+        applicationStatus={applicationStatus} 
+        onBack={handleBackFromDetail} 
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -550,175 +760,7 @@ export default function OfferBrowser() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {filteredOffers?.map(offer => {
-                const application = getApplicationStatus(offer.id);
-                const geoData = formatGeoTargets(offer);
-                const restrictedGeos = formatRestrictedGeos(offer);
-                
-                return (
-                  <tr key={offer.id} className="hover:bg-muted/50">
-                    <td className="p-3">
-                      <div className="font-medium">{offer.name}</div>
-                      <div className="text-sm text-muted-foreground line-clamp-1">{offer.description}</div>
-                    </td>
-                    <td className="p-3">{offer.niche || '-'}</td>
-                    <td className="p-3">
-                      {offer.commission_type === 'RevShare' 
-                        ? `${offer.commission_percent}% Revenue Share` 
-                        : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
-                    </td>
-                    <td className="p-3 hide-on-mobile">
-                      <div className="flex flex-col gap-1">
-                        <div className="text-xs font-medium">Targeted:</div>
-                        <div className="flex flex-wrap gap-1">
-                          {geoData.length <= 3 ? (
-                            geoData.map((geo, index) => (
-                              <Badge key={index} variant="outline" className="flex items-center">
-                                {geo.flag} {geo.code}
-                              </Badge>
-                            ))
-                          ) : (
-                            <HoverCard openDelay={0} closeDelay={0}>
-                              <HoverCardTrigger asChild>
-                                <Badge variant="outline" className="text-xs cursor-pointer">
-                                  <Globe className="h-3 w-3 mr-1" />
-                                  {geoData.length} GEO's
-                                </Badge>
-                              </HoverCardTrigger>
-                              <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
-                                <div className="font-medium mb-2">Targeted GEO's:</div>
-                                <div className="flex flex-wrap gap-1 max-w-[300px]">
-                                  {geoData.map((geo, i) => (
-                                    <Badge key={i} variant="outline" className="text-xs">
-                                      {geo.flag} {geo.code}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </HoverCardContent>
-                            </HoverCard>
-                          )}
-                        </div>
-                        
-                        {restrictedGeos && restrictedGeos.length > 0 && (
-                          <>
-                            <div className="text-xs font-medium mt-1 text-amber-700">Restricted:</div>
-                            <div className="flex flex-wrap gap-1">
-                              {restrictedGeos.slice(0, 2).map((geo, index) => (
-                                <Badge key={`${geo}-${index}`} variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                                  {geo}
-                                </Badge>
-                              ))}
-                              {restrictedGeos.length > 2 && (
-                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                                  +{restrictedGeos.length - 2} more
-                                </Badge>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      {application?.status === 'approved' ? (
-                        <Badge variant="default">Approved</Badge>
-                      ) : application?.status === 'pending' ? (
-                        <Badge variant="outline">
-                          <Clock className="h-3 w-3 mr-1" />
-                          Pending
-                        </Badge>
-                      ) : application?.status === 'rejected' ? (
-                        <Badge variant="destructive">Rejected</Badge>
-                      ) : (
-                        <Badge variant="outline">Not Applied</Badge>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewOffer(offer)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                        
-                        {application?.status === 'pending' && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm" className="text-destructive">
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Cancel
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Cancel Application</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to cancel your application for "{offer.name}"? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>No, keep it</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleCancelApplication(application.id)}>
-                                  Yes, cancel application
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
-                        
-                        {!application && (
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button size="sm">Apply</Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Apply to Promote: {offer.name}</DialogTitle>
-                                <DialogDescription>
-                                  Tell the advertiser how you plan to promote their offer
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="grid gap-4 py-4">
-                                <div className="space-y-2">
-                                  <Label htmlFor="traffic-source">Traffic Source</Label>
-                                  <Input
-                                    id="traffic-source"
-                                    placeholder="e.g., Email, Social Media, Blog"
-                                    value={trafficSource}
-                                    onChange={(e) => setTrafficSource(e.target.value)}
-                                  />
-                                </div>
-                                <div className="space-y-2">
-                                  <Label htmlFor="notes">Additional Notes (Optional)</Label>
-                                  <Input
-                                    id="notes"
-                                    placeholder="Tell the advertiser more about your promotion plan"
-                                    value={applicationNotes}
-                                    onChange={(e) => setApplicationNotes(e.target.value)}
-                                  />
-                                </div>
-                              </div>
-                              <DialogFooter>
-                                <Button 
-                                  onClick={() => {
-                                    setSelectedOffer(offer);
-                                    handleApply();
-                                  }}
-                                  disabled={!trafficSource || applyToOffer.isPending}
-                                >
-                                  {applyToOffer.isPending ? 'Submitting...' : 'Submit Application'}
-                                </Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+              {filteredOffers?.map(offer => renderOfferListItem(offer))}
             </tbody>
           </table>
         </div>

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -155,91 +154,119 @@ export default function OffersList() {
                 {filteredOffers.map((offer) => (
                   <Card key={offer.id} className="overflow-hidden">
                     <CardHeader className="p-4">
-                      <CardTitle className="text-lg">
-                        <button 
-                          onClick={() => handleOfferClick(offer.id)} 
-                          className="hover:underline text-left"
-                        >
-                          {offer.name}
-                        </button>
-                      </CardTitle>
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-lg">
+                          <button 
+                            onClick={() => handleOfferClick(offer.id)} 
+                            className="hover:underline text-left"
+                          >
+                            {offer.name}
+                          </button>
+                        </CardTitle>
+                        <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                          <DollarSign className="h-3 w-3 mr-1" />
+                          {offer.commission_amount}
+                          <Badge variant="outline" className="ml-1 py-0 px-1 text-xs">
+                            {offer.commission_type.slice(2)}
+                          </Badge>
+                        </Badge>
+                      </div>
                       <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
                     </CardHeader>
                     <CardContent className="p-4 pt-0 grid gap-2">
-                      <div className="text-sm flex items-center">
-                        <DollarSign className="h-4 w-4 mr-1 text-green-500" />
-                        <span className="font-medium">Commission: </span>
-                        <span className="ml-1">
-                          {offer.commission_type === 'RevShare' 
-                            ? `${offer.commission_percent}% RevShare` 
-                            : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
-                        </span>
-                      </div>
-                      
-                      {offer.niche && (
-                        <div className="text-sm flex items-center">
-                          <Tag className="h-4 w-4 mr-1 text-blue-500" />
-                          <span className="font-medium">Niche: </span>
-                          <span className="ml-1">{offer.niche}</span>
+                      {offer.offer_image && (
+                        <div className="mb-3 rounded-md overflow-hidden h-32 bg-gray-100">
+                          <img 
+                            src={offer.offer_image} 
+                            alt={offer.name} 
+                            className="w-full h-full object-cover"
+                          />
                         </div>
                       )}
-                      
-                      {/* Geo targets display */}
-                      <div className="text-sm flex items-center">
-                        <Globe className="h-4 w-4 mr-1 text-indigo-500" />
-                        <span className="font-medium">Geo: </span>
-                        {formatGeoTargets(offer).length > 0 ? (
-                          <HoverCard openDelay={0} closeDelay={0}>
-                            <HoverCardTrigger asChild>
-                              <Badge variant="outline" className="text-xs cursor-pointer ml-1">
-                                {formatGeoTargets(offer).length} {formatGeoTargets(offer).length === 1 ? 'country' : 'countries'}
-                              </Badge>
-                            </HoverCardTrigger>
-                            <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
-                              <div className="font-medium mb-2">Targeted GEO's:</div>
-                              <div className="flex flex-wrap gap-1 max-w-[300px]">
-                                {formatGeoTargets(offer).map((geo, i) => (
-                                  <Badge key={i} variant="outline" className="text-xs">
-                                    {geo.flag} {geo.code}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </HoverCardContent>
-                          </HoverCard>
-                        ) : (
-                          <span className="text-muted-foreground ml-1">Global</span>
+                    
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
+                        {offer.niche && (
+                          <div className="text-sm flex items-center">
+                            <Tag className="h-4 w-4 mr-1 text-blue-500" />
+                            <span className="font-medium mr-1">Niche:</span>
+                            <Badge variant="outline" className="text-xs ml-1">
+                              {offer.niche}
+                            </Badge>
+                          </div>
+                        )}
+                        
+                        {/* Geo targets display */}
+                        <div className="text-sm flex items-center">
+                          <Globe className="h-4 w-4 mr-1 text-indigo-500" />
+                          <span className="font-medium mr-1">Geo:</span>
+                          {formatGeoTargets(offer).length > 0 ? (
+                            <HoverCard openDelay={0} closeDelay={0}>
+                              <HoverCardTrigger asChild>
+                                <Badge variant="outline" className="text-xs cursor-pointer ml-1">
+                                  {formatGeoTargets(offer).length} {formatGeoTargets(offer).length === 1 ? 'country' : 'countries'}
+                                </Badge>
+                              </HoverCardTrigger>
+                              <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                                <div className="font-medium mb-2">Targeted GEO's:</div>
+                                <div className="flex flex-wrap gap-1 max-w-[300px]">
+                                  {formatGeoTargets(offer).map((geo, i) => (
+                                    <Badge key={i} variant="outline" className="text-xs">
+                                      {geo.flag} {geo.code}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </HoverCardContent>
+                            </HoverCard>
+                          ) : (
+                            <span className="text-muted-foreground ml-1">Global</span>
+                          )}
+                        </div>
+                        
+                        {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
+                          <div className="text-sm flex items-center">
+                            <Target className="h-4 w-4 mr-1 text-purple-500" />
+                            <span className="font-medium mr-1">Traffic:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {offer.allowed_traffic_sources.slice(0, 2).map(source => (
+                                <Badge key={source} variant="outline" className="text-xs">
+                                  {source}
+                                </Badge>
+                              ))}
+                              {offer.allowed_traffic_sources.length > 2 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{offer.allowed_traffic_sources.length - 2} more
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Restricted geos display */}
+                        {offer.restricted_geos && offer.restricted_geos.length > 0 && (
+                          <div className="text-sm flex items-center">
+                            <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />
+                            <span className="font-medium mr-1">Restricted:</span>
+                            <HoverCard openDelay={0} closeDelay={0}>
+                              <HoverCardTrigger asChild>
+                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs cursor-pointer ml-1">
+                                  {offer.restricted_geos.length} {offer.restricted_geos.length === 1 ? 'country' : 'countries'}
+                                </Badge>
+                              </HoverCardTrigger>
+                              <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                                <div className="font-medium mb-2">Restricted GEO's:</div>
+                                <div className="flex flex-wrap gap-1 max-w-[300px]">
+                                  {offer.restricted_geos.map((geo, i) => (
+                                    <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs">
+                                      {geo}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </HoverCardContent>
+                            </HoverCard>
+                          </div>
                         )}
                       </div>
                       
-                      {/* Restricted geos display */}
-                      {offer.restricted_geos && offer.restricted_geos.length > 0 && (
-                        <div className="text-sm flex items-center">
-                          <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />
-                          <span className="font-medium">Restricted: </span>
-                          <HoverCard openDelay={0} closeDelay={0}>
-                            <HoverCardTrigger asChild>
-                              <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs cursor-pointer ml-1">
-                                {offer.restricted_geos.length} {offer.restricted_geos.length === 1 ? 'country' : 'countries'}
-                              </Badge>
-                            </HoverCardTrigger>
-                            <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
-                              <div className="font-medium mb-2">Restricted GEO's:</div>
-                              <div className="flex flex-wrap gap-1 max-w-[300px]">
-                                {offer.restricted_geos.map((geo, i) => (
-                                  <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs">
-                                    {geo}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </HoverCardContent>
-                          </HoverCard>
-                        </div>
-                      )}
-                      
-                      <div className="text-sm">
-                        <span className="font-medium">Status: </span>
-                        <span className="capitalize">{offer.status}</span>
-                      </div>
                       <div className="mt-2 flex justify-end">
                         <Button variant="outline" size="sm" onClick={() => handleOfferClick(offer.id)}>
                           Manage
@@ -281,9 +308,10 @@ export default function OffersList() {
                       <CardTitle className="text-lg">{offer.name}</CardTitle>
                       <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                         <DollarSign className="h-3 w-3 mr-1" />
-                        {offer.commission_type === 'RevShare' 
-                          ? `${offer.commission_percent}% RevShare` 
-                          : `$${offer.commission_amount} ${offer.commission_type.slice(2)}`}
+                        {offer.commission_amount}
+                        <Badge variant="outline" className="ml-1 py-0 px-1 text-xs">
+                          {offer.commission_type.slice(2)}
+                        </Badge>
                       </Badge>
                     </div>
                     <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
@@ -299,49 +327,43 @@ export default function OffersList() {
                       </div>
                     )}
                   
-                    <div className="text-sm flex items-center">
-                      <DollarSign className="h-4 w-4 mr-1 text-green-500" />
-                      <span className="font-medium">Commission: </span>
-                      <span className="ml-1">
-                        {offer.commission_type === 'RevShare' 
-                          ? `${offer.commission_percent}% RevShare` 
-                          : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
-                      </span>
-                    </div>
-                    
-                    {offer.niche && (
-                      <div className="text-sm flex items-center">
-                        <Tag className="h-4 w-4 mr-1 text-blue-500" />
-                        <span className="font-medium">Niche: </span>
-                        <span className="ml-1">{offer.niche}</span>
-                      </div>
-                    )}
-                    
-                    {/* Geo targets display */}
-                    <div className="text-sm flex items-center">
-                      <Globe className="h-4 w-4 mr-1 text-indigo-500" />
-                      <span className="font-medium">Geo: </span>
-                      {formatGeoTargets(offer).length > 0 ? (
-                        <HoverCard openDelay={0} closeDelay={0}>
-                          <HoverCardTrigger asChild>
-                            <Badge variant="outline" className="text-xs cursor-pointer ml-1">
-                              {formatGeoTargets(offer).length} {formatGeoTargets(offer).length === 1 ? 'country' : 'countries'}
-                            </Badge>
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
-                            <div className="font-medium mb-2">Targeted GEO's:</div>
-                            <div className="flex flex-wrap gap-1 max-w-[300px]">
-                              {formatGeoTargets(offer).map((geo, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  {geo.flag} {geo.code}
-                                </Badge>
-                              ))}
-                            </div>
-                          </HoverCardContent>
-                        </HoverCard>
-                      ) : (
-                        <span className="text-muted-foreground ml-1">Global</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
+                      {offer.niche && (
+                        <div className="text-sm flex items-center">
+                          <Tag className="h-4 w-4 mr-1 text-blue-500" />
+                          <span className="font-medium mr-1">Niche:</span>
+                          <Badge variant="outline" className="text-xs ml-1">
+                            {offer.niche}
+                          </Badge>
+                        </div>
                       )}
+                      
+                      {/* Geo targets display */}
+                      <div className="text-sm flex items-center">
+                        <Globe className="h-4 w-4 mr-1 text-indigo-500" />
+                        <span className="font-medium mr-1">Geo:</span>
+                        {formatGeoTargets(offer).length > 0 ? (
+                          <HoverCard openDelay={0} closeDelay={0}>
+                            <HoverCardTrigger asChild>
+                              <Badge variant="outline" className="text-xs cursor-pointer ml-1">
+                                {formatGeoTargets(offer).length} {formatGeoTargets(offer).length === 1 ? 'country' : 'countries'}
+                              </Badge>
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                              <div className="font-medium mb-2">Targeted GEO's:</div>
+                              <div className="flex flex-wrap gap-1 max-w-[300px]">
+                                {formatGeoTargets(offer).map((geo, i) => (
+                                  <Badge key={i} variant="outline" className="text-xs">
+                                    {geo.flag} {geo.code}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </HoverCardContent>
+                          </HoverCard>
+                        ) : (
+                          <span className="text-muted-foreground ml-1">Global</span>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

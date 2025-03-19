@@ -145,11 +145,11 @@
 
 /* Ensure table rows maintain readability on hover */
 .hover\:bg-slate-50:hover {
-  background-color: rgba(248, 250, 252, 0.8);
+  background-color: rgba(248, 250, 252, 0.5);
 }
 
 .dark .hover\:bg-slate-800\/50:hover {
-  background-color: rgba(30, 41, 59, 0.5);
+  background-color: rgba(30, 41, 59, 0.3);
 }
 
 /* Make sure the overflow is properly managed in charts */
@@ -163,4 +163,25 @@
 .card .recharts-wrapper,
 .card .recharts-responsive-container {
   overflow: visible;
+}
+
+/* Styling for nested badges (commission type) */
+.badge-group {
+  display: inline-flex;
+  align-items: center;
+}
+
+.badge-group > *:not(:first-child) {
+  margin-left: 0.25rem;
+}
+
+/* Hover card for geo data */
+.hover-card-content {
+  z-index: 50;
+  max-width: 350px;
+}
+
+/* HoverCard improvements */
+.hover-card-trigger {
+  cursor: pointer;
 }

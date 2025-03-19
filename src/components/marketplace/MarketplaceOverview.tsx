@@ -19,7 +19,7 @@ export default function MarketplaceOverview() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode<'grid' | 'list'>('grid');
   
   // Fetch both featured offers and advertiser's own offers
   const { data: topOffers, isLoading: featuredLoading } = useQuery({
@@ -224,27 +224,22 @@ export default function MarketplaceOverview() {
               )}
               <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                 <DollarSign className="h-3 w-3 mr-1" />
-                {offer.commission_type === 'RevShare' 
-                  ? `${offer.commission_percent}% RevShare` 
-                  : `$${offer.commission_amount} ${offer.commission_type.slice(2)}`}
+                {offer.commission_amount} 
+                <Badge variant="outline" className="ml-1 py-0 px-1 text-xs">
+                  {offer.commission_type.slice(2)}
+                </Badge>
               </Badge>
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-4 gap-y-1 mt-2">
-            <div className="flex items-center text-sm">
-              <DollarSign className="h-4 w-4 mr-1 text-green-500" />
-              <span className="font-medium mr-1">Commission:</span>
-              {offer.commission_type === 'RevShare' 
-                ? `${offer.commission_percent}% RevShare` 
-                : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
-            </div>
-            
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-x-4 gap-y-2 mt-2">
             {offer.niche && (
               <div className="flex items-center text-sm">
                 <Tag className="h-4 w-4 mr-1 text-blue-500" />
                 <span className="font-medium mr-1">Niche:</span>
-                {offer.niche}
+                <Badge variant="outline" className="text-xs ml-1">
+                  {offer.niche}
+                </Badge>
               </div>
             )}
             
@@ -274,6 +269,40 @@ export default function MarketplaceOverview() {
               )}
             </div>
             
+            {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
+              <div className="flex items-center text-sm">
+                <Target className="h-4 w-4 mr-1 text-purple-500" />
+                <span className="font-medium mr-1">Traffic:</span>
+                {offer.allowed_traffic_sources.length <= 2 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {offer.allowed_traffic_sources.map(source => (
+                      <Badge key={source} variant="outline" className="text-xs">
+                        {source}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <HoverCard openDelay={0} closeDelay={0}>
+                    <HoverCardTrigger asChild>
+                      <Badge variant="outline" className="text-xs cursor-pointer ml-1">
+                        {offer.allowed_traffic_sources.length} sources
+                      </Badge>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                      <div className="font-medium mb-2">Allowed Traffic Sources:</div>
+                      <div className="flex flex-wrap gap-1 max-w-[300px]">
+                        {offer.allowed_traffic_sources.map((source, i) => (
+                          <Badge key={i} variant="outline" className="text-xs">
+                            {source}
+                          </Badge>
+                        ))}
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                )}
+              </div>
+            )}
+            
             {restrictedGeos.length > 0 && (
               <div className="flex items-center text-sm">
                 <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />
@@ -295,16 +324,6 @@ export default function MarketplaceOverview() {
                     </div>
                   </HoverCardContent>
                 </HoverCard>
-              </div>
-            )}
-            
-            {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
-              <div className="flex items-center text-sm">
-                <Target className="h-4 w-4 mr-1 text-purple-500" />
-                <span className="font-medium mr-1">Traffic:</span>
-                {offer.allowed_traffic_sources.length <= 2 
-                  ? offer.allowed_traffic_sources.join(', ') 
-                  : `${offer.allowed_traffic_sources.length} sources`}
               </div>
             )}
           </div>

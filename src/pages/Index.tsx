@@ -1,39 +1,50 @@
 
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { PublicHeader } from '@/components/PublicHeader';
+import { LoadingState } from '@/components/LoadingState';
 
 export default function Index() {
   const { user, session, isLoading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     // Log the current state for debugging
-    console.log('Index page state:', { user, session, isLoading });
+    console.log('Index page state:', { user, session, isLoading, path: location.pathname });
     
-    // Immediate navigation if auth state is already loaded
-    if (!isLoading) {
-      if (session) {
-        console.log('Session authenticated, redirecting to dashboard');
-        navigate('/dashboard');
-      } else if (user) {
-        console.log('User authenticated, redirecting to dashboard');
-        navigate('/dashboard');
-      } else {
-        console.log('No session or user found, redirecting to login');
-        navigate('/login');
+    // If the user is directly accessing the root path and not a sub-route
+    if (location.pathname === '/') {
+      // Only navigate once auth state is determined (no longer loading)
+      if (!isLoading) {
+        if (session) {
+          console.log('Session authenticated, redirecting to dashboard');
+          navigate('/dashboard', { replace: true });
+        } else if (user) {
+          console.log('User authenticated, redirecting to dashboard');
+          navigate('/dashboard', { replace: true });
+        } else {
+          console.log('No session or user found, redirecting to login');
+          navigate('/login', { replace: true });
+        }
       }
     }
-  }, [isLoading, user, session, navigate]);
+  }, [isLoading, user, session, navigate, location.pathname]);
 
-  return (
-    <div className="min-h-screen bg-background">
-      <PublicHeader />
-      <div className="flex flex-col items-center justify-center min-h-screen pt-16">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary mb-4"></div>
-        <p className="text-muted-foreground">Loading application...</p>
+  // If we're on the root path, show loading while determining auth
+  if (location.pathname === '/') {
+    return (
+      <div className="min-h-screen bg-background">
+        <PublicHeader />
+        <div className="flex flex-col items-center justify-center min-h-screen pt-16">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary mb-4"></div>
+          <p className="text-muted-foreground">Loading application...</p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+  
+  // For other paths, let the router handle it
+  return null;
 }

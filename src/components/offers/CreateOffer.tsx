@@ -172,6 +172,14 @@ const CreateOffer = () => {
     setValue('geo_targets', countries);
   };
   
+  // NEW: Handle direct geo targets changes when not using geo commissions
+  const handleGeoTargetsChange = useCallback(
+    (value: string[]) => {
+      setValue('geo_targets', value);
+    },
+    [setValue]
+  );
+  
   // Handle enabling/disabling geo commissions
   const handleGeoCommissionsEnabledChange = (enabled: boolean) => {
     setGeoCommissionsEnabled(enabled);
@@ -209,6 +217,7 @@ const CreateOffer = () => {
         commission_type: data.commission_type,
         status: data.status || 'active',
         allowed_traffic_sources: data.allowed_traffic_sources || [],
+        geo_targets: data.geo_targets || [], // Ensure geo_targets is always an array
         restricted_geos: data.restricted_geos || [],
         offer_image: data.offer_image || null,
         advertiser_id: user.id,
@@ -217,7 +226,6 @@ const CreateOffer = () => {
         // Commission fields based on type and geo settings
         commission_amount: !geoCommissionsEnabled && data.commission_amount ? parseFloat(data.commission_amount) : null,
         commission_percent: !geoCommissionsEnabled && data.commission_percent ? parseFloat(data.commission_percent) : null,
-        geo_targets: geoCommissionsEnabled ? data.geo_targets || [] : []
       };
 
       console.log("Prepared offer data:", offerData);
@@ -579,28 +587,30 @@ const CreateOffer = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="geo_targets">Geographic Targeting (Allowed)</Label>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {watch('geo_targets')?.length 
-                        ? 'These countries are automatically selected from your GEO pricing settings.'
-                        : 'Add countries where this offer is available'}
-                    </p>
-                    {watch('geo_targets')?.length === 0 && (
+                    {geoCommissionsEnabled ? (
+                      <>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          {watch('geo_targets')?.length 
+                            ? 'These countries are automatically selected from your GEO pricing settings.'
+                            : 'Add countries in the commission tab to enable geo targeting'}
+                        </p>
+                        {watch('geo_targets')?.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {watch('geo_targets')?.map((country) => (
+                              <Badge key={country} variant="outline">
+                                {country}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
                       <TagInput
                         placeholder="Add country codes and press Enter (e.g. US, UK, CA)"
                         tags={watch('geo_targets') || []}
-                        onTagsChange={(value) => setValue('geo_targets', value)}
+                        onTagsChange={handleGeoTargetsChange}
                         suggestions={['US', 'UK', 'CA', 'AU', 'DE', 'FR', 'ES', 'IT', 'JP']}
                       />
-                    )}
-                    
-                    {watch('geo_targets')?.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {watch('geo_targets')?.map((country) => (
-                          <Badge key={country} variant="outline">
-                            {country}
-                          </Badge>
-                        ))}
-                      </div>
                     )}
                   </div>
 

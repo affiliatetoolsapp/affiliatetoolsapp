@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,11 +14,34 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel
 } from '@/components/ui/dropdown-menu';
-import { Search, Filter, PlusCircle, MoreVertical, Edit, Trash2, Users, Pause, Play, Grid, List, Globe, Shield, Target } from 'lucide-react';
+import { 
+  Search, 
+  Filter, 
+  PlusCircle, 
+  MoreVertical, 
+  Edit, 
+  Trash2, 
+  Users, 
+  Pause, 
+  Play, 
+  Grid, 
+  List, 
+  SortAsc, 
+  SortDesc,
+  ArrowDownAZ,
+  ArrowUpAZ,
+  CalendarClock
+} from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AffiliateApprovals from '@/components/offers/AffiliateApprovals';
+
+type SortField = 'created_at' | 'name' | 'status';
+type SortOrder = 'asc' | 'desc';
+type FilterOption = 'all' | 'active' | 'inactive' | 'paused';
 
 export default function OfferManagement() {
   const { user } = useAuth();
@@ -27,6 +50,10 @@ export default function OfferManagement() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [sortField, setSortField] = useState<SortField>('created_at');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [filterOption, setFilterOption] = useState<FilterOption>('all');
+  const filterMenuRef = useRef<HTMLButtonElement>(null);
   
   // Get advertiser's offers
   const { data: offers, isLoading: offersLoading } = useQuery({
@@ -89,12 +116,45 @@ export default function OfferManagement() {
     }
   }, [activeTab, refetchApplications]);
   
-  // Filter offers based on search term
-  const filteredOffers = offers?.filter(offer => 
-    offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    offer.niche?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter offers based on search term, sort options, and filter options
+  const filteredAndSortedOffers = offers?.filter(offer => {
+    // First apply text search filter
+    const matchesSearch = 
+      offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      offer.niche?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Then apply status filter
+    const matchesFilter = 
+      filterOption === 'all' ||
+      (filterOption === 'active' && offer.status === 'active') ||
+      (filterOption === 'inactive' && offer.status === 'inactive') ||
+      (filterOption === 'paused' && offer.status === 'paused');
+    
+    return matchesSearch && matchesFilter;
+  })
+  .sort((a, b) => {
+    // Sort based on selected field and order
+    if (sortField === 'created_at') {
+      const dateA = new Date(a.created_at || 0).getTime();
+      const dateB = new Date(b.created_at || 0).getTime();
+      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+    }
+    
+    if (sortField === 'name') {
+      return sortOrder === 'asc' 
+        ? a.name.localeCompare(b.name)
+        : b.name.localeCompare(a.name);
+    }
+    
+    if (sortField === 'status') {
+      return sortOrder === 'asc'
+        ? (a.status || '').localeCompare(b.status || '')
+        : (b.status || '').localeCompare(a.status || '');
+    }
+    
+    return 0;
+  });
   
   // Mutation to update offer status
   const updateOfferStatus = useMutation({
@@ -149,7 +209,7 @@ export default function OfferManagement() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredOffers?.map((offer) => (
+          {filteredAndSortedOffers?.map((offer) => (
             <TableRow key={offer.id}>
               <TableCell className="font-medium">{offer.name}</TableCell>
               <TableCell>{offer.niche || '-'}</TableCell>
@@ -203,6 +263,27 @@ export default function OfferManagement() {
     </div>
   );
   
+  // Get sort icon based on current sort configuration
+  const getSortIcon = () => {
+    if (sortField === 'created_at') {
+      return sortOrder === 'desc' ? <CalendarClock className="h-4 w-4" /> : <CalendarClock className="h-4 w-4" />;
+    }
+    if (sortField === 'name') {
+      return sortOrder === 'asc' ? <ArrowDownAZ className="h-4 w-4" /> : <ArrowUpAZ className="h-4 w-4" />;
+    }
+    return sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />;
+  };
+  
+  // Get filter label based on current filter
+  const getFilterLabel = () => {
+    switch (filterOption) {
+      case 'active': return 'Active Only';
+      case 'inactive': return 'Inactive Only';
+      case 'paused': return 'Paused Only';
+      default: return 'All Offers';
+    }
+  };
+  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -234,9 +315,117 @@ export default function OfferManagement() {
         </div>
         
         <div className="flex items-center space-x-2">
-          <Button variant="outline" size="icon">
-            <Filter className="h-4 w-4" />
-          </Button>
+          {/* Filter dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button ref={filterMenuRef} variant="outline" className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                <span className="hidden sm:inline">{getFilterLabel()}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+              <DropdownMenuItem 
+                onClick={() => setFilterOption('all')}
+                className={filterOption === 'all' ? "bg-accent" : ""}
+              >
+                All Offers
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setFilterOption('active')}
+                className={filterOption === 'active' ? "bg-accent" : ""}
+              >
+                Active Only
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setFilterOption('inactive')}
+                className={filterOption === 'inactive' ? "bg-accent" : ""}
+              >
+                Inactive Only
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setFilterOption('paused')}
+                className={filterOption === 'paused' ? "bg-accent" : ""}
+              >
+                Paused Only
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
+          {/* Sort dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                {getSortIcon()}
+                <span className="hidden sm:inline">Sort</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+              <DropdownMenuItem 
+                onClick={() => {
+                  setSortField('created_at');
+                  setSortOrder('desc');
+                }}
+                className={sortField === 'created_at' && sortOrder === 'desc' ? "bg-accent" : ""}
+              >
+                <CalendarClock className="mr-2 h-4 w-4" />
+                Newest First
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => {
+                  setSortField('created_at');
+                  setSortOrder('asc');
+                }}
+                className={sortField === 'created_at' && sortOrder === 'asc' ? "bg-accent" : ""}
+              >
+                <CalendarClock className="mr-2 h-4 w-4" />
+                Oldest First
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => {
+                  setSortField('name');
+                  setSortOrder('asc');
+                }}
+                className={sortField === 'name' && sortOrder === 'asc' ? "bg-accent" : ""}
+              >
+                <ArrowDownAZ className="mr-2 h-4 w-4" />
+                Name (A-Z)
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => {
+                  setSortField('name');
+                  setSortOrder('desc');
+                }}
+                className={sortField === 'name' && sortOrder === 'desc' ? "bg-accent" : ""}
+              >
+                <ArrowUpAZ className="mr-2 h-4 w-4" />
+                Name (Z-A)
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => {
+                  setSortField('status');
+                  setSortOrder('asc');
+                }}
+                className={sortField === 'status' && sortOrder === 'asc' ? "bg-accent" : ""}
+              >
+                <SortAsc className="mr-2 h-4 w-4" />
+                Status (A-Z)
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => {
+                  setSortField('status');
+                  setSortOrder('desc');
+                }}
+                className={sortField === 'status' && sortOrder === 'desc' ? "bg-accent" : ""}
+              >
+                <SortDesc className="mr-2 h-4 w-4" />
+                Status (Z-A)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           
           <div className="flex items-center border rounded-md">
             <Button 
@@ -275,10 +464,10 @@ export default function OfferManagement() {
             <div className="flex justify-center p-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
-          ) : filteredOffers?.length ? (
+          ) : filteredAndSortedOffers?.length ? (
             viewMode === 'grid' ? (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {filteredOffers.map((offer) => (
+                {filteredAndSortedOffers.map((offer) => (
                   <Card key={offer.id} className="overflow-hidden">
                     <CardHeader className="p-4">
                       <CardTitle className="text-lg">{offer.name}</CardTitle>

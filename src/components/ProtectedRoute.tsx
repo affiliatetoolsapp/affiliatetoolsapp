@@ -14,7 +14,9 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   const { user, session, isLoading } = useAuth();
   const location = useLocation();
   const [showLoading, setShowLoading] = useState(true);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
   
+  // Debug logging
   console.log('ProtectedRoute:', { 
     isLoading, 
     hasUser: !!user, 
@@ -28,35 +30,38 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     const timeoutId = setTimeout(() => {
       setShowLoading(false);
       console.log('Loading timeout reached, proceeding anyway');
-    }, 2000);
+    }, 1500); // Reduced from 2000ms to 1500ms
     
-    return () => clearTimeout(timeoutId);
+    const maxWaitTimeoutId = setTimeout(() => {
+      setLoadingTimeout(true);
+      console.log('Maximum wait time reached, forcing proceed');
+    }, 3000); // Hard limit of 3 seconds
+    
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(maxWaitTimeoutId);
+    };
   }, []);
   
-  // If there's no session, redirect to login
-  if (!session && !isLoading) {
+  // Handle no session case
+  if (!isLoading && !session) {
     console.log('ProtectedRoute: No session, redirecting to login');
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
   // If we're still in initial loading state and within timeout, show loading
-  if (isLoading && showLoading) {
+  if (isLoading && showLoading && !loadingTimeout) {
     console.log('ProtectedRoute: Still loading, showing loading state');
     return <LoadingState />;
   }
   
-  // If we have a session but no user data, proceed anyway after loading timeout
-  if (session && !user) {
-    console.log('ProtectedRoute: Session exists but no user data yet, proceeding anyway');
-    return <>{children}</>;
-  }
-  
-  // Role-based access control (only if we have user data)
+  // Check role-based access if we have user data
   if (user && allowedRoles && !allowedRoles.includes(user.role as UserRole)) {
     console.log('ProtectedRoute: User role not authorized, redirecting to unauthorized');
     return <Navigate to="/unauthorized" replace />;
   }
   
+  // Either the user is authorized or we've hit a timeout
   console.log('ProtectedRoute: Authentication and authorization passed, rendering children');
   return <>{children}</>;
 }

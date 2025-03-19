@@ -28,8 +28,16 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
   }
   
   // Check role-based access if roles are specified
-  if (user && allowedRoles && !allowedRoles.includes(user.role as UserRole)) {
-    return <Navigate to="/unauthorized" replace />;
+  if (allowedRoles && allowedRoles.length > 0) {
+    // If we don't have user data yet but have a session, show loading
+    if (!user) {
+      return <LoadingState />;
+    }
+    
+    // Check if user has one of the allowed roles
+    if (!allowedRoles.includes(user.role as UserRole)) {
+      return <Navigate to="/unauthorized" replace />;
+    }
   }
   
   // User is authorized - render the children

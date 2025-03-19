@@ -24,7 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   
-  // Simple, reliable user profile fetching
+  // Fetch user profile function
   async function fetchUserProfile(userId: string): Promise<User | null> {
     if (!userId) return null;
     
@@ -50,35 +50,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Initialize auth state - simple, focused approach
+  // Initialize auth state
   useEffect(() => {
     console.log('AuthProvider: Setting up auth state');
-    let isMounted = true;
+    let mounted = true;
     
-    async function initializeAuth() {
+    // Handle session and user initialization
+    async function initialize() {
       try {
+        setIsLoading(true);
+        
         // Get current session
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         
-        if (!isMounted) return;
+        if (!mounted) return;
         
-        // Update session state immediately
+        console.log('Initial auth check:', currentSession ? 'Session found' : 'No session');
+        
+        // Update session state
         setSession(currentSession);
         
-        if (currentSession) {
-          console.log('Auth: Initial session found for user ID:', currentSession.user.id);
-          
-          // Fetch user profile for existing session
+        // If we have a session, fetch the user profile
+        if (currentSession?.user) {
           const profile = await fetchUserProfile(currentSession.user.id);
-          
-          if (isMounted) {
+          if (mounted) {
             setUser(profile);
           }
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
       } finally {
-        if (isMounted) {
+        if (mounted) {
           setIsLoading(false);
         }
       }
@@ -87,40 +89,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        if (!isMounted) return;
+        if (!mounted) return;
         
         console.log('Auth state change event:', event, newSession ? 'with session' : 'no session');
         
-        // Update session state immediately
+        // Always update the session state immediately
         setSession(newSession);
         
-        // Handle sign out event
-        if (event === 'SIGNED_OUT') {
-          setUser(null);
-          setIsLoading(false);
-          return;
-        }
-        
-        // Fetch user profile for sign in and other relevant events
-        if (newSession && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
-          setIsLoading(true);
-          
-          const profile = await fetchUserProfile(newSession.user.id);
-          
-          if (isMounted) {
-            setUser(profile);
-            setIsLoading(false);
+        // Handle auth events
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          if (newSession) {
+            setIsLoading(true);
+            const profile = await fetchUserProfile(newSession.user.id);
+            if (mounted) {
+              setUser(profile);
+              setIsLoading(false);
+            }
           }
+        } else if (event === 'SIGNED_OUT') {
+          // Clear local state on sign out
+          setUser(null);
         }
       }
     );
-
+    
     // Initialize auth
-    initializeAuth();
+    initialize();
 
+    // Cleanup function
     return () => {
       console.log('Auth: Cleaning up auth provider');
-      isMounted = false;
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -152,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       throw error;
     } finally {
-      // We'll let the auth state change listener update the loading state
+      setIsLoading(false);
     }
   }
 

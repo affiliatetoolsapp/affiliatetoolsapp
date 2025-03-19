@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@/types';
@@ -52,13 +53,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('AuthProvider: Setting up auth state');
     let isMounted = true;
     
-    // Shorter timeout for better user experience
+    // Set a short timeout to prevent prolonged loading states
     const loadingTimeout = setTimeout(() => {
       if (isMounted && isLoading) {
         console.log('Auth loading timeout reached, setting isLoading to false');
         setIsLoading(false);
       }
-    }, 3000); // Reduced from 10 seconds to 3 seconds
+    }, 2000); // Further reduced from 3 seconds to 2 seconds
 
     // Get initial session
     (async () => {
@@ -89,17 +90,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       if (!isMounted) return;
       
-      console.log('Auth state change event:', event, session ? 'with session' : 'no session');
+      console.log('Auth state change event:', event, currentSession ? 'with session' : 'no session');
       
-      setSession(session);
+      // Update session state immediately to prevent stale state
+      setSession(currentSession);
       
-      if (session?.user) {
+      if (currentSession?.user) {
         console.log('Auth change: Session found, fetching user profile');
         try {
-          const profile = await fetchUserProfile(session.user.id);
+          const profile = await fetchUserProfile(currentSession.user.id);
           if (!profile) {
             console.warn('Profile fetch failed but session exists');
           }
@@ -111,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
       }
       
+      // Always finish loading after auth state change
       setIsLoading(false);
     });
 

@@ -26,10 +26,10 @@ export default function OffersPage() {
   
   useEffect(() => {
     // If user is affiliate and tries to create an offer, redirect to the offers list
-    if (id === 'create' && user?.role === 'affiliate') {
+    if (!isLoading && id === 'create' && user?.role === 'affiliate') {
       navigate('/offers');
     }
-  }, [id, user, navigate]);
+  }, [id, user, navigate, isLoading]);
   
   // Log current page and parameters
   useEffect(() => {
@@ -39,11 +39,11 @@ export default function OffersPage() {
     console.log("[OffersPage] Session exists:", !!session);
   }, [id, user, isLoading, session]);
 
-  // Fetch application status if this is an affiliate viewing an offer
+  // Fetch offer data only when auth state is determined and id is available
   const { data: offerData, isLoading: isOfferLoading } = useQuery({
-    queryKey: ['offer', id],
+    queryKey: ['offer', id, user?.id],
     queryFn: async () => {
-      if (!id || !user) return null;
+      if (!id || !session) return null;
       
       const { data, error } = await supabase
         .from('offers')
@@ -58,7 +58,7 @@ export default function OffersPage() {
       
       return data;
     },
-    enabled: !!id && !!user,
+    enabled: !!id && !!session && !isLoading,
   });
 
   // Fetch application status for affiliate
@@ -80,7 +80,7 @@ export default function OffersPage() {
       
       return data;
     },
-    enabled: !!id && !!user && user.role === 'affiliate',
+    enabled: !!id && !!user && user.role === 'affiliate' && !isLoading,
   });
   
   // Update application status when data changes
@@ -92,57 +92,58 @@ export default function OffersPage() {
     }
   }, [applicationData]);
   
-  // Show loading state while auth is being determined
+  // During initial auth state determination, show loading state
   if (isLoading) {
     console.log("[OffersPage] Showing loading state while auth is being determined");
     return <LoadingState />;
   }
   
-  // If authentication has completed but we don't have a user, 
-  // Let the ProtectedRoute component handle redirection to login
-  if (!isLoading && !user) {
-    console.log("[OffersPage] No user after auth loading complete");
+  // Handle special routes that require a logged-in user
+  if (id === 'create' && (user?.role === 'advertiser' || user?.role === 'admin')) {
+    console.log("[OffersPage] Rendering CreateOffer component");
     return (
-      <ProtectedRoute>
-        <LoadingState />
+      <ProtectedRoute allowedRoles={['advertiser', 'admin']}>
+        <CreateOffer />
       </ProtectedRoute>
     );
   }
   
-  // If we have an ID with "create", we show the creation form (only for advertisers and admins)
-  if (id === 'create' && (user?.role === 'advertiser' || user?.role === 'admin')) {
-    console.log("[OffersPage] Rendering CreateOffer component");
-    return <CreateOffer />;
-  }
-  
-  // If we have "approve" in the URL, show the approval interface (only for advertisers)
   if (id === 'approve' && user?.role === 'advertiser') {
     console.log("[OffersPage] Loading approval interface for advertiser");
-    return <AffiliateApprovals />;
+    return (
+      <ProtectedRoute allowedRoles={['advertiser']}>
+        <AffiliateApprovals />
+      </ProtectedRoute>
+    );
   }
   
-  // If we have "postback" in the URL, show the postback setup interface (only for affiliates)
   if (id === 'postback' && user?.role === 'affiliate') {
     console.log("[OffersPage] Loading postback setup interface for affiliate");
-    return <AffiliatePostbackSetup />;
+    return (
+      <ProtectedRoute allowedRoles={['affiliate']}>
+        <AffiliatePostbackSetup />
+      </ProtectedRoute>
+    );
   }
   
-  // If we have "postback" in the URL, show the postback setup interface (only for advertisers)
   if (id === 'postback' && user?.role === 'advertiser') {
     console.log("[OffersPage] Loading postback setup interface for advertiser");
-    return <AdvertiserPostbackSetup />;
+    return (
+      <ProtectedRoute allowedRoles={['advertiser']}>
+        <AdvertiserPostbackSetup />
+      </ProtectedRoute>
+    );
   }
   
-  // Show loading state while fetching offer data
+  // Show loading state while fetching offer data for a specific offer
   if (id && isOfferLoading) {
     console.log("[OffersPage] Showing loading state while fetching offer data");
     return <LoadingState />;
   }
   
-  // If we have an ID, we show the offer details based on user role
+  // Handle specific offer view with proper role-based components
   if (id && offerData) {
-    // For affiliates, show the enhanced OfferDetailView
-    if (user.role === 'affiliate') {
+    if (user?.role === 'affiliate') {
       console.log("[OffersPage] Showing affiliate offer detail view with status:", applicationStatus);
       // Convert offerData to Offer type explicitly to ensure type compatibility
       const offer: Offer = {
@@ -151,45 +152,33 @@ export default function OffersPage() {
       };
       
       return (
-        <OfferDetailView 
-          offer={offer} 
-          applicationStatus={applicationStatus} 
-          onBack={() => navigate('/offers')} 
-        />
+        <ProtectedRoute allowedRoles={['affiliate']}>
+          <OfferDetailView 
+            offer={offer} 
+            applicationStatus={applicationStatus} 
+            onBack={() => navigate('/offers')} 
+          />
+        </ProtectedRoute>
       );
     }
     
-    // For advertisers and admins, continue using the existing OfferDetails component
-    return <OfferDetails offerId={id} />;
+    return (
+      <ProtectedRoute>
+        <OfferDetails offerId={id} />
+      </ProtectedRoute>
+    );
   }
   
-  // For the main offers page, we show different views based on the user role
-  if (user?.role === 'affiliate') {
-    console.log("[OffersPage] Loading affiliate offers view");
-    return (
-      <ProtectedRoute allowedRoles={['affiliate']}>
+  // For the main offers page, render role-specific views
+  return (
+    <ProtectedRoute>
+      {user?.role === 'affiliate' ? (
         <AffiliateOffers />
-      </ProtectedRoute>
-    );
-  }
-  
-  if (user?.role === 'advertiser') {
-    console.log("[OffersPage] Loading advertiser offer management");
-    return (
-      <ProtectedRoute allowedRoles={['advertiser']}>
+      ) : user?.role === 'advertiser' ? (
         <OfferManagement />
-      </ProtectedRoute>
-    );
-  }
-  
-  if (user?.role === 'admin') {
-    return (
-      <ProtectedRoute allowedRoles={['admin']}>
+      ) : (
         <OffersList />
-      </ProtectedRoute>
-    );
-  }
-  
-  // As a fallback, show a loading state
-  return <LoadingState />;
+      )}
+    </ProtectedRoute>
+  );
 }

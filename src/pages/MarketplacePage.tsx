@@ -19,26 +19,16 @@ export default function MarketplacePage() {
     });
   }, [isLoading, user, session]);
   
-  // Show loading state while auth is being determined
+  // During initial load, show loading state
   if (isLoading) {
     console.log('[MarketplacePage] Auth is still loading, showing loading state');
     return <LoadingState />;
   }
   
-  // If authentication has completed but we don't have a user,
-  // Let the ProtectedRoute component handle redirection to login
-  if (!isLoading && !user) {
-    console.log('[MarketplacePage] No user after auth loading complete');
-    return (
-      <ProtectedRoute>
-        <LoadingState />
-      </ProtectedRoute>
-    );
-  }
-  
-  // Once we have the user, show the appropriate content based on role
+  // Session check will be handled by ProtectedRoute
   return (
     <ProtectedRoute>
+      {/* If we have a user, render role-specific content */}
       {user?.role === 'affiliate' ? (
         <OfferBrowser />
       ) : (

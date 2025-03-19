@@ -14,9 +14,9 @@ export default function Index() {
     // Log the current state for debugging
     console.log('Index page state:', { user, session, isLoading, path: location.pathname });
     
-    // Only attempt navigation when on the exact root path
+    // ONLY handle navigation for the exact root path - this prevents redirect issues on refresh
     if (location.pathname === '/') {
-      // Only navigate once auth state is determined (no longer loading)
+      // Wait until auth state is determined before redirecting
       if (!isLoading) {
         if (session) {
           console.log('Session authenticated, redirecting to dashboard');

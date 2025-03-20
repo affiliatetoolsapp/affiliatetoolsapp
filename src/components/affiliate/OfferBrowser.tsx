@@ -15,10 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ArrowUpRight, Clock, Eye, Filter, Grid, List, MapPin, Search, Trash2, Award, Tag, Target, DollarSign, Globe, AlertTriangle } from 'lucide-react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import OfferDetailView from './OfferDetailView';
 
 export default function OfferBrowser() {
@@ -212,35 +210,24 @@ export default function OfferBrowser() {
     setCurrentOfferId(null);
   };
 
-  // Loading state
-  if (offersLoading || applicationsLoading) {
-    return (
-      <div className="flex justify-center items-center p-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  // Get commission range if there are geo-specific commissions
+  const getCommissionRange = (offer: Offer) => {
+    if (!offer.geo_commissions || !Array.isArray(offer.geo_commissions) || offer.geo_commissions.length <= 1) {
+      return null;
+    }
 
-  // Show offer detail view if an offer is selected
-  if (showOfferDetail && currentOfferId) {
-    const offer = offers?.find(o => o.id === currentOfferId);
-    if (!offer) return null;
+    const amounts = offer.geo_commissions.map(gc => parseFloat(gc.amount));
+    const min = Math.min(...amounts);
+    const max = Math.max(...amounts);
     
-    const applicationStatus = getApplicationStatus(currentOfferId)?.status || null;
-    
-    return (
-      <OfferDetailView 
-        offer={offer} 
-        applicationStatus={applicationStatus} 
-        onBack={handleBackFromDetail} 
-      />
-    );
-  }
+    return { min, max };
+  };
 
   const renderOfferListItem = (offer: Offer) => {
     const application = getApplicationStatus(offer.id);
     const geoData = formatGeoTargets(offer);
     const restrictedGeos = formatRestrictedGeos(offer);
+    const commissionRange = getCommissionRange(offer);
     
     return (
       <tr key={offer.id} className="hover:bg-muted/50">
@@ -256,13 +243,17 @@ export default function OfferBrowser() {
           ) : '-'}
         </td>
         <td className="p-3">
-          <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-            <DollarSign className="h-3 w-3 mr-1" />
-            {offer.commission_amount}
-            <Badge variant="outline" className="ml-1 py-0 px-1 text-xs">
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+              <DollarSign className="h-3 w-3 mr-1" />
+              {commissionRange 
+                ? `${commissionRange.min}-${commissionRange.max}` 
+                : offer.commission_amount}
+            </Badge>
+            <Badge variant="outline" className="text-xs">
               {offer.commission_type.slice(2)}
             </Badge>
-          </Badge>
+          </div>
         </td>
         <td className="p-3 hide-on-mobile">
           <div className="flex flex-col gap-1">
@@ -297,6 +288,30 @@ export default function OfferBrowser() {
                 </HoverCard>
               )}
             </div>
+            
+            {/* Traffic sources display with hover */}
+            {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="text-xs font-medium">Traffic:</div>
+                <HoverCard openDelay={0} closeDelay={0}>
+                  <HoverCardTrigger asChild>
+                    <Badge variant="outline" className="text-xs cursor-pointer">
+                      {offer.allowed_traffic_sources.length} {offer.allowed_traffic_sources.length === 1 ? 'source' : 'sources'}
+                    </Badge>
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
+                    <div className="font-medium mb-2">Traffic Sources:</div>
+                    <div className="flex flex-wrap gap-1 max-w-[300px]">
+                      {offer.allowed_traffic_sources.map((source, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          {source}
+                        </Badge>
+                      ))}
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              </div>
+            )}
             
             {restrictedGeos && restrictedGeos.length > 0 && (
               <div className="flex items-center gap-1">
@@ -519,6 +534,7 @@ export default function OfferBrowser() {
             const application = getApplicationStatus(offer.id);
             const geoData = formatGeoTargets(offer);
             const restrictedGeos = formatRestrictedGeos(offer);
+            const commissionRange = getCommissionRange(offer);
             
             return (
               <Card key={offer.id} className="overflow-hidden">
@@ -536,12 +552,16 @@ export default function OfferBrowser() {
                 </CardHeader>
                 
                 <CardContent className="p-4 pt-0 space-y-3">
-                  <div className="text-sm flex items-center">
-                    <DollarSign className="h-4 w-4 mr-1 text-green-500" />
-                    <span className="font-medium mr-1">Commission:</span>
-                    {offer.commission_type === 'RevShare' 
-                      ? `${offer.commission_percent}% Revenue Share` 
-                      : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
+                  <div className="text-sm flex items-center gap-2">
+                    <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                      <DollarSign className="h-3 w-3 mr-1" />
+                      {commissionRange 
+                        ? `${commissionRange.min}-${commissionRange.max}` 
+                        : offer.commission_amount}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {offer.commission_type.slice(2)}
+                    </Badge>
                   </div>
                   
                   {offer.niche && (
@@ -552,7 +572,7 @@ export default function OfferBrowser() {
                     </div>
                   )}
                   
-                  {/* Targeted Geos Section - Updated with fixed hover */}
+                  {/* Targeted Geos Section */}
                   <div className="text-sm">
                     <div className="flex items-center mb-1">
                       <Globe className="h-4 w-4 mr-1 text-indigo-500" />
@@ -567,7 +587,7 @@ export default function OfferBrowser() {
                           </Badge>
                         ))
                       ) : (
-                        // If more than 3 countries, show globe icon with hover - fixed implementation
+                        // If more than 3 countries, show globe icon with hover
                         <HoverCard openDelay={0} closeDelay={0}>
                           <HoverCardTrigger asChild>
                             <Badge variant="outline" className="text-xs cursor-pointer">
@@ -590,7 +610,44 @@ export default function OfferBrowser() {
                     </div>
                   </div>
                   
-                  {/* Restricted Geos Section - Keep existing code */}
+                  {/* Traffic Sources - Updated with hover functionality */}
+                  {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
+                    <div className="text-sm">
+                      <div className="flex items-center">
+                        <Target className="h-4 w-4 mr-1 text-purple-500" />
+                        <span className="font-medium">Allowed Traffic:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 ml-5 mt-1">
+                        {offer.allowed_traffic_sources.length <= 2 ? (
+                          // Display all sources if 2 or fewer
+                          offer.allowed_traffic_sources.map(source => (
+                            <Badge key={source} variant="outline">{source}</Badge>
+                          ))
+                        ) : (
+                          // Use hover card for more than 2 sources
+                          <HoverCard openDelay={0} closeDelay={0}>
+                            <HoverCardTrigger asChild>
+                              <Badge variant="outline" className="text-xs cursor-pointer">
+                                {offer.allowed_traffic_sources.length} traffic sources
+                              </Badge>
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
+                              <div className="font-medium mb-2">Traffic Sources:</div>
+                              <div className="flex flex-wrap gap-1 max-w-[300px]">
+                                {offer.allowed_traffic_sources.map((source, i) => (
+                                  <Badge key={i} variant="outline" className="text-xs">
+                                    {source}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </HoverCardContent>
+                          </HoverCard>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Restricted Geos Section */}
                   {restrictedGeos && restrictedGeos.length > 0 && (
                     <div className="text-sm">
                       <div className="flex items-center mb-1">
@@ -603,21 +660,6 @@ export default function OfferBrowser() {
                             <MapPin className="h-3 w-3 mr-1" />
                             {geo}
                           </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Traffic Sources - Keep existing code */}
-                  {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
-                    <div className="text-sm">
-                      <div className="flex items-center">
-                        <Target className="h-4 w-4 mr-1 text-purple-500" />
-                        <span className="font-medium">Allowed Traffic:</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1 ml-5 mt-1">
-                        {offer.allowed_traffic_sources.map(source => (
-                          <Badge key={source} variant="outline">{source}</Badge>
                         ))}
                       </div>
                     </div>

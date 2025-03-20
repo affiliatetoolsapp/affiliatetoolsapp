@@ -54,7 +54,7 @@ const countryCodes = [
 ];
 
 // Convert the array to a dictionary format for easy lookup
-const COUNTRY_CODES: { [key: string]: string } = {};
+const COUNTRY_CODES = {};
 countryCodes.forEach(country => {
   COUNTRY_CODES[country.code] = country.name;
 });

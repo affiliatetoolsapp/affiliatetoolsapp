@@ -11,7 +11,7 @@ import { X } from 'lucide-react';
 
 interface RejectedApplicationsProps {
   applications: AffiliateOfferWithOffer[];
-  viewMode: 'grid' | 'list';
+  viewMode: 'grid' | 'list' | 'table';
   isLoading: boolean;
 }
 

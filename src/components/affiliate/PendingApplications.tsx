@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 interface PendingApplicationsProps {
   applications: AffiliateOfferWithOffer[];
-  viewMode: 'grid' | 'list';
+  viewMode: 'grid' | 'list' | 'table';
   isLoading: boolean;
   onCancelApplication: (applicationId: string) => void;
 }

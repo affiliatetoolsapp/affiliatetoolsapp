@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface TrackingLinksTabProps {
   links: TrackingLinkWithOffer[];
-  viewMode: 'grid' | 'list';
+  viewMode: 'grid' | 'list' | 'table';
   isLoading: boolean;
   onDeleteLink: (linkId: string) => void;
   onViewOfferDetails: (offerId: string) => void;

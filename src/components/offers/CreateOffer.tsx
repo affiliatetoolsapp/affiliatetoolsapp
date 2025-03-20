@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -878,3 +879,233 @@ export default function CreateOffer({ initialData }: CreateOfferProps) {
                               {countryOptions.map((country) => (
                                 <CommandItem
                                   key={country.code}
+                                  value={country.code}
+                                  onSelect={() => toggleRestrictedCountry(country.code)}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      restrictedCountries.includes(country.code)
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    )}
+                                  />
+                                  {country.name} ({country.code})
+                                </CommandItem>
+                              ))}
+                            </ScrollArea>
+                          </CommandGroup>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {restrictedCountries.map((code) => {
+                        const country = countryOptions.find(c => c.code === code);
+                        return (
+                          <Badge key={code} variant="outline" className="flex items-center gap-1 border-destructive text-destructive">
+                            {country?.name || code}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 p-0 ml-1 text-destructive"
+                              onClick={() => toggleRestrictedCountry(code)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {restrictedCountries.length === 0 
+                        ? "No geographical restrictions" 
+                        : `Traffic from these ${restrictedCountries.length} countries will be blocked`}
+                    </p>
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="allowed_traffic_sources"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Allowed Traffic Sources</FormLabel>
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          {trafficSourceOptions.map((source) => (
+                            <div key={source.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`traffic-${source.id}`}
+                                checked={field.value?.includes(source.id)}
+                                onCheckedChange={(checked) => {
+                                  const updatedValue = checked
+                                    ? [...(field.value || []), source.id]
+                                    : (field.value || []).filter((v) => v !== source.id);
+                                  field.onChange(updatedValue);
+                                }}
+                              />
+                              <label
+                                htmlFor={`traffic-${source.id}`}
+                                className="text-sm font-medium leading-none cursor-pointer"
+                              >
+                                {source.label}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                        <FormDescription>
+                          Select allowed traffic sources (leave empty to allow all)
+                        </FormDescription>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="restricted_promotion_methods"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Restricted Promotion Methods</FormLabel>
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          {restrictedPromotionOptions.map((method) => (
+                            <div key={method.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`method-${method.id}`}
+                                checked={field.value?.includes(method.id)}
+                                onCheckedChange={(checked) => {
+                                  const updatedValue = checked
+                                    ? [...(field.value || []), method.id]
+                                    : (field.value || []).filter((v) => v !== method.id);
+                                  field.onChange(updatedValue);
+                                }}
+                              />
+                              <label
+                                htmlFor={`method-${method.id}`}
+                                className="text-sm font-medium leading-none cursor-pointer"
+                              >
+                                {method.label}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                        <FormDescription>
+                          Select promotion methods that are not allowed
+                        </FormDescription>
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+                <CardFooter className="flex justify-between">
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={() => setCurrentTab("commission")}
+                  >
+                    Previous
+                  </Button>
+                  <Button 
+                    type="button" 
+                    onClick={() => setCurrentTab("requirements")}
+                  >
+                    Next
+                  </Button>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+
+            {/* Requirements Tab */}
+            <TabsContent value="requirements" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Requirements & Terms</CardTitle>
+                  <CardDescription>
+                    Define conversion requirements and terms for your offer
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="target_audience"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Target Audience</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Describe your ideal audience for this offer" 
+                            className="min-h-[100px]"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Describe who this offer is best suited for
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="conversion_requirements"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Conversion Requirements</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="List all requirements for a valid conversion" 
+                            className="min-h-[100px]"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Clearly define what constitutes a valid conversion
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="terms_and_conditions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Terms & Conditions</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Specify any additional terms and conditions" 
+                            className="min-h-[150px]"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Add any legal terms or specific conditions for this offer
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+                <CardFooter className="flex justify-between">
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={() => setCurrentTab("targeting")}
+                  >
+                    Previous
+                  </Button>
+                  <Button 
+                    type="submit"
+                    disabled={mutation.isPending}
+                  >
+                    {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isEditMode ? "Update Offer" : "Create Offer"}
+                  </Button>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </form>
+      </Form>
+    </div>
+  );
+}

@@ -1,3 +1,4 @@
+
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -22,7 +23,6 @@ export default function OffersPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [applicationStatus, setApplicationStatus] = useState<string | null>(null);
-  const [isEditMode, setIsEditMode] = useState<boolean>(false);
   
   useEffect(() => {
     // If user is affiliate and tries to create an offer, redirect to the offers list
@@ -37,7 +37,7 @@ export default function OffersPage() {
     console.log("[OffersPage] Current user:", user);
   }, [id, user]);
 
-  // Fetch offer data
+  // Fetch application status if this is an affiliate viewing an offer
   const { data: offerData } = useQuery({
     queryKey: ['offer', id],
     queryFn: async () => {
@@ -54,7 +54,7 @@ export default function OffersPage() {
         return null;
       }
       
-      return data as unknown as Offer;
+      return data;
     },
     enabled: !!id && !!user,
   });
@@ -92,16 +92,6 @@ export default function OffersPage() {
   
   if (!user) return null;
   
-  // If we're in edit mode and have offer data, show the creation form with the offer data
-  if (isEditMode && offerData && (user.role === 'advertiser' || user.role === 'admin')) {
-    // Fix any data mapping inconsistencies
-    const offerForEdit: Offer = {
-      ...offerData,
-      offer_url: offerData.url // Map url to offer_url for the form
-    };
-    return <CreateOffer initialData={offerForEdit} />;
-  }
-  
   // If we have an ID with "create", we show the creation form (only for advertisers and admins)
   if (id === 'create' && (user.role === 'advertiser' || user.role === 'admin')) {
     console.log("[OffersPage] Rendering CreateOffer component");
@@ -124,6 +114,30 @@ export default function OffersPage() {
   if (id === 'postback' && user.role === 'advertiser') {
     console.log("[OffersPage] Loading postback setup interface for advertiser");
     return <AdvertiserPostbackSetup />;
+  }
+  
+  // If we have an ID, we show the offer details based on user role
+  if (id && offerData) {
+    // For affiliates, show the enhanced OfferDetailView
+    if (user.role === 'affiliate') {
+      console.log("[OffersPage] Showing affiliate offer detail view with status:", applicationStatus);
+      // Convert offerData to Offer type explicitly to ensure type compatibility
+      const offer: Offer = {
+        ...offerData,
+        geo_targets: offerData.geo_targets as Offer['geo_targets']
+      };
+      
+      return (
+        <OfferDetailView 
+          offer={offer} 
+          applicationStatus={applicationStatus} 
+          onBack={() => navigate('/offers')} 
+        />
+      );
+    }
+    
+    // For advertisers and admins, continue using the existing OfferDetails component
+    return <OfferDetails offerId={id} />;
   }
   
   // For the main offers page, we show different views based on the user role
@@ -151,35 +165,6 @@ export default function OffersPage() {
         <OffersList />
       </ProtectedRoute>
     );
-  }
-  
-  // If we have an ID, we show the offer details based on user role
-  if (id && offerData) {
-    // For affiliates, show the enhanced OfferDetailView
-    if (user.role === 'affiliate') {
-      console.log("[OffersPage] Showing affiliate offer detail view with status:", applicationStatus);
-      // Convert offerData to Offer type explicitly to ensure type compatibility
-      const offer: Offer = {
-        ...offerData,
-        geo_targets: offerData.geo_targets as Offer['geo_targets']
-      };
-      
-      return (
-        <OfferDetailView 
-          offer={offer} 
-          applicationStatus={applicationStatus} 
-          onBack={() => navigate('/offers')} 
-        />
-      );
-    }
-    
-    // For advertisers and admins, we need to modify the OfferDetails component to accept onEditClick prop
-    // Since we can't modify the OfferDetails component directly, we'll use type assertion
-    return <OfferDetails 
-      offerId={id} 
-      // @ts-ignore: OfferDetails does accept onEditClick in implementation but TS doesn't know it
-      onEditClick={() => setIsEditMode(true)}
-    />;
   }
   
   return null;

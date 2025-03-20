@@ -1,4 +1,3 @@
-
 import { Offer } from '@/types';
 
 /**
@@ -22,7 +21,7 @@ export const getCountryFlag = (countryCode: string): string => {
 /**
  * Format geo targets for display with emoji flags
  */
-export const formatGeoTargets = (offer: Partial<Offer>): Array<{ flag: string; code: string }> => {
+export const formatGeoTargets = (offer: Offer): Array<{ flag: string; code: string }> => {
   if (!offer.geo_targets) return []; // Return empty array if no geo_targets
   
   try {
@@ -32,7 +31,7 @@ export const formatGeoTargets = (offer: Partial<Offer>): Array<{ flag: string; c
       : offer.geo_targets;
     
     // If it's an empty object or not actually containing country data
-    if (!geoObj || (typeof geoObj === 'object' && Object.keys(geoObj).length === 0)) {
+    if (!geoObj || Object.keys(geoObj).length === 0) {
       return []; // Return empty array
     }
     
@@ -45,29 +44,14 @@ export const formatGeoTargets = (offer: Partial<Offer>): Array<{ flag: string; c
     }
     
     // Handle objects
-    if (typeof geoObj === 'object' && geoObj !== null) {
-      return Object.keys(geoObj).map(code => ({
-        code: code.toUpperCase(),
-        flag: getCountryFlag(code)
-      }));
-    }
-    
-    return []; // Return empty array for unhandled cases
+    return Object.keys(geoObj).map(code => ({
+      code: code.toUpperCase(),
+      flag: getCountryFlag(code)
+    }));
   } catch (e) {
     console.error("Error parsing geo targets:", e);
     return []; // Return empty array on error
   }
-};
-
-/**
- * Format restricted geos for display
- */
-export const formatRestrictedGeos = (offer: Partial<Offer>): string[] | null => {
-  if (!offer.restricted_geos || !Array.isArray(offer.restricted_geos) || offer.restricted_geos.length === 0) {
-    return null;
-  }
-  
-  return offer.restricted_geos;
 };
 
 /**

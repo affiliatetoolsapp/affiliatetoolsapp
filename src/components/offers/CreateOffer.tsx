@@ -1,1114 +1,851 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/context/AuthContext';
+import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
-import { Offer } from '@/types';
-
+import { useAuth } from '@/context/AuthContext';
+import { supabase, debugCreateOffer } from '@/integrations/supabase/client';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, ArrowLeft, Check, ChevronsUpDown, Info, Loader2, Plus, Trash, X } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { TagInput } from '@/components/ui/tag-input';
+import {
+  CheckCircle,
+  ChevronRight,
+  ChevronLeft,
+  Image as ImageIcon,
+  Upload,
+  Loader2,
+  Trash2,
+  X
+} from 'lucide-react';
+import GeoCommissionSelector from './GeoCommissionSelector';
+import CreativesTab from './CreativesTab';
+import { OfferPreviewDialog } from './OfferPreviewDialog';
+import { Offer } from '@/types';
 
-// Define the form schema with Zod
+// Form schema
 const offerSchema = z.object({
-  name: z.string().min(3, { message: "Offer name must be at least 3 characters" }),
-  description: z.string().min(10, { message: "Description must be at least 10 characters" }),
-  offer_url: z.string().url({ message: "Please enter a valid URL" }),
-  offer_image: z.string().optional(),
-  niche: z.string().optional(),
-  commission_type: z.enum(["CPA", "CPL", "CPS", "RevShare"]),
-  commission_amount: z.coerce.number().min(0, { message: "Commission amount must be a positive number" }).optional(),
-  commission_percent: z.coerce.number().min(0, { message: "Commission percentage must be a positive number" }).max(100, { message: "Commission percentage cannot exceed 100%" }).optional(),
-  is_featured: z.boolean().default(false),
-  status: z.enum(["active", "paused", "pending"]).default("active"),
-  allowed_traffic_sources: z.array(z.string()).optional(),
-  restricted_traffic_sources: z.array(z.string()).optional(),
+  name: z.string().min(3, 'Name must be at least 3 characters'),
+  description: z.string().min(10, 'Description must be at least 10 characters'),
+  url: z.string().url('Must be a valid URL'),
+  niche: z.string().min(1, 'Please select a niche'),
   target_audience: z.string().optional(),
   conversion_requirements: z.string().optional(),
-  restricted_promotion_methods: z.array(z.string()).optional(),
-  terms_and_conditions: z.string().optional(),
-  geo_targets: z.any().optional(),
+  restrictions: z.string().optional(),
+  commission_type: z.string().min(1, 'Please select a commission type'),
+  commission_amount: z.string().optional(),
+  commission_percent: z.string().optional(),
+  allowed_traffic_sources: z.array(z.string()).optional(),
+  geo_targets: z.array(z.string()).optional(),
   restricted_geos: z.array(z.string()).optional(),
+  status: z.string().optional(),
+  offer_image: z.string().optional(),
+  geo_commissions: z.array(z.object({
+    country: z.string(),
+    amount: z.string()
+  })).optional(),
 });
 
-// Define the traffic source options
-const trafficSourceOptions = [
-  { id: "search", label: "Search" },
-  { id: "social", label: "Social Media" },
-  { id: "email", label: "Email" },
-  { id: "native", label: "Native Ads" },
-  { id: "display", label: "Display Ads" },
-  { id: "push", label: "Push Notifications" },
-  { id: "contextual", label: "Contextual" },
-  { id: "ppc", label: "PPC" },
-  { id: "organic", label: "Organic" },
-  { id: "content", label: "Content Marketing" },
-  { id: "influencer", label: "Influencer" },
-  { id: "video", label: "Video" },
-  { id: "mobile", label: "Mobile" },
-  { id: "app", label: "App" },
-];
+type OfferFormValues = z.infer<typeof offerSchema>;
 
-// Define the restricted promotion methods options
-const restrictedPromotionOptions = [
-  { id: "incentive", label: "Incentivized Traffic" },
-  { id: "adult", label: "Adult Content" },
-  { id: "spam", label: "Spam" },
-  { id: "brand_bidding", label: "Brand Bidding" },
-  { id: "cookie_stuffing", label: "Cookie Stuffing" },
-  { id: "toolbar", label: "Toolbars/Extensions" },
-  { id: "pop", label: "Pop-ups/Pop-unders" },
-  { id: "bot", label: "Bot Traffic" },
-  { id: "misleading", label: "Misleading Claims" },
-];
-
-// Define the niche options
-const nicheOptions = [
-  { value: "health_fitness", label: "Health & Fitness" },
-  { value: "finance", label: "Finance" },
-  { value: "ecommerce", label: "E-commerce" },
-  { value: "education", label: "Education" },
-  { value: "software", label: "Software & Technology" },
-  { value: "travel", label: "Travel" },
-  { value: "beauty", label: "Beauty" },
-  { value: "fashion", label: "Fashion" },
-  { value: "home", label: "Home & Garden" },
-  { value: "gaming", label: "Gaming" },
-  { value: "crypto", label: "Cryptocurrency" },
-  { value: "dating", label: "Dating" },
-  { value: "entertainment", label: "Entertainment" },
-  { value: "food", label: "Food & Beverage" },
-  { value: "pets", label: "Pets" },
-  { value: "sports", label: "Sports" },
-  { value: "business", label: "Business" },
-  { value: "legal", label: "Legal" },
-  { value: "insurance", label: "Insurance" },
-  { value: "other", label: "Other" },
-];
-
-// Define the country options
-const countryOptions = [
-  { code: "US", name: "United States" },
-  { code: "CA", name: "Canada" },
-  { code: "GB", name: "United Kingdom" },
-  { code: "AU", name: "Australia" },
-  { code: "DE", name: "Germany" },
-  { code: "FR", name: "France" },
-  { code: "IT", name: "Italy" },
-  { code: "ES", name: "Spain" },
-  { code: "JP", name: "Japan" },
-  { code: "CN", name: "China" },
-  { code: "IN", name: "India" },
-  { code: "BR", name: "Brazil" },
-  { code: "MX", name: "Mexico" },
-  { code: "RU", name: "Russia" },
-  { code: "ZA", name: "South Africa" },
-  { code: "AE", name: "United Arab Emirates" },
-  { code: "SA", name: "Saudi Arabia" },
-  { code: "SG", name: "Singapore" },
-  { code: "NZ", name: "New Zealand" },
-  { code: "SE", name: "Sweden" },
-  { code: "NO", name: "Norway" },
-  { code: "DK", name: "Denmark" },
-  { code: "FI", name: "Finland" },
-  { code: "NL", name: "Netherlands" },
-  { code: "BE", name: "Belgium" },
-  { code: "CH", name: "Switzerland" },
-  { code: "AT", name: "Austria" },
-  { code: "PL", name: "Poland" },
-  { code: "PT", name: "Portugal" },
-  { code: "IE", name: "Ireland" },
-  { code: "GR", name: "Greece" },
-  { code: "IL", name: "Israel" },
-  { code: "TR", name: "Turkey" },
-  { code: "TH", name: "Thailand" },
-  { code: "VN", name: "Vietnam" },
-  { code: "ID", name: "Indonesia" },
-  { code: "MY", name: "Malaysia" },
-  { code: "PH", name: "Philippines" },
-  { code: "KR", name: "South Korea" },
-  { code: "HK", name: "Hong Kong" },
-  { code: "TW", name: "Taiwan" },
-  { code: "EG", name: "Egypt" },
-  { code: "NG", name: "Nigeria" },
-  { code: "KE", name: "Kenya" },
-  { code: "AR", name: "Argentina" },
-  { code: "CL", name: "Chile" },
-  { code: "CO", name: "Colombia" },
-  { code: "PE", name: "Peru" },
-  { code: "VE", name: "Venezuela" },
-];
-
-interface CreateOfferProps {
-  initialData?: Offer;
-}
-
-export default function CreateOffer({ initialData }: CreateOfferProps) {
+const CreateOffer = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
-  const [restrictedCountries, setRestrictedCountries] = useState<string[]>([]);
-  const [openCountrySelector, setOpenCountrySelector] = useState(false);
-  const [openRestrictedCountrySelector, setOpenRestrictedCountrySelector] = useState(false);
-  const [imageUploading, setImageUploading] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [currentTab, setCurrentTab] = useState("basic");
-  const isEditMode = !!initialData;
-
-  // Initialize the form with react-hook-form
-  const form = useForm<z.infer<typeof offerSchema>>({
+  const [activeTab, setActiveTab] = useState('basic');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [geoCommissions, setGeoCommissions] = useState<{country: string, amount: string}[]>([]);
+  const [creatives, setCreatives] = useState<any[]>([]);
+  const [geoCommissionsEnabled, setGeoCommissionsEnabled] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  
+  const form = useForm<OfferFormValues>({
     resolver: zodResolver(offerSchema),
     defaultValues: {
-      name: "",
-      description: "",
-      offer_url: "",
-      offer_image: "",
-      niche: "",
-      commission_type: "CPA",
-      commission_amount: 0,
-      commission_percent: 0,
-      is_featured: false,
-      status: "active",
+      name: '',
+      description: '',
+      url: '',
+      niche: '',
+      target_audience: '',
+      conversion_requirements: '',
+      restrictions: '',
+      commission_type: 'CPA',
+      commission_amount: '',
+      commission_percent: '',
       allowed_traffic_sources: [],
-      restricted_traffic_sources: [],
-      target_audience: "",
-      conversion_requirements: "",
-      restricted_promotion_methods: [],
-      terms_and_conditions: "",
       geo_targets: [],
       restricted_geos: [],
+      status: 'active',
+      offer_image: '',
+      geo_commissions: [],
     },
   });
-
-  // Populate form with initial data if in edit mode
-  useEffect(() => {
-    if (initialData) {
-      // Parse geo_targets if it's a string
-      let geoTargets = initialData.geo_targets;
-      if (typeof geoTargets === 'string') {
-        try {
-          geoTargets = JSON.parse(geoTargets);
-        } catch (e) {
-          console.error("Error parsing geo_targets:", e);
-          geoTargets = [];
-        }
-      }
-
-      // Set form values from initialData
-      form.reset({
-        name: initialData.name || "",
-        description: initialData.description || "",
-        offer_url: initialData.url || initialData.offer_url || "", // Handle both url and offer_url
-        offer_image: initialData.offer_image || "",
-        niche: initialData.niche || "",
-        commission_type: initialData.commission_type as any || "CPA",
-        commission_amount: initialData.commission_amount || 0,
-        commission_percent: initialData.commission_percent || 0,
-        is_featured: initialData.is_featured || false,
-        status: initialData.status as any || "active",
-        allowed_traffic_sources: initialData.allowed_traffic_sources || [],
-        restricted_traffic_sources: initialData.restricted_traffic_sources || [],
-        target_audience: initialData.target_audience || "",
-        conversion_requirements: initialData.conversion_requirements || "",
-        restricted_promotion_methods: initialData.restricted_promotion_methods || [],
-        terms_and_conditions: initialData.terms_and_conditions || "",
-        geo_targets: geoTargets || [],
-        restricted_geos: initialData.restricted_geos || [],
-      });
-
-      // Set selected countries from geo_targets
-      if (Array.isArray(geoTargets)) {
-        setSelectedCountries(geoTargets.map(c => String(c)));
-      } else if (geoTargets && typeof geoTargets === 'object') {
-        setSelectedCountries(Object.keys(geoTargets).map(c => String(c)));
-      }
-
-      // Set restricted countries
-      if (initialData.restricted_geos && Array.isArray(initialData.restricted_geos)) {
-        setRestrictedCountries(initialData.restricted_geos.map(c => String(c)));
-      }
-
-      // Set image URL
-      if (initialData.offer_image) {
-        setImageUrl(initialData.offer_image);
-      }
-    }
-  }, [initialData, form]);
-
-  // Watch form values for conditional rendering
-  const commissionType = form.watch("commission_type");
-
-  // Create or update offer mutation
-  const mutation = useMutation({
-    mutationFn: async (data: z.infer<typeof offerSchema>) => {
-      if (!user) throw new Error("User not authenticated");
-
-      // Prepare the data for submission
-      const offerData = {
-        ...data,
-        url: data.offer_url, // Map offer_url to url for database
-        advertiser_id: user.id,
-        geo_targets: selectedCountries.length > 0 ? selectedCountries : null,
-        restricted_geos: restrictedCountries.length > 0 ? restrictedCountries : null,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (isEditMode) {
-        // Update existing offer
-        const { data: updatedOffer, error } = await supabase
-          .from('offers')
-          .update(offerData)
-          .eq('id', initialData!.id)
-          .select()
-          .single();
-
-        if (error) throw error;
-        return updatedOffer;
-      } else {
-        // Create new offer - ensuring commission_type is included
-        // Use type assertion to ensure the types match the database requirements
-        const insertData = {
-          ...offerData,
-          created_at: new Date().toISOString(),
-          commission_type: data.commission_type, // Ensure this is always included
-        } as any; // Use type assertion to bypass TypeScript error
-        
-        const { data: newOffer, error } = await supabase
-          .from('offers')
-          .insert(insertData)
-          .select()
-          .single();
-
-        if (error) throw error;
-        return newOffer;
-      }
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['offers'] });
-      toast({
-        title: isEditMode ? "Offer Updated" : "Offer Created",
-        description: isEditMode 
-          ? "Your offer has been successfully updated." 
-          : "Your offer has been successfully created.",
-      });
-      navigate(`/offers/${data.id}`);
-    },
-    onError: (error) => {
-      console.error("Error saving offer:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: `Failed to ${isEditMode ? 'update' : 'create'} offer. Please try again.`,
-      });
-    },
-  });
-
-  // Handle image upload
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setImageUploading(true);
+  
+  const { 
+    register, 
+    handleSubmit, 
+    formState: { errors }, 
+    setValue, 
+    watch, 
+    getValues 
+  } = form;
+  
+  const commissionType = watch('commission_type');
+  
+  // Handle image upload for offer image with drag and drop
+  const handleImageUpload = async (file: File) => {
+    if (!file || !user) return;
+    
+    setUploading(true);
+    
     try {
-      // Generate a unique file name
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
-      const filePath = `offer-images/${fileName}`;
-
-      // Upload the file to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('offers')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      // Get the public URL
-      const { data } = supabase.storage.from('offers').getPublicUrl(filePath);
+      const fileName = `offer-image-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = `${user.id}/offer-images/${fileName}`;
       
-      // Set the image URL and update the form
-      setImageUrl(data.publicUrl);
-      form.setValue("offer_image", data.publicUrl);
-    } catch (error) {
-      console.error("Error uploading image:", error);
+      // Upload file to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('offer-assets')
+        .upload(filePath, file);
+      
+      if (error) {
+        console.error('Error uploading offer image:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Upload Failed',
+          description: error.message,
+        });
+        return;
+      }
+      
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('offer-assets')
+        .getPublicUrl(filePath);
+      
+      // Update form and preview
+      setValue('offer_image', publicUrl);
+      setImagePreview(publicUrl);
+      
       toast({
-        variant: "destructive",
-        title: "Upload Failed",
-        description: "Failed to upload image. Please try again.",
+        title: 'Image Uploaded',
+        description: 'Offer image uploaded successfully',
+      });
+    } catch (error) {
+      console.error('Error in upload process:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Upload Error',
+        description: 'An unexpected error occurred during upload',
       });
     } finally {
-      setImageUploading(false);
+      setUploading(false);
     }
   };
 
-  // Handle form submission
-  const onSubmit = (data: z.infer<typeof offerSchema>) => {
-    mutation.mutate(data);
+  // Handle drag over event for image upload
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.classList.add('border-primary', 'bg-primary/10');
   };
 
-  // Handle country selection
-  const toggleCountry = (country: string) => {
-    setSelectedCountries(current => 
-      current.includes(country)
-        ? current.filter(c => c !== country)
-        : [...current, country]
-    );
+  // Handle drag leave event for image upload
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('border-primary', 'bg-primary/10');
   };
 
-  // Handle restricted country selection
-  const toggleRestrictedCountry = (country: string) => {
-    setRestrictedCountries(current => 
-      current.includes(country)
-        ? current.filter(c => c !== country)
-        : [...current, country]
-    );
+  // Handle drop event for image upload
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('border-primary', 'bg-primary/10');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      handleImageUpload(file);
+    }
+  };
+
+  // Handle input change for image upload
+  const handleImageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleImageUpload(file);
+    }
+  };
+
+  // Remove uploaded image
+  const handleRemoveImage = async () => {
+    const imagePath = imagePreview?.split('/').slice(-2).join('/');
+    if (imagePath && user) {
+      try {
+        const { error } = await supabase.storage
+          .from('offer-assets')
+          .remove([`${user.id}/offer-images/${imagePath.split('/').pop()}`]);
+        
+        if (error) {
+          console.error('Error removing image:', error);
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: 'Failed to remove image',
+          });
+          return;
+        }
+        
+        setValue('offer_image', '');
+        setImagePreview(null);
+        toast({
+          title: 'Image Removed',
+          description: 'Offer image has been removed',
+        });
+      } catch (error) {
+        console.error('Error removing image:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'An unexpected error occurred',
+        });
+      }
+    }
+  };
+
+  // Handle moving between tabs
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+  };
+  
+  // Handle geo commission changes
+  const handleGeoCommissionsChange = (commissions: {country: string, amount: string}[]) => {
+    setGeoCommissions(commissions);
+    setValue('geo_commissions', commissions);
+  };
+  
+  // Handle geo targets update based on geo commissions
+  const handleGeoTargetsUpdate = (countries: string[]) => {
+    setValue('geo_targets', countries);
+  };
+  
+  // Handle direct geo targets changes when not using geo commissions
+  const handleGeoTargetsChange = useCallback(
+    (value: string[]) => {
+      setValue('geo_targets', value);
+    },
+    [setValue]
+  );
+  
+  // Handle enabling/disabling geo commissions
+  const handleGeoCommissionsEnabledChange = (enabled: boolean) => {
+    setGeoCommissionsEnabled(enabled);
+    if (!enabled) {
+      setGeoCommissions([]);
+      setValue('geo_commissions', []);
+      setValue('geo_targets', []);
+    }
+  };
+  
+  // Handle creatives change
+  const handleCreativesChange = (newCreatives: any[]) => {
+    setCreatives(newCreatives);
+  };
+
+  // Start the form submission process by showing preview
+  const handleFormSubmit = (data: OfferFormValues) => {
+    setShowPreview(true);
+  };
+
+  // Submit the form after confirmation
+  const handleFinalSubmit = async () => {
+    if (!user) return;
+
+    setIsSubmitting(true);
+    const data = getValues();
+    console.log("Form submission started with data:", data);
+    console.log("Geo commissions enabled:", geoCommissionsEnabled);
+    console.log("Geo commissions data:", geoCommissions);
+
+    try {
+      // Prepare the offer data with proper typing
+      const offerData = {
+        name: data.name,
+        description: data.description,
+        url: data.url,
+        niche: data.niche || null,
+        target_audience: data.target_audience || null,
+        conversion_requirements: data.conversion_requirements || null,
+        restrictions: data.restrictions || null,
+        commission_type: data.commission_type,
+        status: data.status || 'active',
+        allowed_traffic_sources: data.allowed_traffic_sources || [],
+        geo_targets: data.geo_targets || [], // Ensure geo_targets is always an array
+        restricted_geos: data.restricted_geos || [],
+        offer_image: data.offer_image || null,
+        advertiser_id: user.id,
+        geo_commissions: geoCommissionsEnabled && geoCommissions.length > 0 ? geoCommissions : null,
+        marketing_materials: creatives.length > 0 ? creatives : null,
+        // Commission fields based on type and geo settings
+        commission_amount: !geoCommissionsEnabled && data.commission_amount ? parseFloat(data.commission_amount) : null,
+        commission_percent: !geoCommissionsEnabled && data.commission_percent ? parseFloat(data.commission_percent) : null,
+      };
+
+      console.log("Prepared offer data:", offerData);
+
+      // Use the debug helper to create the offer
+      const result = await debugCreateOffer(offerData);
+      
+      if (!result.success) {
+        throw result.error;
+      }
+
+      toast({
+        title: 'Offer Created',
+        description: 'Your offer has been created successfully',
+      });
+
+      // Redirect to offers list
+      navigate('/offers');
+    } catch (error: any) {
+      console.error('Error creating offer:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error Creating Offer',
+        description: error.message || 'An unexpected error occurred',
+      });
+      setShowPreview(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Next tab handler
+  const handleNextTab = () => {
+    switch (activeTab) {
+      case 'basic':
+        setActiveTab('commission');
+        break;
+      case 'commission':
+        setActiveTab('targeting');
+        break;
+      case 'targeting':
+        setActiveTab('creatives');
+        break;
+      case 'creatives':
+        setActiveTab('tracking');
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Previous tab handler
+  const handlePrevTab = () => {
+    switch (activeTab) {
+      case 'commission':
+        setActiveTab('basic');
+        break;
+      case 'targeting':
+        setActiveTab('commission');
+        break;
+      case 'creatives':
+        setActiveTab('targeting');
+        break;
+      case 'tracking':
+        setActiveTab('creatives');
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Traffic source tag input handler
+  const handleTrafficSourcesChange = useCallback(
+    (value: string[]) => {
+      setValue('allowed_traffic_sources', value);
+    },
+    [setValue]
+  );
+
+  // Restricted geos tag input handler
+  const handleRestrictedGeosChange = useCallback(
+    (value: string[]) => {
+      setValue('restricted_geos', value);
+    },
+    [setValue]
+  );
+
+  // Prepare offer data for preview
+  const getOfferPreviewData = (): Partial<Offer> => {
+    const formValues = getValues();
+    return {
+      name: formValues.name,
+      description: formValues.description,
+      niche: formValues.niche,
+      commission_type: formValues.commission_type as any,
+      commission_amount: formValues.commission_amount ? parseFloat(formValues.commission_amount) : undefined,
+      commission_percent: formValues.commission_percent ? parseFloat(formValues.commission_percent) : undefined,
+      geo_targets: formValues.geo_targets,
+      offer_image: formValues.offer_image,
+      is_featured: false,
+      status: formValues.status as any,
+    };
   };
 
   return (
-    <div className="container mx-auto py-6 max-w-5xl">
-      <div className="flex items-center mb-6">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="mr-2"
-          onClick={() => navigate(-1)}
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" />
-          Back
-        </Button>
-        <h1 className="text-3xl font-bold">
-          {isEditMode ? "Edit Offer" : "Create New Offer"}
-        </h1>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight">Create New Offer</h2>
+        <p className="text-muted-foreground">
+          Create a new affiliate offer to promote your product or service
+        </p>
       </div>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          <Tabs 
-            defaultValue="basic" 
-            value={currentTab}
-            onValueChange={setCurrentTab}
-            className="w-full"
-          >
-            <TabsList className="grid grid-cols-4 w-full">
-              <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="commission">Commission</TabsTrigger>
-              <TabsTrigger value="targeting">Targeting</TabsTrigger>
-              <TabsTrigger value="requirements">Requirements</TabsTrigger>
-            </TabsList>
+      <form onSubmit={handleSubmit(handleFormSubmit)}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="basic">Basic Info</TabsTrigger>
+            <TabsTrigger value="commission">Commission</TabsTrigger>
+            <TabsTrigger value="targeting">Targeting</TabsTrigger>
+            <TabsTrigger value="creatives">Creatives</TabsTrigger>
+            <TabsTrigger value="tracking">Tracking</TabsTrigger>
+          </TabsList>
 
-            {/* Basic Info Tab */}
-            <TabsContent value="basic" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Offer Details</CardTitle>
-                  <CardDescription>
-                    Provide the basic information about your offer
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Offer Name*</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter offer name" {...field} />
-                        </FormControl>
-                        <FormDescription>
-                          A clear, concise name for your offer
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description*</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Describe your offer" 
-                            className="min-h-[120px]" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Provide a detailed description of what you're offering
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="offer_url"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Offer URL*</FormLabel>
-                        <FormControl>
-                          <Input placeholder="https://example.com/offer" {...field} />
-                        </FormControl>
-                        <FormDescription>
-                          The landing page URL for your offer
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="niche"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Niche</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
-                          defaultValue={field.value}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a niche" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {nicheOptions.map((niche) => (
-                              <SelectItem key={niche.value} value={niche.value}>
-                                {niche.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          Select the category that best fits your offer
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="space-y-3">
-                    <Label>Offer Image</Label>
-                    <div className="flex items-center gap-4">
-                      {imageUrl && (
-                        <div className="relative w-24 h-24 border rounded-md overflow-hidden">
-                          <img 
-                            src={imageUrl} 
-                            alt="Offer preview" 
-                            className="w-full h-full object-cover"
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-1 right-1 h-6 w-6"
-                            onClick={() => {
-                              setImageUrl(null);
-                              form.setValue("offer_image", "");
-                            }}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
+          <TabsContent value="basic" className="space-y-4 mt-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="grid gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Offer Name</Label>
+                      <Input
+                        id="name"
+                        placeholder="e.g. Premium Product Promotion"
+                        {...register('name')}
+                      />
+                      {errors.name && (
+                        <p className="text-red-500 text-sm">{errors.name.message}</p>
                       )}
-                      <div>
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          disabled={imageUploading}
-                          className="w-full"
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="niche">Niche/Category</Label>
+                      <Select
+                        onValueChange={(value) => setValue('niche', value)}
+                        defaultValue={getValues('niche')}
+                      >
+                        <SelectTrigger id="niche">
+                          <SelectValue placeholder="Select niche" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="health">Health & Fitness</SelectItem>
+                          <SelectItem value="beauty">Beauty</SelectItem>
+                          <SelectItem value="finance">Finance</SelectItem>
+                          <SelectItem value="education">Education</SelectItem>
+                          <SelectItem value="technology">Technology</SelectItem>
+                          <SelectItem value="ecommerce">eCommerce</SelectItem>
+                          <SelectItem value="dating">Dating</SelectItem>
+                          <SelectItem value="gaming">Gaming</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {errors.niche && (
+                        <p className="text-red-500 text-sm">{errors.niche.message}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="url">Offer URL</Label>
+                      <Input
+                        id="url"
+                        placeholder="https://yourdomain.com/offer"
+                        {...register('url')}
+                      />
+                      {errors.url && (
+                        <p className="text-red-500 text-sm">{errors.url.message}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="status">Offer Status</Label>
+                      <Select
+                        onValueChange={(value) => setValue('status', value)}
+                        defaultValue={getValues('status')}
+                      >
+                        <SelectTrigger id="status">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="paused">Paused</SelectItem>
+                          <SelectItem value="draft">Draft</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Offer Description</Label>
+                    <Textarea
+                      id="description"
+                      placeholder="Describe your offer in detail"
+                      className="min-h-[100px]"
+                      {...register('description')}
+                    />
+                    {errors.description && (
+                      <p className="text-red-500 text-sm">{errors.description.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="target_audience">Target Audience</Label>
+                    <Textarea
+                      id="target_audience"
+                      placeholder="Describe the ideal customer for this offer"
+                      className="min-h-[80px]"
+                      {...register('target_audience')}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="offer_image">Offer Image</Label>
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      id="image-upload"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleImageInputChange}
+                    />
+                    
+                    {imagePreview ? (
+                      <div className="mt-2 border rounded-md p-3 relative">
+                        <img 
+                          src={imagePreview} 
+                          alt="Offer preview" 
+                          className="max-h-48 object-contain mx-auto"
                         />
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Upload an image for your offer (recommended size: 800x600px)
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="absolute top-2 right-2"
+                          onClick={handleRemoveImage}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition-colors"
+                        onClick={() => imageInputRef.current?.click()}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                      >
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <Upload className="h-10 w-10 text-muted-foreground mb-2" />
+                          <p className="text-sm font-medium">
+                            Click or drag and drop to upload an image
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Supported formats: JPG, PNG, GIF (max 5MB)
+                          </p>
+                          {uploading && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <span className="text-sm">Uploading...</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex justify-end space-x-2">
+              <Button type="button" onClick={handleNextTab}>
+                Next
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="commission" className="space-y-4 mt-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="grid gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="commission_type">Commission Type</Label>
+                      <Select
+                        onValueChange={(value) => setValue('commission_type', value)}
+                        defaultValue={getValues('commission_type')}
+                      >
+                        <SelectTrigger id="commission_type">
+                          <SelectValue placeholder="Select commission type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="CPA">CPA (Cost Per Action)</SelectItem>
+                          <SelectItem value="CPL">CPL (Cost Per Lead)</SelectItem>
+                          <SelectItem value="CPS">CPS (Cost Per Sale)</SelectItem>
+                          <SelectItem value="RevShare">Revenue Share</SelectItem>
+                          <SelectItem value="CPC">CPC (Cost Per Click)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {errors.commission_type && (
+                        <p className="text-red-500 text-sm">{errors.commission_type.message}</p>
+                      )}
+                    </div>
+
+                    {!geoCommissionsEnabled && commissionType !== 'RevShare' ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="commission_amount">Commission Amount ($)</Label>
+                        <Input
+                          id="commission_amount"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          {...register('commission_amount')}
+                        />
+                      </div>
+                    ) : !geoCommissionsEnabled && commissionType === 'RevShare' ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="commission_percent">Commission Percentage (%)</Label>
+                        <Input
+                          id="commission_percent"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          placeholder="0"
+                          {...register('commission_percent')}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <GeoCommissionSelector 
+                      geoCommissions={geoCommissions}
+                      onChange={handleGeoCommissionsChange}
+                      onGeoTargetsUpdate={handleGeoTargetsUpdate}
+                      enabled={geoCommissionsEnabled}
+                      onEnabledChange={handleGeoCommissionsEnabledChange}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="conversion_requirements">Conversion Requirements</Label>
+                    <Textarea
+                      id="conversion_requirements"
+                      placeholder="What is required for a conversion to be valid?"
+                      className="min-h-[80px]"
+                      {...register('conversion_requirements')}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex justify-between space-x-2">
+              <Button type="button" variant="outline" onClick={handlePrevTab}>
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Previous
+              </Button>
+              <Button type="button" onClick={handleNextTab}>
+                Next
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="targeting" className="space-y-4 mt-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="grid gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="traffic_sources">Allowed Traffic Sources</Label>
+                    <TagInput
+                      placeholder="Add a traffic source and press Enter (e.g. Facebook, Google)"
+                      tags={watch('allowed_traffic_sources') || []}
+                      onTagsChange={handleTrafficSourcesChange}
+                      suggestions={['Facebook', 'Google', 'Instagram', 'TikTok', 'Native Ads', 'Push', 'Email', 'SEO']}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="geo_targets">Geographic Targeting (Allowed)</Label>
+                    {geoCommissionsEnabled ? (
+                      <>
+                        <p className="text-sm text-muted-foreground mb-2">
+                          {watch('geo_targets')?.length 
+                            ? 'These countries are automatically selected from your GEO pricing settings.'
+                            : 'Add countries in the commission tab to enable geo targeting'}
                         </p>
-                        {imageUploading && (
-                          <div className="flex items-center mt-2 text-sm text-muted-foreground">
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Uploading...
+                        {watch('geo_targets')?.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {watch('geo_targets')?.map((country) => (
+                              <Badge key={country} variant="outline">
+                                {country}
+                              </Badge>
+                            ))}
                           </div>
                         )}
+                      </>
+                    ) : (
+                      <TagInput
+                        placeholder="Add country codes and press Enter (e.g. US, UK, CA)"
+                        tags={watch('geo_targets') || []}
+                        onTagsChange={handleGeoTargetsChange}
+                        suggestions={['US', 'UK', 'CA', 'AU', 'DE', 'FR', 'ES', 'IT', 'JP']}
+                      />
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="restricted_geos">Geographic Restrictions (Blocked)</Label>
+                    <TagInput
+                      placeholder="Add restricted country codes (e.g. CN, RU)"
+                      tags={watch('restricted_geos') || []}
+                      onTagsChange={handleRestrictedGeosChange}
+                      suggestions={['CN', 'RU', 'IR', 'KP', 'CU', 'VE', 'MM']}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="restrictions">Additional Restrictions</Label>
+                    <Textarea
+                      id="restrictions"
+                      placeholder="Any other restrictions or compliance requirements"
+                      className="min-h-[80px]"
+                      {...register('restrictions')}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex justify-between space-x-2">
+              <Button type="button" variant="outline" onClick={handlePrevTab}>
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Previous
+              </Button>
+              <Button type="button" onClick={handleNextTab}>
+                Next
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="creatives" className="space-y-4 mt-4">
+            <CreativesTab 
+              advertiserId={user?.id || ''}
+              savedCreatives={creatives} 
+              onCreativesChange={handleCreativesChange}
+            />
+            
+            <div className="flex justify-between space-x-2">
+              <Button type="button" variant="outline" onClick={handlePrevTab}>
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Previous
+              </Button>
+              <Button type="button" onClick={handleNextTab}>
+                Next
+                <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="tracking" className="space-y-4 mt-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-medium">Tracking Setup</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Your offer will have unique tracking links for each affiliate
+                    </p>
+
+                    <div className="space-y-4">
+                      <div className="p-4 border rounded-md bg-muted">
+                        <p className="text-sm font-medium mb-1">Sample Tracking Link Format:</p>
+                        <code className="text-xs bg-background p-2 rounded block">
+                          https://afftools.up.railway.app/click/[tracking_code]
+                        </code>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                          <p className="text-sm">
+                            Automatic click tracking for all affiliate traffic
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                          <p className="text-sm">
+                            Conversion postback URL for server-to-server tracking
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                          <p className="text-sm">
+                            Detailed reporting on clicks, conversions, and revenue
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Offer Status</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
-                          defaultValue={field.value}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="paused">Paused</SelectItem>
-                            <SelectItem value="pending">Pending</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          Set the current status of your offer
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="is_featured"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Featured Offer</FormLabel>
-                          <FormDescription>
-                            Featured offers appear prominently in the marketplace
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    onClick={() => navigate(-1)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    type="button" 
-                    onClick={() => setCurrentTab("commission")}
-                  >
-                    Next
-                  </Button>
-                </CardFooter>
-              </Card>
-            </TabsContent>
-
-            {/* Commission Tab */}
-            <TabsContent value="commission" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Commission Structure</CardTitle>
-                  <CardDescription>
-                    Define how affiliates will be compensated
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="commission_type"
-                    render={({ field }) => (
-                      <FormItem className="space-y-3">
-                        <FormLabel>Commission Type*</FormLabel>
-                        <FormControl>
-                          <RadioGroup
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                            value={field.value}
-                            className="flex flex-col space-y-1"
-                          >
-                            <FormItem className="flex items-center space-x-3 space-y-0">
-                              <FormControl>
-                                <RadioGroupItem value="CPA" />
-                              </FormControl>
-                              <FormLabel className="font-normal">
-                                Cost Per Action (CPA)
-                              </FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-3 space-y-0">
-                              <FormControl>
-                                <RadioGroupItem value="CPL" />
-                              </FormControl>
-                              <FormLabel className="font-normal">
-                                Cost Per Lead (CPL)
-                              </FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-3 space-y-0">
-                              <FormControl>
-                                <RadioGroupItem value="CPS" />
-                              </FormControl>
-                              <FormLabel className="font-normal">
-                                Cost Per Sale (CPS)
-                              </FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-3 space-y-0">
-                              <FormControl>
-                                <RadioGroupItem value="RevShare" />
-                              </FormControl>
-                              <FormLabel className="font-normal">
-                                Revenue Share
-                              </FormLabel>
-                            </FormItem>
-                          </RadioGroup>
-                        </FormControl>
-                        <FormDescription>
-                          Select how you want to pay affiliates
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {commissionType === "RevShare" ? (
-                    <FormField
-                      control={form.control}
-                      name="commission_percent"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Commission Percentage*</FormLabel>
-                          <FormControl>
-                            <div className="flex items-center">
-                              <Input 
-                                type="number" 
-                                min="0" 
-                                max="100" 
-                                step="0.1"
-                                {...field}
-                                onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                              />
-                              <span className="ml-2">%</span>
-                            </div>
-                          </FormControl>
-                          <FormDescription>
-                            The percentage of revenue shared with affiliates
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  ) : (
-                    <FormField
-                      control={form.control}
-                      name="commission_amount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Commission Amount*</FormLabel>
-                          <FormControl>
-                            <div className="flex items-center">
-                              <span className="mr-2">$</span>
-                              <Input 
-                                type="number" 
-                                min="0" 
-                                step="0.01"
-                                {...field}
-                                onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                              />
-                            </div>
-                          </FormControl>
-                          <FormDescription>
-                            The fixed amount paid per conversion
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Commission Information</AlertTitle>
-                    <AlertDescription>
-                      Setting competitive commission rates helps attract quality affiliates. 
-                      The average {commissionType === "RevShare" ? "revenue share" : commissionType} in your niche 
-                      is {commissionType === "RevShare" ? "20-30%" : "$15-25"}.
-                    </AlertDescription>
-                  </Alert>
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    onClick={() => setCurrentTab("basic")}
-                  >
-                    Previous
-                  </Button>
-                  <Button 
-                    type="button" 
-                    onClick={() => setCurrentTab("targeting")}
-                  >
-                    Next
-                  </Button>
-                </CardFooter>
-              </Card>
-            </TabsContent>
-
-            {/* Targeting Tab */}
-            <TabsContent value="targeting" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Targeting Options</CardTitle>
-                  <CardDescription>
-                    Define where and how your offer can be promoted
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-3">
-                    <Label>Geo Targeting</Label>
-                    <Popover open={openCountrySelector} onOpenChange={setOpenCountrySelector}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={openCountrySelector}
-                          className="w-full justify-between"
-                        >
-                          {selectedCountries.length === 0
-                            ? "Select countries"
-                            : `${selectedCountries.length} countries selected`}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-full p-0" align="start">
-                        <Command>
-                          <CommandInput placeholder="Search countries..." />
-                          <CommandEmpty>No country found.</CommandEmpty>
-                          <CommandGroup>
-                            <ScrollArea className="h-72">
-                              {countryOptions.map((country) => (
-                                <CommandItem
-                                  key={country.code}
-                                  value={country.code}
-                                  onSelect={() => toggleCountry(country.code)}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedCountries.includes(country.code)
-                                        ? "opacity-100"
-                                        : "opacity-0"
-                                    )}
-                                  />
-                                  {country.name} ({country.code})
-                                </CommandItem>
-                              ))}
-                            </ScrollArea>
-                          </CommandGroup>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {selectedCountries.map((code) => {
-                        const country = countryOptions.find(c => c.code === code);
-                        return (
-                          <Badge key={code} variant="secondary" className="flex items-center gap-1">
-                            {country?.name || code}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-4 w-4 p-0 ml-1"
-                              onClick={() => toggleCountry(code)}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </Badge>
-                        );
-                      })}
-                    </div>
+                  <div className="space-y-2">
                     <p className="text-sm text-muted-foreground">
-                      {selectedCountries.length === 0 
-                        ? "Leave empty to target globally" 
-                        : `Your offer will be shown to affiliates in these ${selectedCountries.length} countries`}
+                      After creating the offer, you can configure advanced tracking options
                     </p>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
 
-                  <div className="space-y-3">
-                    <Label>Restricted Geos</Label>
-                    <Popover open={openRestrictedCountrySelector} onOpenChange={setOpenRestrictedCountrySelector}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={openRestrictedCountrySelector}
-                          className="w-full justify-between"
-                        >
-                          {restrictedCountries.length === 0
-                            ? "Select restricted countries"
-                            : `${restrictedCountries.length} countries restricted`}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-full p-0" align="start">
-                        <Command>
-                          <CommandInput placeholder="Search countries..." />
-                          <CommandEmpty>No country found.</CommandEmpty>
-                          <CommandGroup>
-                            <ScrollArea className="h-72">
-                              {countryOptions.map((country) => (
-                                <CommandItem
-                                  key={country.code}
-                                  value={country.code}
-                                  onSelect={() => toggleRestrictedCountry(country.code)}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      restrictedCountries.includes(country.code)
-                                        ? "opacity-100"
-                                        : "opacity-0"
-                                    )}
-                                  />
-                                  {country.name} ({country.code})
-                                </CommandItem>
-                              ))}
-                            </ScrollArea>
-                          </CommandGroup>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {restrictedCountries.map((code) => {
-                        const country = countryOptions.find(c => c.code === code);
-                        return (
-                          <Badge key={code} variant="outline" className="flex items-center gap-1 border-destructive text-destructive">
-                            {country?.name || code}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-4 w-4 p-0 ml-1 text-destructive"
-                              onClick={() => toggleRestrictedCountry(code)}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {restrictedCountries.length === 0 
-                        ? "No geographical restrictions" 
-                        : `Traffic from these ${restrictedCountries.length} countries will be blocked`}
-                    </p>
-                  </div>
+            <div className="flex justify-between space-x-2">
+              <Button type="button" variant="outline" onClick={handlePrevTab}>
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Previous
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                Create Offer
+              </Button>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </form>
 
-                  <FormField
-                    control={form.control}
-                    name="allowed_traffic_sources"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Allowed Traffic Sources</FormLabel>
-                        <div className="grid grid-cols-2 gap-2 mt-2">
-                          {trafficSourceOptions.map((source) => (
-                            <div key={source.id} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`traffic-${source.id}`}
-                                checked={field.value?.includes(source.id)}
-                                onCheckedChange={(checked) => {
-                                  const updatedValue = checked
-                                    ? [...(field.value || []), source.id]
-                                    : (field.value || []).filter((v) => v !== source.id);
-                                  field.onChange(updatedValue);
-                                }}
-                              />
-                              <label
-                                htmlFor={`traffic-${source.id}`}
-                                className="text-sm font-medium leading-none cursor-pointer"
-                              >
-                                {source.label}
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                        <FormDescription>
-                          Select allowed traffic sources (leave empty to allow all)
-                        </FormDescription>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="restricted_promotion_methods"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Restricted Promotion Methods</FormLabel>
-                        <div className="grid grid-cols-2 gap-2 mt-2">
-                          {restrictedPromotionOptions.map((method) => (
-                            <div key={method.id} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`method-${method.id}`}
-                                checked={field.value?.includes(method.id)}
-                                onCheckedChange={(checked) => {
-                                  const updatedValue = checked
-                                    ? [...(field.value || []), method.id]
-                                    : (field.value || []).filter((v) => v !== method.id);
-                                  field.onChange(updatedValue);
-                                }}
-                              />
-                              <label
-                                htmlFor={`method-${method.id}`}
-                                className="text-sm font-medium leading-none cursor-pointer"
-                              >
-                                {method.label}
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                        <FormDescription>
-                          Select promotion methods that are not allowed
-                        </FormDescription>
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    onClick={() => setCurrentTab("commission")}
-                  >
-                    Previous
-                  </Button>
-                  <Button 
-                    type="button" 
-                    onClick={() => setCurrentTab("requirements")}
-                  >
-                    Next
-                  </Button>
-                </CardFooter>
-              </Card>
-            </TabsContent>
-
-            {/* Requirements Tab */}
-            <TabsContent value="requirements" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Requirements & Terms</CardTitle>
-                  <CardDescription>
-                    Define conversion requirements and terms for your offer
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="target_audience"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Target Audience</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Describe your ideal audience for this offer" 
-                            className="min-h-[100px]"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Describe who this offer is best suited for
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="conversion_requirements"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Conversion Requirements</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="List all requirements for a valid conversion" 
-                            className="min-h-[100px]"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Clearly define what constitutes a valid conversion
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="terms_and_conditions"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Terms & Conditions</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Specify any additional terms and conditions" 
-                            className="min-h-[150px]"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Add any legal terms or specific conditions for this offer
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    onClick={() => setCurrentTab("targeting")}
-                  >
-                    Previous
-                  </Button>
-                  <Button 
-                    type="submit"
-                    disabled={mutation.isPending}
-                  >
-                    {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isEditMode ? "Update Offer" : "Create Offer"}
-                  </Button>
-                </CardFooter>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </form>
-      </Form>
+      <OfferPreviewDialog
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        offer={getOfferPreviewData()}
+        onConfirm={handleFinalSubmit}
+        isSubmitting={isSubmitting}
+      />
     </div>
   );
-}
+};
+
+export default CreateOffer;

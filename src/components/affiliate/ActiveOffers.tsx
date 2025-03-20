@@ -142,7 +142,7 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                 {affiliateOffer.traffic_source && (
                   <div className="text-sm flex items-center">
                     <MapPin className="h-4 w-4 mr-1 text-red-500" />
-                    <span className="font-medium">Traffic Source: </span>
+                    <span className="font-medium">Traffic Source: </span> 
                     <span className="ml-1">{affiliateOffer.traffic_source}</span>
                   </div>
                 )}
@@ -173,10 +173,14 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
     );
   }
 
-  // List view - UPDATED to use the reusable OfferTable
+  // List view - Updated to use the reusable OfferTable with improved styling
   return (
     <OfferTable 
-      offers={offers.map(affiliateOffer => affiliateOffer.offer)}
+      offers={offers.map(affiliateOffer => ({
+        ...affiliateOffer.offer,
+        // Add payout_frequency if it's not already present
+        payout_frequency: affiliateOffer.offer.payout_frequency || 'Monthly'
+      }))}
       userRole="affiliate"
       onViewDetails={onViewOfferDetails}
       onGenerateLinks={onGenerateLinks}

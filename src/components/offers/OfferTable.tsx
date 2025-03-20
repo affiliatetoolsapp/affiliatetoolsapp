@@ -18,7 +18,9 @@ import {
   X,
   Eye,
   MoreHorizontal,
-  Link
+  Link,
+  TagIcon,
+  Clock
 } from 'lucide-react';
 import {
   Table,
@@ -66,6 +68,16 @@ export default function OfferTable({ offers, userRole, onViewDetails, onApply, o
       case 'O': return 'CPO'; // Cost Per Order
       case 'R': return 'CPR'; // Cost Per Registration
       default: return shortType;
+    }
+  };
+
+  // Get icon for commission type
+  const getCommissionTypeIcon = (commissionType: string) => {
+    switch (commissionType) {
+      case 'CPL': return <TagIcon className="h-3 w-3 mr-1" />;
+      case 'CPA': return <Check className="h-3 w-3 mr-1" />;
+      case 'CPS': return <TagIcon className="h-3 w-3 mr-1" />;
+      default: return <TagIcon className="h-3 w-3 mr-1" />;
     }
   };
 
@@ -155,32 +167,42 @@ export default function OfferTable({ offers, userRole, onViewDetails, onApply, o
               
               return (
                 <TableRow key={offer.id} className="hover:bg-muted/50">
-                  {/* Offer column */}
+                  {/* Offer column - Improved featured tag placement */}
                   <TableCell>
                     <div className="flex gap-3">
-                      {offer.offer_image ? (
-                        <div className="w-16 h-16 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
-                          <img 
-                            src={offer.offer_image} 
-                            alt={offer.name} 
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-16 h-16 rounded-md bg-gray-100 flex-shrink-0 flex items-center justify-center text-gray-400">
-                          No image
-                        </div>
-                      )}
+                      <div className="relative">
+                        {offer.offer_image ? (
+                          <div className="w-16 h-16 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
+                            <img 
+                              src={offer.offer_image} 
+                              alt={offer.name} 
+                              className="w-full h-full object-cover"
+                            />
+                            {offer.is_featured && (
+                              <div className="absolute -top-1 -right-1">
+                                <Badge className="bg-yellow-500 text-white border-0 shadow-md">
+                                  <Award className="h-3 w-3 mr-1" />
+                                  Featured
+                                </Badge>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="w-16 h-16 rounded-md bg-gray-100 flex-shrink-0 flex items-center justify-center text-gray-400 relative">
+                            No image
+                            {offer.is_featured && (
+                              <div className="absolute -top-1 -right-1">
+                                <Badge className="bg-yellow-500 text-white border-0 shadow-md">
+                                  <Award className="h-3 w-3 mr-1" />
+                                  Featured
+                                </Badge>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       <div className="flex flex-col">
-                        <div className="font-medium flex items-center gap-1">
-                          {offer.is_featured && (
-                            <Badge className="mr-1">
-                              <Award className="h-3 w-3 mr-1" />
-                              Featured
-                            </Badge>
-                          )}
-                          {offer.name}
-                        </div>
+                        <div className="font-medium">{offer.name}</div>
                         {offer.description && (
                           <p className="text-sm text-muted-foreground line-clamp-2">
                             {offer.description}
@@ -204,30 +226,41 @@ export default function OfferTable({ offers, userRole, onViewDetails, onApply, o
                     )}
                   </TableCell>
                   
-                  {/* Payout column - UPDATED to separate amount and type */}
+                  {/* Payout column - UPDATED with separate badges and payout frequency */}
                   <TableCell>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-1">
+                      {/* Commission amount badge */}
                       <div className="flex items-center gap-1">
-                        <DollarSign className="h-4 w-4 text-green-500" />
                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                          <DollarSign className="h-3 w-3 mr-1" />
                           ${commissionRange
                             ? `${commissionRange.min}-${commissionRange.max}`
                             : `${offer.commission_amount}`}
                         </Badge>
                       </div>
                       
-                      {/* Separate badge for commission type */}
-                      {offer.commission_type !== 'RevShare' && (
-                        <Badge variant="secondary" className="text-xs">
-                          {getFullCommissionType(offer.commission_type)}
-                        </Badge>
-                      )}
+                      {/* Commission type badge */}
+                      <div className="flex items-center gap-1">
+                        {offer.commission_type !== 'RevShare' ? (
+                          <Badge variant="secondary" className="text-xs">
+                            {getCommissionTypeIcon(offer.commission_type)}
+                            {getFullCommissionType(offer.commission_type)}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">
+                            <TagIcon className="h-3 w-3 mr-1" />
+                            {offer.commission_percent}% RevShare
+                          </Badge>
+                        )}
+                      </div>
                       
-                      {offer.commission_type === 'RevShare' && (
-                        <Badge variant="secondary" className="text-xs">
-                          {offer.commission_percent}% RevShare
+                      {/* Payout frequency */}
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
+                          <Clock className="h-3 w-3 mr-1" />
+                          {offer.payout_frequency || 'Monthly'}
                         </Badge>
-                      )}
+                      </div>
                     </div>
                   </TableCell>
                   
@@ -345,7 +378,7 @@ export default function OfferTable({ offers, userRole, onViewDetails, onApply, o
                     </div>
                   </TableCell>
                   
-                  {/* Actions column - UPDATED to use dropdown menu */}
+                  {/* Actions column - Clean dropdown menu */}
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

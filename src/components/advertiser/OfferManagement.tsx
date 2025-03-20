@@ -268,7 +268,7 @@ export default function OfferManagement() {
       const country = countryCodes.find(c => c.code === code);
       return {
         code,
-        flag: country?.flag || '🌐',\
+        flag: country?.flag || '🌐',
         name: country?.name || code
       };
     });

@@ -53,4 +53,11 @@ const countryCodes = [
   { code: "QA", name: "Qatar", flag: "🇶🇦" }
 ];
 
+// Convert the array to a dictionary format for easy lookup
+const COUNTRY_CODES: { [key: string]: string } = {};
+countryCodes.forEach(country => {
+  COUNTRY_CODES[country.code] = country.name;
+});
+
+export { COUNTRY_CODES };
 export default countryCodes;

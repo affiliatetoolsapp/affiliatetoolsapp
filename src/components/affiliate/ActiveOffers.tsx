@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AffiliateOfferWithOffer } from '@/types';
@@ -7,10 +6,10 @@ import { formatGeoTargets } from './utils/offerUtils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { DollarSign, Calendar, Tag, MapPin, Globe, Eye, Link as LinkIcon, Award } from 'lucide-react';
+import OfferTable from '@/components/offers/OfferTable';
 
 interface ActiveOffersProps {
   offers: AffiliateOfferWithOffer[];
@@ -174,102 +173,14 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
     );
   }
 
-  // List view
+  // List view - UPDATED to use the reusable OfferTable
   return (
-    <div className="rounded-md border overflow-hidden">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Offer</TableHead>
-            <TableHead>Commission</TableHead>
-            <TableHead>Niche</TableHead>
-            <TableHead>Traffic Source</TableHead>
-            <TableHead>Geo Targeting</TableHead>
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {offers.map((affiliateOffer) => (
-            <TableRow key={affiliateOffer.id}>
-              <TableCell className="font-medium">
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-2">
-                    {affiliateOffer.offer.is_featured && (
-                      <Badge variant="outline" className="mr-1 text-xs bg-yellow-100 dark:bg-yellow-900">
-                        <Award className="h-3 w-3 mr-1" />
-                        Featured
-                      </Badge>
-                    )}
-                    {affiliateOffer.offer.name}
-                  </div>
-                </div>
-              </TableCell>
-              <TableCell>
-                {affiliateOffer.offer.commission_type === 'RevShare' 
-                  ? `${affiliateOffer.offer.commission_percent}% RevShare` 
-                  : `$${affiliateOffer.offer.commission_amount} per ${affiliateOffer.offer.commission_type.slice(2)}`}
-              </TableCell>
-              <TableCell>{affiliateOffer.offer.niche || '-'}</TableCell>
-              <TableCell>{affiliateOffer.traffic_source || '-'}</TableCell>
-              <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  {formatGeoTargets(affiliateOffer.offer).length <= 2 ? (
-                    // If 2 or fewer GEO's, show them all
-                    formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
-                      <Badge key={i} variant="outline" className="text-xs">
-                        {geo.flag} {geo.code}
-                      </Badge>
-                    ))
-                  ) : (
-                    // Updated tooltip implementation
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge variant="outline" className="text-xs cursor-pointer">
-                            <Globe className="h-3 w-3 mr-1" />
-                            {formatGeoTargets(affiliateOffer.offer).length} countries
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="w-auto p-3 z-50" sideOffset={5}>
-                          <div className="font-medium mb-2">Targeted countries:</div>
-                          <div className="flex flex-wrap gap-1 max-w-[300px]">
-                            {formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
-                              <Badge key={i} variant="outline" className="text-xs">
-                                {geo.flag} {geo.code}
-                              </Badge>
-                            ))}
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell>
-                <div className="flex space-x-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => onViewOfferDetails(affiliateOffer.offer_id)}
-                  >
-                    <Eye className="h-4 w-4 mr-1" />
-                    View
-                  </Button>
-                  
-                  <Button
-                    size="sm"
-                    onClick={() => onGenerateLinks(affiliateOffer.offer_id)}
-                  >
-                    <LinkIcon className="h-4 w-4 mr-1" />
-                    Links
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <OfferTable 
+      offers={offers.map(affiliateOffer => affiliateOffer.offer)}
+      userRole="affiliate"
+      onViewDetails={onViewOfferDetails}
+      onGenerateLinks={onGenerateLinks}
+    />
   );
 };
 

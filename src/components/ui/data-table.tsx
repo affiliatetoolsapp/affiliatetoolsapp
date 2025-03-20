@@ -223,8 +223,8 @@ export function DataTable<TData, TValue>({
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} onClick={(e) => {
-                      // Prevent click event if clicking inside a hover card
-                      if ((e.target as HTMLElement).closest('.hover-card-disable-row-click')) {
+                      // Prevent click event if clicking on dropdown menu, button or other interactive elements
+                      if ((e.target as HTMLElement).closest('.hover-card-disable-row-click, [role="menuitem"], [data-radix-popper-content-wrapper], button, .dropdown-trigger')) {
                         e.stopPropagation();
                       }
                     }}>

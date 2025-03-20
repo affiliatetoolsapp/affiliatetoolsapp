@@ -17,7 +17,8 @@ import {
   Pause,
   X,
   Eye,
-  MoreHorizontal
+  MoreHorizontal,
+  Link
 } from 'lucide-react';
 import {
   Table,
@@ -27,15 +28,24 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface OfferTableProps {
   offers: Offer[];
   userRole?: string;
   onViewDetails?: (offerId: string) => void;
   onApply?: (offerId: string) => void;
+  onGenerateLinks?: (offerId: string) => void;
 }
 
-export default function OfferTable({ offers, userRole, onViewDetails, onApply }: OfferTableProps) {
+export default function OfferTable({ offers, userRole, onViewDetails, onApply, onGenerateLinks }: OfferTableProps) {
   const navigate = useNavigate();
   const isAdvertiser = userRole === 'advertiser';
 
@@ -109,6 +119,12 @@ export default function OfferTable({ offers, userRole, onViewDetails, onApply }:
   const handleApply = (offerId: string) => {
     if (onApply) {
       onApply(offerId);
+    }
+  };
+
+  const handleGenerateLinks = (offerId: string) => {
+    if (onGenerateLinks) {
+      onGenerateLinks(offerId);
     }
   };
 
@@ -188,15 +204,30 @@ export default function OfferTable({ offers, userRole, onViewDetails, onApply }:
                     )}
                   </TableCell>
                   
-                  {/* Payout column */}
+                  {/* Payout column - UPDATED to separate amount and type */}
                   <TableCell>
-                    <div className="flex items-center gap-1">
-                      <DollarSign className="h-4 w-4 text-green-500" />
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                        ${commissionRange
-                          ? `${commissionRange.min}-${commissionRange.max} ${getFullCommissionType(offer.commission_type)}`
-                          : `${offer.commission_amount} ${getFullCommissionType(offer.commission_type)}`}
-                      </Badge>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <DollarSign className="h-4 w-4 text-green-500" />
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                          ${commissionRange
+                            ? `${commissionRange.min}-${commissionRange.max}`
+                            : `${offer.commission_amount}`}
+                        </Badge>
+                      </div>
+                      
+                      {/* Separate badge for commission type */}
+                      {offer.commission_type !== 'RevShare' && (
+                        <Badge variant="secondary" className="text-xs">
+                          {getFullCommissionType(offer.commission_type)}
+                        </Badge>
+                      )}
+                      
+                      {offer.commission_type === 'RevShare' && (
+                        <Badge variant="secondary" className="text-xs">
+                          {offer.commission_percent}% RevShare
+                        </Badge>
+                      )}
                     </div>
                   </TableCell>
                   
@@ -314,23 +345,41 @@ export default function OfferTable({ offers, userRole, onViewDetails, onApply }:
                     </div>
                   </TableCell>
                   
-                  {/* Actions column */}
+                  {/* Actions column - UPDATED to use dropdown menu */}
                   <TableCell className="text-right">
-                    {isAdvertiser ? (
-                      <Button variant="ghost" size="sm" onClick={() => handleViewDetails(offer.id)}>
-                        Manage
-                      </Button>
-                    ) : (
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => handleViewDetails(offer.id)}>
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Actions</span>
                         </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleApply(offer.id)}>
-                          Apply
-                        </Button>
-                      </div>
-                    )}
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        
+                        <DropdownMenuItem onClick={() => handleViewDetails(offer.id)}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          {isAdvertiser ? 'Manage' : 'View Details'}
+                        </DropdownMenuItem>
+                        
+                        {!isAdvertiser && (
+                          <>
+                            <DropdownMenuItem onClick={() => handleApply(offer.id)}>
+                              <Check className="h-4 w-4 mr-2" />
+                              Apply
+                            </DropdownMenuItem>
+                            
+                            {onGenerateLinks && (
+                              <DropdownMenuItem onClick={() => handleGenerateLinks(offer.id)}>
+                                <Link className="h-4 w-4 mr-2" />
+                                Generate Links
+                              </DropdownMenuItem>
+                            )}
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               );

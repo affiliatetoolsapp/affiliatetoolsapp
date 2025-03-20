@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -48,17 +49,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AffiliateApprovals from '@/components/offers/AffiliateApprovals';
 import countryCodes from '../offers/countryCodes';
 import OfferTable from '@/components/offers/OfferTable';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 type SortField = 'created_at' | 'name' | 'status';
 type SortOrder = 'asc' | 'desc';
@@ -76,7 +66,6 @@ export default function OfferManagement() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [filterOption, setFilterOption] = useState<FilterOption>('all');
   const filterMenuRef = useRef<HTMLButtonElement>(null);
-  const [offerToDelete, setOfferToDelete] = useState<string | null>(null);
   
   // Get advertiser's offers
   const { data: offers, isLoading: offersLoading } = useQuery({
@@ -138,53 +127,6 @@ export default function OfferManagement() {
       refetchApplications();
     }
   }, [activeTab, refetchApplications]);
-  
-  // Mutation to delete an offer
-  const deleteOffer = useMutation({
-    mutationFn: async (id: string) => {
-      console.log(`Deleting offer ${id}`);
-      
-      const { data, error } = await supabase
-        .from('offers')
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        console.error('Error deleting offer:', error);
-        throw error;
-      }
-      
-      return data;
-    },
-    onSuccess: () => {
-      // Invalidate queries to refetch offers
-      queryClient.invalidateQueries({ queryKey: ['advertiser-offers', user?.id] });
-      toast({
-        title: 'Offer Deleted',
-        description: 'The offer has been deleted successfully',
-      });
-      setOfferToDelete(null);
-    },
-    onError: (error) => {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to delete offer',
-      });
-      console.error(error);
-      setOfferToDelete(null);
-    },
-  });
-  
-  const handleDeleteOffer = (offerId: string) => {
-    setOfferToDelete(offerId);
-  };
-
-  const confirmDeleteOffer = () => {
-    if (offerToDelete) {
-      deleteOffer.mutate(offerToDelete);
-    }
-  };
   
   // Filter offers based on search term, sort options, and filter options
   const filteredAndSortedOffers = offers?.filter(offer => {
@@ -454,13 +396,7 @@ export default function OfferManagement() {
                           </>
                         )}
                       </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        className="text-destructive" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteOffer(offer.id);
-                        }}
-                      >
+                      <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
                       </DropdownMenuItem>
@@ -498,27 +434,6 @@ export default function OfferManagement() {
   
   return (
     <div className="space-y-6">
-      {/* Delete confirmation dialog */}
-      <AlertDialog open={!!offerToDelete} onOpenChange={(open) => !open && setOfferToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to delete this offer?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the offer and all associated data.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmDeleteOffer}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
@@ -819,9 +734,42 @@ export default function OfferManagement() {
                           </div>
                         </div>
                         
-                        <div className="mt-2 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="mt-2 flex justify-end" onClick={(e) => e.stopPropagation()}>
                           <Button variant="outline" size="sm" onClick={() => navigate(`/offers/${offer.id}`)}>
                             Manage
                           </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger as
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            ) : viewMode === 'table' ? (
+              <OfferTable 
+                offers={filteredAndSortedOffers}
+                userRole="advertiser"
+                onViewDetails={(offerId) => navigate(`/offers/${offerId}`)}
+                onEdit={(offerId) => navigate(`/offers/${offerId}/edit`)}
+                onRowClick={(offerId) => navigate(`/offers/${offerId}`)}
+              />
+            ) : (
+              renderOffersTable()
+            )
+          ) : (
+            <Card className="p-8 text-center">
+              <p className="text-muted-foreground mb-4">You don't have any offers yet</p>
+              <Button onClick={() => navigate('/offers/create')}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Create Your First Offer
+              </Button>
+            </Card>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="applications">
+          <AffiliateApprovals />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

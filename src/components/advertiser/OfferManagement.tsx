@@ -452,7 +452,13 @@ export default function OfferManagement() {
                           </>
                         )}
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenuItem 
+                        className="text-destructive" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteOffer(offer.id);
+                        }}
+                      >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
                       </DropdownMenuItem>
@@ -490,6 +496,27 @@ export default function OfferManagement() {
   
   return (
     <div className="space-y-6">
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!offerToDelete} onOpenChange={(open) => !open && setOfferToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this offer?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the offer and all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteOffer}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
@@ -791,33 +818,12 @@ export default function OfferManagement() {
                         </div>
                         
                         <div className="mt-2 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                          <Button variant="outline" size="sm" onClick={() => navigate(`/offers/${offer.id}`)}>
+                          <Button variant="outline" size="sm" onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/offers/${offer.id}`);
+                          }}>
                             Manage
                           </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/offers/${offer.id}/edit`);
-                              }}>
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Edit Offer
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={(e) => {
-                                e.stopPropagation();
-                                handleStatusUpdate(offer.id, offer.status === 'active' ? 'inactive' : 'active');
-                              }}>
-                                {offer.status === 'active' ? (
-                                  <>
-                                    <Pause className="h-4 w-4 mr-2" />
-                                    Pause Offer
-                                  </>
-                                ) : (
-                                  <>
-                                    <Play className="h-4 w-4 mr-2" />
-                                    Activate
+                              <Button variant="outline" size

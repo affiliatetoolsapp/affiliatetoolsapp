@@ -34,10 +34,7 @@ export default function EditOfferPage() {
           .eq('id', id)
           .single();
 
-        if (error) {
-          console.error("EditOfferPage: Error fetching offer data:", error);
-          throw error;
-        }
+        if (error) throw error;
         
         console.log("EditOfferPage: Fetched offer data:", data);
         
@@ -58,7 +55,7 @@ export default function EditOfferPage() {
           navigate('/offers');
         }
       } catch (error) {
-        console.error('EditOfferPage: Error fetching offer:', error);
+        console.error('Error fetching offer:', error);
         toast({
           variant: 'destructive',
           title: 'Error',

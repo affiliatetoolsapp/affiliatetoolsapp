@@ -19,7 +19,8 @@ import {
   MoreHorizontal,
   Link,
   TagIcon,
-  Clock
+  Clock,
+  Pencil
 } from 'lucide-react';
 import {
   Table,
@@ -44,6 +45,7 @@ interface OfferTableProps {
   onViewDetails?: (offerId: string) => void;
   onApply?: (offerId: string) => void;
   onGenerateLinks?: (offerId: string) => void;
+  onEdit?: (offerId: string) => void;
   onRowClick?: (offerId: string) => void;
 }
 
@@ -53,6 +55,7 @@ export default function OfferTable({
   onViewDetails, 
   onApply, 
   onGenerateLinks,
+  onEdit,
   onRowClick
 }: OfferTableProps) {
   const navigate = useNavigate();
@@ -146,6 +149,13 @@ export default function OfferTable({
     e.stopPropagation(); // Prevent row click event from firing
     if (onGenerateLinks) {
       onGenerateLinks(offerId);
+    }
+  };
+
+  const handleEdit = (offerId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click event from firing
+    if (onEdit) {
+      onEdit(offerId);
     }
   };
 
@@ -426,6 +436,13 @@ export default function OfferTable({
                           <Eye className="h-4 w-4 mr-2" />
                           {isAdvertiser ? 'Manage' : 'View Details'}
                         </DropdownMenuItem>
+                        
+                        {isAdvertiser && onEdit && (
+                          <DropdownMenuItem onClick={(e) => handleEdit(offer.id, e)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit Offer
+                          </DropdownMenuItem>
+                        )}
                         
                         {!isAdvertiser && onApply && (
                           <DropdownMenuItem onClick={(e) => handleApply(offer.id, e)}>

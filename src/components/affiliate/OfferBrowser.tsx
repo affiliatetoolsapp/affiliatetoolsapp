@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -29,8 +30,8 @@ export default function OfferBrowser() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [offers, setOffers] = useState<Offer[]>([]);
-  // Updated to only use grid or table
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  // Updated to use table as default view
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
 
   // Get all offers
   const { data: allOffers, isLoading: offersLoading } = useQuery({
@@ -374,7 +375,7 @@ export default function OfferBrowser() {
       ) : filteredOffers?.length ? (
         <>
           {viewMode === 'grid' && (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredOffers.map((offer) => renderOfferCard(offer))}
             </div>
           )}
@@ -397,3 +398,4 @@ export default function OfferBrowser() {
     </div>
   );
 }
+

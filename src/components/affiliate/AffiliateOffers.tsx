@@ -18,7 +18,8 @@ import TrackingLinksTab from './TrackingLinksTab';
 export default function AffiliateOffers() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  // Updated default view to table instead of grid
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const navigate = useNavigate();
   
   // Use our custom hook to fetch all data
@@ -143,3 +144,4 @@ export default function AffiliateOffers() {
     </div>
   );
 }
+

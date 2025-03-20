@@ -1,4 +1,3 @@
-
 import { Offer } from '@/types';
 
 /**
@@ -23,7 +22,7 @@ export const getCountryFlag = (countryCode: string): string => {
  * Format geo targets for display with emoji flags
  */
 export const formatGeoTargets = (offer: Offer): Array<{ flag: string; code: string }> => {
-  if (!offer.geo_targets) return [{ flag: '🌎', code: 'WW' }]; // Always return an array
+  if (!offer.geo_targets) return []; // Return empty array if no geo_targets
   
   try {
     // If geo_targets is a string, try to parse it
@@ -33,25 +32,25 @@ export const formatGeoTargets = (offer: Offer): Array<{ flag: string; code: stri
     
     // If it's an empty object or not actually containing country data
     if (!geoObj || Object.keys(geoObj).length === 0) {
-      return [{ flag: '🌎', code: 'WW' }]; // Always return an array
+      return []; // Return empty array
     }
     
     // Handle arrays directly
     if (Array.isArray(geoObj)) {
       return geoObj.map(item => ({
-        code: String(item),
+        code: String(item).toUpperCase(),
         flag: getCountryFlag(String(item))
       }));
     }
     
     // Handle objects
     return Object.keys(geoObj).map(code => ({
-      code,
+      code: code.toUpperCase(),
       flag: getCountryFlag(code)
     }));
   } catch (e) {
     console.error("Error parsing geo targets:", e);
-    return [{ flag: '🌎', code: 'WW' }]; // Always return an array on error
+    return []; // Return empty array on error
   }
 };
 

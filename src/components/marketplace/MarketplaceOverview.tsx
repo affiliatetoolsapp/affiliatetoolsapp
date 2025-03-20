@@ -133,24 +133,50 @@ export default function MarketplaceOverview() {
                 <div className="flex flex-wrap gap-1 mt-1">
                   {geoData.length <= 3 ? (
                     geoData.map((geo, i) => (
-                      <Badge key={i} variant="outline" className="text-xs">
-                        {geo.flag} {geo.code}
+                      <Badge 
+                        key={i} 
+                        variant="outline" 
+                        className="text-xs flex items-center gap-1 px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      >
+                        <span className="inline-block text-base leading-none">{geo.flag}</span>
+                        <span className="font-medium">{geo.code}</span>
                       </Badge>
                     ))
                   ) : (
-                    <HoverCard openDelay={0} closeDelay={0}>
+                    <HoverCard>
                       <HoverCardTrigger asChild>
-                        <Badge variant="outline" className="text-xs cursor-pointer">
-                          <Globe className="h-3 w-3 mr-1" />
-                          {geoData.length} GEO's
-                        </Badge>
+                        <Button 
+                          variant="ghost" 
+                          className="h-auto p-0 hover:bg-transparent"
+                          onClick={(e) => {
+                            // Prevent the click from propagating to parent elements
+                            e.stopPropagation();
+                          }}
+                        >
+                          <Badge 
+                            variant="outline" 
+                            className="text-xs ml-1 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            {geoData.length} {geoData.length === 1 ? 'country' : 'countries'}
+                          </Badge>
+                        </Button>
                       </HoverCardTrigger>
-                      <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
+                      <HoverCardContent 
+                        side="right" 
+                        align="start" 
+                        className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]"
+                        sideOffset={10}
+                      >
                         <div className="font-medium mb-2">Targeted GEO's:</div>
-                        <div className="flex flex-wrap gap-1 max-w-[300px]">
+                        <div className="flex flex-wrap gap-2 max-w-[300px] max-h-[200px] overflow-y-auto">
                           {geoData.map((geo, i) => (
-                            <Badge key={i} variant="outline" className="text-xs">
-                              {geo.flag} {geo.code}
+                            <Badge 
+                              key={i} 
+                              variant="outline" 
+                              className="text-xs flex items-center gap-1 px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                            >
+                              <span className="inline-block text-base leading-none">{geo.flag}</span>
+                              <span className="font-medium">{geo.code}</span>
                             </Badge>
                           ))}
                         </div>
@@ -248,18 +274,40 @@ export default function MarketplaceOverview() {
               <Globe className="h-4 w-4 mr-1 text-indigo-500" />
               <span className="font-medium mr-1">Geo:</span>
               {geoData.length > 0 ? (
-                <HoverCard openDelay={0} closeDelay={0}>
+                <HoverCard>
                   <HoverCardTrigger asChild>
-                    <Badge variant="outline" className="text-xs cursor-pointer ml-1">
-                      {geoData.length} {geoData.length === 1 ? 'country' : 'countries'}
-                    </Badge>
+                    <Button 
+                      variant="ghost" 
+                      className="h-auto p-0 hover:bg-transparent"
+                      onClick={(e) => {
+                        // Prevent the click from propagating to parent elements
+                        e.stopPropagation();
+                      }}
+                    >
+                      <Badge 
+                        variant="outline" 
+                        className="text-xs ml-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                      >
+                        {geoData.length} {geoData.length === 1 ? 'country' : 'countries'}
+                      </Badge>
+                    </Button>
                   </HoverCardTrigger>
-                  <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                  <HoverCardContent 
+                    side="right" 
+                    align="start" 
+                    className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]"
+                    sideOffset={10}
+                  >
                     <div className="font-medium mb-2">Targeted GEO's:</div>
-                    <div className="flex flex-wrap gap-1 max-w-[300px]">
+                    <div className="flex flex-wrap gap-2 max-w-[300px] max-h-[200px] overflow-y-auto">
                       {geoData.map((geo, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">
-                          {geo.flag} {geo.code}
+                        <Badge 
+                          key={i} 
+                          variant="outline" 
+                          className="text-xs flex items-center gap-1 px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                        >
+                          <span className="inline-block text-base leading-none" style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"' }}>{geo.flag}</span>
+                          <span className="font-medium">{geo.code}</span>
                         </Badge>
                       ))}
                     </div>
@@ -308,15 +356,20 @@ export default function MarketplaceOverview() {
               <div className="flex items-center text-sm">
                 <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />
                 <span className="font-medium mr-1">Restricted:</span>
-                <HoverCard openDelay={0} closeDelay={0}>
-                  <HoverCardTrigger asChild>
-                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs cursor-pointer ml-1">
+                <HoverCard>
+                  <HoverCardTrigger className="cursor-pointer">
+                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs ml-1">
                       {restrictedGeos.length} {restrictedGeos.length === 1 ? 'country' : 'countries'}
                     </Badge>
                   </HoverCardTrigger>
-                  <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                  <HoverCardContent 
+                    side="right" 
+                    align="start" 
+                    className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]"
+                    sideOffset={10}
+                  >
                     <div className="font-medium mb-2">Restricted GEO's:</div>
-                    <div className="flex flex-wrap gap-1 max-w-[300px]">
+                    <div className="flex flex-wrap gap-2 max-w-[300px]">
                       {restrictedGeos.map((geo, i) => (
                         <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs">
                           {geo}
@@ -356,97 +409,99 @@ export default function MarketplaceOverview() {
       
       {user?.role === 'advertiser' && (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg text-left">Performance Insights</CardTitle>
-                <CardDescription className="text-left">Understand how your offers compare</CardDescription>
+                <CardTitle className="text-lg">Performance Insights</CardTitle>
+                <CardDescription>Understand how your offers compare</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-left">
+                <p className="text-sm">
                   Analyze market trends and see how your offers are performing relative to others in your niche.
                 </p>
-                <Button className="mt-4" variant="outline">View Insights</Button>
+                <Button className="mt-4 w-full sm:w-auto" variant="outline">View Insights</Button>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg text-left">Affiliate Acquisition</CardTitle>
-                <CardDescription className="text-left">Find and recruit quality affiliates</CardDescription>
+                <CardTitle className="text-lg">Affiliate Acquisition</CardTitle>
+                <CardDescription>Find and recruit quality affiliates</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-left">
+                <p className="text-sm">
                   Browse profiles of top-performing affiliates and invite them to promote your offers.
                 </p>
-                <Button className="mt-4" variant="outline">Browse Affiliates</Button>
+                <Button className="mt-4 w-full sm:w-auto" variant="outline">Browse Affiliates</Button>
               </CardContent>
             </Card>
             
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-lg text-left">Offer Optimization</CardTitle>
-                <CardDescription className="text-left">Improve your offer performance</CardDescription>
+                <CardTitle className="text-lg">Offer Optimization</CardTitle>
+                <CardDescription>Improve your offer performance</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-left">
+                <p className="text-sm">
                   Get recommendations on how to make your offers more appealing to affiliates.
                 </p>
-                <Button className="mt-4" variant="outline">Get Recommendations</Button>
+                <Button className="mt-4 w-full sm:w-auto" variant="outline">Get Recommendations</Button>
               </CardContent>
             </Card>
           </div>
           
-          <div className="flex items-center justify-between mt-8 mb-4">
-            <h2 className="text-xl font-semibold text-left">Marketplace Offers</h2>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mt-8 mb-4 gap-4 sm:gap-0">
+            <h2 className="text-xl font-semibold">Marketplace Offers</h2>
             
-            <div className="flex items-center space-x-3">
-              <div className="relative">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-auto">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="search" 
                   placeholder="Search offers..." 
-                  className="pl-8 w-[240px]"
+                  className="pl-8 w-full sm:w-[240px]"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
               
-              <div className="flex items-center border rounded-md">
+              <div className="flex items-center border rounded-md w-full sm:w-auto justify-center sm:justify-start">
                 <Button 
                   variant={viewMode === 'grid' ? 'default' : 'ghost'} 
                   size="sm" 
-                  className="rounded-r-none" 
+                  className="flex-1 sm:flex-none rounded-r-none" 
                   onClick={() => setViewMode('grid')}
                 >
-                  <Grid className="h-4 w-4" />
+                  <Grid className="h-4 w-4 mr-1" />
+                  <span className="sm:hidden">Grid</span>
                 </Button>
                 <Button 
                   variant={viewMode === 'list' ? 'default' : 'ghost'} 
                   size="sm" 
-                  className="rounded-l-none" 
+                  className="flex-1 sm:flex-none rounded-l-none" 
                   onClick={() => setViewMode('list')}
                 >
-                  <List className="h-4 w-4" />
+                  <List className="h-4 w-4 mr-1" />
+                  <span className="sm:hidden">List</span>
                 </Button>
               </div>
             </div>
           </div>
           
-          <Tabs defaultValue="featured">
-            <TabsList>
-              <TabsTrigger value="featured">Featured Offers</TabsTrigger>
-              <TabsTrigger value="myoffers">My Offers in Marketplace</TabsTrigger>
+          <Tabs defaultValue="featured" className="w-full">
+            <TabsList className="w-full">
+              <TabsTrigger value="featured" className="flex-1">Featured Offers</TabsTrigger>
+              <TabsTrigger value="myoffers" className="flex-1">My Offers</TabsTrigger>
             </TabsList>
             
             <TabsContent value="featured">
               {filteredFeaturedOffers?.length ? (
                 viewMode === 'grid' ? (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                     {filteredFeaturedOffers.map(offer => renderOfferCard(offer))}
                   </div>
                 ) : (
-                  <div>
+                  <div className="space-y-4">
                     {filteredFeaturedOffers.map(offer => renderOfferListItem(offer))}
                   </div>
                 )

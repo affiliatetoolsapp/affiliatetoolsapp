@@ -308,106 +308,542 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Offer Name</FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="url"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Offer URL</FormLabel>
-                <FormControl>
-                  <Input {...field} type="url" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Status</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="pending_review">Pending Review</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="niche"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Niche</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select niche" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {NICHES.map((niche) => (
-                      <SelectItem key={niche} value={niche.toLowerCase()}>
-                        {niche}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormDescription>
-                  The category or industry of your offer
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+    // Instead of using Form as a wrapper, use FormProvider directly from react-hook-form
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Offer Name</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}
-          name="description"
+          name="url"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Description</FormLabel>
+              <FormLabel>Offer URL</FormLabel>
+              <FormControl>
+                <Input {...field} type="url" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Status</FormLabel>
+              <Select 
+                onValueChange={field.onChange} 
+                defaultValue={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="pending_review">Pending Review</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="niche"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Niche</FormLabel>
+              <Select 
+                onValueChange={field.onChange} 
+                defaultValue={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select niche" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {NICHES.map((niche) => (
+                    <SelectItem key={niche} value={niche.toLowerCase()}>
+                      {niche}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                The category or industry of your offer
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
+
+      <FormField
+        control={form.control}
+        name="description"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Description</FormLabel>
+            <FormControl>
+              <Textarea 
+                {...field} 
+                placeholder="Describe your offer" 
+                className="min-h-[100px]" 
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <Separator />
+
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">Offer Image</h3>
+        <div className="flex items-start space-x-4">
+          {offerImage ? (
+            <div className="relative group">
+              <img 
+                src={offerImage} 
+                alt="Offer Preview" 
+                className="w-32 h-32 object-cover rounded-md border"
+              />
+              <button
+                type="button"
+                onClick={handleRemoveOfferImage}
+                className="absolute top-1 right-1 bg-background/80 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center w-32 h-32 border-2 border-dashed rounded-md">
+              <span className="text-muted-foreground text-sm">No image</span>
+            </div>
+          )}
+          <div>
+            <Label htmlFor="offerImage" className="cursor-pointer">
+              <div className="flex items-center gap-2 bg-primary/10 text-primary rounded-md py-2 px-3">
+                <Upload className="h-4 w-4" />
+                <span>{offerImage ? 'Change Image' : 'Upload Image'}</span>
+              </div>
+            </Label>
+            <Input 
+              id="offerImage" 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              onChange={handleOfferImageChange}
+            />
+            <p className="text-sm text-muted-foreground mt-1">
+              Recommended: 1200×628px. Max 5MB
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-medium">Creatives</h3>
+          <Button 
+            type="button"
+            variant="outline" 
+            onClick={() => setShowCreativesDialog(true)}
+          >
+            Manage Creatives
+          </Button>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Add banners, images, and other creative assets for affiliates to use
+        </p>
+      </div>
+
+      <Dialog open={showCreativesDialog} onOpenChange={setShowCreativesDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Manage Creatives</DialogTitle>
+            <DialogDescription>
+              Upload, replace, or delete creative assets for your offer
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 mt-4">
+            <div className="border rounded-md p-4">
+              <Label htmlFor="uploadCreatives" className="cursor-pointer">
+                <div className="flex flex-col items-center gap-2 p-6 border-2 border-dashed rounded-md">
+                  <Upload className="h-8 w-8 text-muted-foreground" />
+                  <span className="font-medium">Click to upload creatives</span>
+                  <span className="text-sm text-muted-foreground">
+                    PNG, JPG, GIF up to 10MB
+                  </span>
+                </div>
+              </Label>
+              <Input 
+                id="uploadCreatives" 
+                type="file" 
+                accept="image/*" 
+                multiple 
+                className="hidden" 
+                onChange={handleAddCreatives}
+              />
+            </div>
+            
+            {/* New files to upload */}
+            {newCreativeFiles.length > 0 && (
+              <>
+                <h4 className="font-medium mt-4">New Files</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {newCreativeFiles.map((file, index) => (
+                    <div key={index} className="border rounded-md p-2 relative group">
+                      <img 
+                        src={URL.createObjectURL(file)} 
+                        alt={file.name} 
+                        className="w-full h-32 object-cover mb-2 rounded"
+                      />
+                      <div className="text-sm truncate">{file.name}</div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveNewCreative(index)}
+                        className="absolute top-1 right-1 bg-background/80 p-1 rounded-full"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+            
+            {/* Existing creatives */}
+            {creatives.length > 0 && (
+              <>
+                <h4 className="font-medium mt-4">Existing Creatives</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {creatives.map((creative, index) => {
+                    const isMarkedForDeletion = creativesToDelete.includes(creative.path);
+                    
+                    return (
+                      <div 
+                        key={index} 
+                        className={`border rounded-md p-2 relative group ${isMarkedForDeletion ? 'opacity-50' : ''}`}
+                      >
+                        <img 
+                          src={creative.url} 
+                          alt={creative.name} 
+                          className="w-full h-32 object-cover mb-2 rounded"
+                        />
+                        <div className="text-sm truncate">{creative.name}</div>
+                        {isMarkedForDeletion ? (
+                          <div className="absolute inset-0 flex items-center justify-center bg-background/30">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleRestoreCreative(creative.path)}
+                            >
+                              Restore
+                            </Button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleMarkCreativeForDeletion(creative.path)}
+                            className="absolute top-1 right-1 bg-background/80 p-1 rounded-full"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+            
+            <div className="flex justify-end mt-4">
+              <Button
+                type="button"
+                onClick={() => setShowCreativesDialog(false)}
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Separator />
+
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">Commission Details</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="commission_type"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Commission Type</FormLabel>
+                <Select 
+                  onValueChange={field.onChange} 
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select commission type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="CPA">CPA (Cost Per Action)</SelectItem>
+                    <SelectItem value="CPL">CPL (Cost Per Lead)</SelectItem>
+                    <SelectItem value="CPS">CPS (Cost Per Sale)</SelectItem>
+                    <SelectItem value="CPI">CPI (Cost Per Install)</SelectItem>
+                    <SelectItem value="RevShare">Revenue Share</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {form.watch('commission_type') === 'RevShare' ? (
+            <FormField
+              control={form.control}
+              name="commission_percent"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Commission Percentage (%)</FormLabel>
+                  <FormControl>
+                    <Input {...field} type="number" min="1" max="100" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ) : (
+            <FormField
+              control={form.control}
+              name="commission_amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Commission Amount ($)</FormLabel>
+                  <FormControl>
+                    <Input {...field} type="number" min="0" step="0.01" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+        </div>
+      
+        {/* Add Payout Frequency field */}
+        <FormField
+          control={form.control}
+          name="payout_frequency"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Payout Frequency</FormLabel>
+              <Select 
+                onValueChange={field.onChange} 
+                defaultValue={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select payout frequency" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="Daily">Daily</SelectItem>
+                  <SelectItem value="Weekly">Weekly</SelectItem>
+                  <SelectItem value="Biweekly">Biweekly</SelectItem>
+                  <SelectItem value="Monthly">Monthly</SelectItem>
+                  <SelectItem value="Quarterly">Quarterly</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                How often affiliates will receive payouts for this offer
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
+
+      <Separator />
+
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">Target Settings</h3>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-4">
+              <div>
+                <Label>Allowed Traffic Sources</Label>
+                <div className="flex mt-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start">
+                        Select Traffic Sources
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-auto">
+                      {TRAFFIC_SOURCES.map((source) => (
+                        <DropdownMenuItem
+                          key={source}
+                          onClick={() => handleAddTrafficSource(source)}
+                          disabled={trafficSources.includes(source)}
+                        >
+                          {source}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {trafficSources.map((source, index) => (
+                    <div 
+                      key={index} 
+                      className="bg-secondary text-secondary-foreground px-3 py-1 rounded-full flex items-center"
+                    >
+                      <span>{source}</span>
+                      <button 
+                        type="button"
+                        className="ml-2 text-secondary-foreground/70 hover:text-secondary-foreground"
+                        onClick={() => handleRemoveTrafficSource(source)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <Label>Geo Targeting</Label>
+                <div className="flex mt-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start">
+                        Select Countries
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-72 max-h-80 overflow-auto">
+                      {COUNTRIES.map((country) => (
+                        <DropdownMenuItem
+                          key={country.code}
+                          onClick={() => handleAddGeoTarget(country.code)}
+                          disabled={geoTargets.includes(country.code)}
+                        >
+                          {country.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {geoTargets.map((geo, index) => (
+                    <div 
+                      key={index} 
+                      className="bg-secondary text-secondary-foreground px-3 py-1 rounded-full flex items-center"
+                    >
+                      <span>{geo} - {COUNTRY_CODES[geo] || ''}</span>
+                      <button 
+                        type="button"
+                        className="ml-2 text-secondary-foreground/70 hover:text-secondary-foreground"
+                        onClick={() => handleRemoveGeoTarget(geo)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <Label>Restricted Geos</Label>
+                <div className="flex mt-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start">
+                        Select Restricted Countries
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-72 max-h-80 overflow-auto">
+                      {COUNTRIES.map((country) => (
+                        <DropdownMenuItem
+                          key={country.code}
+                          onClick={() => handleAddRestrictedGeo(country.code)}
+                          disabled={restrictedGeos.includes(country.code)}
+                        >
+                          {country.name}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {restrictedGeos.map((geo, index) => (
+                    <div 
+                      key={index} 
+                      className="bg-destructive/10 text-destructive px-3 py-1 rounded-full flex items-center"
+                    >
+                      <span>{geo} - {COUNTRY_CODES[geo] || ''}</span>
+                      <button 
+                        type="button"
+                        className="ml-2 text-destructive/70 hover:text-destructive"
+                        onClick={() => handleRemoveRestrictedGeo(geo)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium">Additional Information</h3>
+        
+        <FormField
+          control={form.control}
+          name="target_audience"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Target Audience</FormLabel>
               <FormControl>
                 <Textarea 
                   {...field} 
-                  placeholder="Describe your offer" 
-                  className="min-h-[100px]" 
+                  placeholder="Describe the ideal audience for this offer" 
                 />
               </FormControl>
               <FormMessage />
@@ -415,490 +851,54 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
           )}
         />
 
-        <Separator />
-
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Offer Image</h3>
-          <div className="flex items-start space-x-4">
-            {offerImage ? (
-              <div className="relative group">
-                <img 
-                  src={offerImage} 
-                  alt="Offer Preview" 
-                  className="w-32 h-32 object-cover rounded-md border"
+        <FormField
+          control={form.control}
+          name="conversion_requirements"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Conversion Requirements</FormLabel>
+              <FormControl>
+                <Textarea 
+                  {...field} 
+                  placeholder="What constitutes a valid conversion" 
                 />
-                <button
-                  type="button"
-                  onClick={handleRemoveOfferImage}
-                  className="absolute top-1 right-1 bg-background/80 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center w-32 h-32 border-2 border-dashed rounded-md">
-                <span className="text-muted-foreground text-sm">No image</span>
-              </div>
-            )}
-            <div>
-              <Label htmlFor="offerImage" className="cursor-pointer">
-                <div className="flex items-center gap-2 bg-primary/10 text-primary rounded-md py-2 px-3">
-                  <Upload className="h-4 w-4" />
-                  <span>{offerImage ? 'Change Image' : 'Upload Image'}</span>
-                </div>
-              </Label>
-              <Input 
-                id="offerImage" 
-                type="file" 
-                accept="image/*" 
-                className="hidden" 
-                onChange={handleOfferImageChange}
-              />
-              <p className="text-sm text-muted-foreground mt-1">
-                Recommended: 1200×628px. Max 5MB
-              </p>
-            </div>
-          </div>
-        </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-        <Separator />
-
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-medium">Creatives</h3>
-            <Button 
-              type="button"
-              variant="outline" 
-              onClick={() => setShowCreativesDialog(true)}
-            >
-              Manage Creatives
-            </Button>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Add banners, images, and other creative assets for affiliates to use
-          </p>
-        </div>
-
-        <Dialog open={showCreativesDialog} onOpenChange={setShowCreativesDialog}>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader>
-              <DialogTitle>Manage Creatives</DialogTitle>
-              <DialogDescription>
-                Upload, replace, or delete creative assets for your offer
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4 mt-4">
-              <div className="border rounded-md p-4">
-                <Label htmlFor="uploadCreatives" className="cursor-pointer">
-                  <div className="flex flex-col items-center gap-2 p-6 border-2 border-dashed rounded-md">
-                    <Upload className="h-8 w-8 text-muted-foreground" />
-                    <span className="font-medium">Click to upload creatives</span>
-                    <span className="text-sm text-muted-foreground">
-                      PNG, JPG, GIF up to 10MB
-                    </span>
-                  </div>
-                </Label>
-                <Input 
-                  id="uploadCreatives" 
-                  type="file" 
-                  accept="image/*" 
-                  multiple 
-                  className="hidden" 
-                  onChange={handleAddCreatives}
+        <FormField
+          control={form.control}
+          name="restrictions"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Restrictions</FormLabel>
+              <FormControl>
+                <Textarea 
+                  {...field} 
+                  placeholder="Any restrictions or limitations for this offer" 
                 />
-              </div>
-              
-              {/* New files to upload */}
-              {newCreativeFiles.length > 0 && (
-                <>
-                  <h4 className="font-medium mt-4">New Files</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {newCreativeFiles.map((file, index) => (
-                      <div key={index} className="border rounded-md p-2 relative group">
-                        <img 
-                          src={URL.createObjectURL(file)} 
-                          alt={file.name} 
-                          className="w-full h-32 object-cover mb-2 rounded"
-                        />
-                        <div className="text-sm truncate">{file.name}</div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveNewCreative(index)}
-                          className="absolute top-1 right-1 bg-background/80 p-1 rounded-full"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-              
-              {/* Existing creatives */}
-              {creatives.length > 0 && (
-                <>
-                  <h4 className="font-medium mt-4">Existing Creatives</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {creatives.map((creative, index) => {
-                      const isMarkedForDeletion = creativesToDelete.includes(creative.path);
-                      
-                      return (
-                        <div 
-                          key={index} 
-                          className={`border rounded-md p-2 relative group ${isMarkedForDeletion ? 'opacity-50' : ''}`}
-                        >
-                          <img 
-                            src={creative.url} 
-                            alt={creative.name} 
-                            className="w-full h-32 object-cover mb-2 rounded"
-                          />
-                          <div className="text-sm truncate">{creative.name}</div>
-                          {isMarkedForDeletion ? (
-                            <div className="absolute inset-0 flex items-center justify-center bg-background/30">
-                              <Button
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => handleRestoreCreative(creative.path)}
-                              >
-                                Restore
-                              </Button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleMarkCreativeForDeletion(creative.path)}
-                              className="absolute top-1 right-1 bg-background/80 p-1 rounded-full"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-              
-              <div className="flex justify-end mt-4">
-                <Button
-                  type="button"
-                  onClick={() => setShowCreativesDialog(false)}
-                >
-                  Done
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
 
-        <Separator />
-
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Commission Details</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
-              control={form.control}
-              name="commission_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Commission Type</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select commission type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="CPA">CPA (Cost Per Action)</SelectItem>
-                      <SelectItem value="CPL">CPL (Cost Per Lead)</SelectItem>
-                      <SelectItem value="CPS">CPS (Cost Per Sale)</SelectItem>
-                      <SelectItem value="CPI">CPI (Cost Per Install)</SelectItem>
-                      <SelectItem value="RevShare">Revenue Share</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {form.watch('commission_type') === 'RevShare' ? (
-              <FormField
-                control={form.control}
-                name="commission_percent"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Commission Percentage (%)</FormLabel>
-                    <FormControl>
-                      <Input {...field} type="number" min="1" max="100" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            ) : (
-              <FormField
-                control={form.control}
-                name="commission_amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Commission Amount ($)</FormLabel>
-                    <FormControl>
-                      <Input {...field} type="number" min="0" step="0.01" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
-          </div>
-        
-          {/* Add Payout Frequency field */}
-          <FormField
-            control={form.control}
-            name="payout_frequency"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Payout Frequency</FormLabel>
-                <Select 
-                  onValueChange={field.onChange} 
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select payout frequency" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Daily">Daily</SelectItem>
-                    <SelectItem value="Weekly">Weekly</SelectItem>
-                    <SelectItem value="Biweekly">Biweekly</SelectItem>
-                    <SelectItem value="Monthly">Monthly</SelectItem>
-                    <SelectItem value="Quarterly">Quarterly</SelectItem>
-                  </SelectContent>
-                  <FormDescription>
-                    How often affiliates will receive payouts for this offer
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-          />
-        </div>
-
-        <Separator />
-
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Target Settings</h3>
-          
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <div>
-                  <Label>Allowed Traffic Sources</Label>
-                  <div className="flex mt-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start">
-                          Select Traffic Sources
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-auto">
-                        {TRAFFIC_SOURCES.map((source) => (
-                          <DropdownMenuItem
-                            key={source}
-                            onClick={() => handleAddTrafficSource(source)}
-                            disabled={trafficSources.includes(source)}
-                          >
-                            {source}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {trafficSources.map((source, index) => (
-                      <div 
-                        key={index} 
-                        className="bg-secondary text-secondary-foreground px-3 py-1 rounded-full flex items-center"
-                      >
-                        <span>{source}</span>
-                        <button 
-                          type="button"
-                          className="ml-2 text-secondary-foreground/70 hover:text-secondary-foreground"
-                          onClick={() => handleRemoveTrafficSource(source)}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Geo Targeting</Label>
-                  <div className="flex mt-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start">
-                          Select Countries
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-72 max-h-80 overflow-auto">
-                        {COUNTRIES.map((country) => (
-                          <DropdownMenuItem
-                            key={country.code}
-                            onClick={() => handleAddGeoTarget(country.code)}
-                            disabled={geoTargets.includes(country.code)}
-                          >
-                            {country.name}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {geoTargets.map((geo, index) => (
-                      <div 
-                        key={index} 
-                        className="bg-secondary text-secondary-foreground px-3 py-1 rounded-full flex items-center"
-                      >
-                        <span>{geo} - {COUNTRY_CODES[geo] || ''}</span>
-                        <button 
-                          type="button"
-                          className="ml-2 text-secondary-foreground/70 hover:text-secondary-foreground"
-                          onClick={() => handleRemoveGeoTarget(geo)}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Restricted Geos</Label>
-                  <div className="flex mt-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start">
-                          Select Restricted Countries
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-72 max-h-80 overflow-auto">
-                        {COUNTRIES.map((country) => (
-                          <DropdownMenuItem
-                            key={country.code}
-                            onClick={() => handleAddRestrictedGeo(country.code)}
-                            disabled={restrictedGeos.includes(country.code)}
-                          >
-                            {country.name}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {restrictedGeos.map((geo, index) => (
-                      <div 
-                        key={index} 
-                        className="bg-destructive/10 text-destructive px-3 py-1 rounded-full flex items-center"
-                      >
-                        <span>{geo} - {COUNTRY_CODES[geo] || ''}</span>
-                        <button 
-                          type="button"
-                          className="ml-2 text-destructive/70 hover:text-destructive"
-                          onClick={() => handleRemoveRestrictedGeo(geo)}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Separator />
-
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium">Additional Information</h3>
-          
-          <FormField
-            control={form.control}
-            name="target_audience"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Target Audience</FormLabel>
-                <FormControl>
-                  <Textarea 
-                    {...field} 
-                    placeholder="Describe the ideal audience for this offer" 
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="conversion_requirements"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Conversion Requirements</FormLabel>
-                <FormControl>
-                  <Textarea 
-                    {...field} 
-                    placeholder="What constitutes a valid conversion" 
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="restrictions"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Restrictions</FormLabel>
-                <FormControl>
-                  <Textarea 
-                    {...field} 
-                    placeholder="Any restrictions or limitations for this offer" 
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="flex justify-end space-x-2">
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={onComplete}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : "Save Changes"}
-          </Button>
-        </div>
-      </form>
-    </Form>
+      <div className="flex justify-end space-x-2">
+        <Button 
+          type="button" 
+          variant="outline" 
+          onClick={onComplete}
+          disabled={isSubmitting}
+        >
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Saving..." : "Save Changes"}
+        </Button>
+      </div>
+    </form>
   );
 }

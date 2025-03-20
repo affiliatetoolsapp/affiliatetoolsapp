@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import * as LabelPrimitive from "@radix-ui/react-label"
 import { Slot } from "@radix-ui/react-slot"
@@ -164,6 +165,21 @@ const FormMessage = React.forwardRef<
 })
 FormMessage.displayName = "FormMessage"
 
+// Export Form as a React component that wraps FormProvider
+const FormRoot = React.forwardRef<
+  HTMLFormElement, 
+  React.ComponentPropsWithoutRef<"form"> & { onSubmit?: (e: React.FormEvent) => void }
+>(({ children, className, ...props }, ref) => {
+  return (
+    <FormProvider {...props}>
+      <form ref={ref} className={cn(className)} {...props}>
+        {children}
+      </form>
+    </FormProvider>
+  );
+});
+FormRoot.displayName = "Form";
+
 export {
   useFormField,
   Form,
@@ -173,4 +189,5 @@ export {
   FormDescription,
   FormMessage,
   FormField,
+  FormRoot,
 }

@@ -1,3 +1,4 @@
+
 import { Offer } from '@/types';
 
 /**
@@ -25,32 +26,43 @@ export const formatGeoTargets = (offer: Offer): Array<{ flag: string; code: stri
   if (!offer.geo_targets) return []; // Return empty array if no geo_targets
   
   try {
-    // If geo_targets is a string, try to parse it
-    const geoObj = typeof offer.geo_targets === 'string' 
-      ? JSON.parse(offer.geo_targets) 
-      : offer.geo_targets;
+    let geoCodesArray: string[] = [];
     
-    // If it's an empty object or not actually containing country data
-    if (!geoObj || Object.keys(geoObj).length === 0) {
-      return []; // Return empty array
+    // Handle different types of geo_targets
+    if (typeof offer.geo_targets === 'string') {
+      try {
+        // Try to parse it as JSON string first
+        const parsed = JSON.parse(offer.geo_targets);
+        if (Array.isArray(parsed)) {
+          // It's a JSON array string
+          geoCodesArray = parsed.map(item => String(item));
+        } else if (typeof parsed === 'object' && parsed !== null) {
+          // It's a JSON object string
+          geoCodesArray = Object.keys(parsed);
+        } else {
+          // Single value JSON that isn't an object/array
+          geoCodesArray = [String(offer.geo_targets)];
+        }
+      } catch (e) {
+        // It's a plain string, not JSON
+        geoCodesArray = [offer.geo_targets];
+      }
+    } else if (Array.isArray(offer.geo_targets)) {
+      // It's already an array, but ensure all elements are strings
+      geoCodesArray = offer.geo_targets.map(item => String(item));
+    } else if (typeof offer.geo_targets === 'object' && offer.geo_targets !== null) {
+      // It's an object, use its keys as codes
+      geoCodesArray = Object.keys(offer.geo_targets);
     }
     
-    // Handle arrays directly
-    if (Array.isArray(geoObj)) {
-      return geoObj.map(item => ({
-        code: String(item).toUpperCase(),
-        flag: getCountryFlag(String(item))
-      }));
-    }
-    
-    // Handle objects
-    return Object.keys(geoObj).map(code => ({
-      code: code.toUpperCase(),
-      flag: getCountryFlag(code)
+    // Map the codes to objects with flags
+    return geoCodesArray.map(code => ({
+      code: String(code).toUpperCase(),
+      flag: getCountryFlag(String(code))
     }));
   } catch (e) {
-    console.error("Error parsing geo targets:", e);
-    // If parsing fails, it might be a simple string
+    console.error("Error processing geo targets:", e);
+    // If all else fails, handle as a simple string if possible
     if (typeof offer.geo_targets === 'string') {
       return [{
         code: offer.geo_targets.toUpperCase(),

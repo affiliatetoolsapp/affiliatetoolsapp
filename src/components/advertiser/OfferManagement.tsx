@@ -47,6 +47,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AffiliateApprovals from '@/components/offers/AffiliateApprovals';
 import countryCodes from '../offers/countryCodes';
 import OfferTable from '@/components/offers/OfferTable';
+import { formatGeoTargets } from '@/components/affiliate/utils/offerUtils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -256,51 +257,6 @@ export default function OfferManagement() {
   const setActiveTab = (tab: string) => {
     // You can add any tab-specific logic here if needed
     console.log(`[OfferManagement] Active tab changed to: ${tab}`);
-  };
-
-  // Format geo targets for display - Fixed to handle string or array
-  const formatGeoTargets = (offer: Offer) => {
-    // If geo_targets is undefined or null, return empty array
-    if (!offer.geo_targets) {
-      return [];
-    }
-    
-    let geoTargetsArray: string[] = [];
-    
-    // Convert to array if it's a string or handle the case when it's already an array
-    if (typeof offer.geo_targets === 'string') {
-      try {
-        // Try to parse it as JSON first
-        const parsed = JSON.parse(offer.geo_targets);
-        if (Array.isArray(parsed)) {
-          geoTargetsArray = parsed;
-        } else if (typeof parsed === 'object') {
-          // If it's an object, use its keys
-          geoTargetsArray = Object.keys(parsed);
-        } else {
-          // If it's a simple string and not JSON, treat as single country code
-          geoTargetsArray = [offer.geo_targets];
-        }
-      } catch (e) {
-        // If parsing fails, it's a simple string
-        geoTargetsArray = [offer.geo_targets];
-      }
-    } else if (Array.isArray(offer.geo_targets)) {
-      // It's already an array
-      geoTargetsArray = offer.geo_targets;
-    } else if (typeof offer.geo_targets === 'object' && offer.geo_targets !== null) {
-      // It's an object, use its keys as country codes
-      geoTargetsArray = Object.keys(offer.geo_targets);
-    }
-    
-    return geoTargetsArray.map(code => {
-      const country = countryCodes.find(c => c.code === code);
-      return {
-        code,
-        flag: country?.flag || '🌐',
-        name: country?.name || code
-      };
-    });
   };
 
   return (
@@ -589,19 +545,19 @@ export default function OfferManagement() {
                         <div className="text-xs flex items-center">
                           <Globe className="h-3.5 w-3.5 mr-1 text-indigo-500" />
                           <span className="font-medium mr-1">Geo:</span>
-                          {offer.geo_targets && offer.geo_targets.length > 0 ? (
+                          {offer.geo_targets ? (
                             <HoverCard openDelay={0} closeDelay={0}>
                               <HoverCardTrigger asChild>
                                 <Badge variant="outline" className="text-xs cursor-pointer ml-1">
-                                  {offer.geo_targets.length} {offer.geo_targets.length === 1 ? 'country' : 'countries'}
+                                  {formatGeoTargets(offer).length} {formatGeoTargets(offer).length === 1 ? 'country' : 'countries'}
                                 </Badge>
                               </HoverCardTrigger>
                               <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
                                 <div className="font-medium mb-2">Targeted GEO's:</div>
                                 <div className="flex flex-wrap gap-1 max-w-[300px]">
-                                  {offer.geo_targets.map((geo, i) => (
+                                  {formatGeoTargets(offer).map((geo, i) => (
                                     <Badge key={i} variant="outline" className="text-xs">
-                                      {countryCodes[geo]?.flag} {geo}
+                                      {geo.flag} {geo.code}
                                     </Badge>
                                   ))}
                                 </div>

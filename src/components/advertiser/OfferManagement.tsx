@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -41,15 +42,18 @@ import {
   Globe,
   AlertTriangle,
   Tag,
-  Target
+  Target,
+  Table as TableIcon
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AffiliateApprovals from '@/components/offers/AffiliateApprovals';
 import countryCodes from '../offers/countryCodes';
+import OfferTable from '@/components/offers/OfferTable';
 
 type SortField = 'created_at' | 'name' | 'status';
 type SortOrder = 'asc' | 'desc';
 type FilterOption = 'all' | 'active' | 'inactive' | 'paused';
+type ViewMode = 'grid' | 'list' | 'table';
 
 export default function OfferManagement() {
   const { user } = useAuth();
@@ -57,7 +61,7 @@ export default function OfferManagement() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [filterOption, setFilterOption] = useState<FilterOption>('all');
@@ -263,7 +267,7 @@ export default function OfferManagement() {
             const geoTargets = formatGeoTargets(offer);
             
             return (
-              <TableRow key={offer.id}>
+              <TableRow key={offer.id} onClick={() => navigate(`/offers/${offer.id}`)} className="cursor-pointer">
                 <TableCell className="font-medium">
                   <div>{offer.name}</div>
                   {offer.description && (
@@ -356,21 +360,30 @@ export default function OfferManagement() {
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
+                      <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
                         <span className="sr-only">Open menu</span>
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => navigate(`/offers/${offer.id}`)}>
+                      <DropdownMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/offers/${offer.id}`);
+                      }}>
                         <Edit className="h-4 w-4 mr-2" />
                         View Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate(`/offers/${offer.id}/edit`)}>
+                      <DropdownMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/offers/${offer.id}/edit`);
+                      }}>
                         <Pencil className="h-4 w-4 mr-2" />
                         Edit Offer
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleStatusUpdate(offer.id, offer.status === 'active' ? 'inactive' : 'active')}>
+                      <DropdownMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        handleStatusUpdate(offer.id, offer.status === 'active' ? 'inactive' : 'active');
+                      }}>
                         {offer.status === 'active' ? (
                           <>
                             <Pause className="h-4 w-4 mr-2" />
@@ -383,7 +396,7 @@ export default function OfferManagement() {
                           </>
                         )}
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">
+                      <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
                       </DropdownMenuItem>
@@ -574,10 +587,18 @@ export default function OfferManagement() {
             <Button 
               variant={viewMode === 'list' ? 'default' : 'ghost'} 
               size="sm" 
-              className="rounded-l-none" 
+              className="rounded-l-none rounded-r-none border-x border-border" 
               onClick={() => setViewMode('list')}
             >
               <List className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant={viewMode === 'table' ? 'default' : 'ghost'} 
+              size="sm" 
+              className="rounded-l-none" 
+              onClick={() => setViewMode('table')}
+            >
+              <TableIcon className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -601,16 +622,16 @@ export default function OfferManagement() {
             </div>
           ) : filteredAndSortedOffers?.length ? (
             viewMode === 'grid' ? (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredAndSortedOffers.map((offer) => {
                   const commissionRange = getCommissionRange(offer);
                   const geoTargets = formatGeoTargets(offer);
                   
                   return (
-                    <Card key={offer.id} className="overflow-hidden">
-                      <CardHeader className="p-4">
+                    <Card key={offer.id} className="overflow-hidden cursor-pointer" onClick={() => navigate(`/offers/${offer.id}`)}>
+                      <CardHeader className="p-3">
                         <div className="flex justify-between items-start">
-                          <CardTitle className="text-lg">{offer.name}</CardTitle>
+                          <CardTitle className="text-md hover:text-primary">{offer.name}</CardTitle>
                           <div className="flex items-center gap-2">
                             <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                               <DollarSign className="h-3 w-3 mr-1" />
@@ -628,11 +649,11 @@ export default function OfferManagement() {
                             </Badge>
                           </div>
                         </div>
-                        <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
+                        <CardDescription className="line-clamp-2 text-xs">{offer.description}</CardDescription>
                       </CardHeader>
-                      <CardContent className="p-4 pt-0 grid gap-2">
+                      <CardContent className="p-3 pt-0 grid gap-1">
                         {offer.offer_image && (
-                          <div className="mb-3 rounded-md overflow-hidden h-32 bg-gray-100">
+                          <div className="mb-2 rounded-md overflow-hidden h-24 bg-gray-100">
                             <img 
                               src={offer.offer_image} 
                               alt={offer.name} 
@@ -641,10 +662,10 @@ export default function OfferManagement() {
                           </div>
                         )}
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
                           {offer.niche && (
-                            <div className="text-sm flex items-center">
-                              <Tag className="h-4 w-4 mr-1 text-blue-500" />
+                            <div className="text-xs flex items-center">
+                              <Tag className="h-3.5 w-3.5 mr-1 text-blue-500" />
                               <span className="font-medium mr-1">Niche:</span>
                               <Badge variant="outline" className="text-xs ml-1">
                                 {offer.niche}
@@ -653,8 +674,8 @@ export default function OfferManagement() {
                           )}
                           
                           {/* Geo targets display */}
-                          <div className="text-sm flex items-center">
-                            <Globe className="h-4 w-4 mr-1 text-indigo-500" />
+                          <div className="text-xs flex items-center">
+                            <Globe className="h-3.5 w-3.5 mr-1 text-indigo-500" />
                             <span className="font-medium mr-1">Geo:</span>
                             {geoTargets.length > 0 ? (
                               <HoverCard openDelay={0} closeDelay={0}>
@@ -681,8 +702,8 @@ export default function OfferManagement() {
                           
                           {/* Traffic Sources */}
                           {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
-                            <div className="text-sm flex items-center">
-                              <Target className="h-4 w-4 mr-1 text-purple-500" />
+                            <div className="text-xs flex items-center">
+                              <Target className="h-3.5 w-3.5 mr-1 text-purple-500" />
                               <span className="font-medium mr-1">Traffic:</span>
                               <HoverCard openDelay={0} closeDelay={0}>
                                 <HoverCardTrigger asChild>
@@ -705,7 +726,7 @@ export default function OfferManagement() {
                           )}
                           
                           {/* Status */}
-                          <div className="text-sm flex items-center">
+                          <div className="text-xs flex items-center">
                             <span className="font-medium mr-1">Status:</span>
                             <Badge variant={offer.status === 'active' ? 'default' : 'secondary'}>
                               {offer.status}
@@ -713,7 +734,7 @@ export default function OfferManagement() {
                           </div>
                         </div>
                         
-                        <div className="mt-2 flex justify-end">
+                        <div className="mt-2 flex justify-end" onClick={(e) => e.stopPropagation()}>
                           <Button variant="outline" size="sm" onClick={() => navigate(`/offers/${offer.id}`)}>
                             Manage
                           </Button>
@@ -723,6 +744,14 @@ export default function OfferManagement() {
                   );
                 })}
               </div>
+            ) : viewMode === 'table' ? (
+              <OfferTable 
+                offers={filteredAndSortedOffers}
+                userRole="advertiser"
+                onViewDetails={(offerId) => navigate(`/offers/${offerId}`)}
+                onEdit={(offerId) => navigate(`/offers/${offerId}/edit`)}
+                onRowClick={(offerId) => navigate(`/offers/${offerId}`)}
+              />
             ) : (
               renderOffersTable()
             )

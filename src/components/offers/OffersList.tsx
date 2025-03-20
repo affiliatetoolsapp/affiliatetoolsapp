@@ -175,14 +175,14 @@ export default function OffersList() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : filteredOffers?.length ? (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {filteredOffers.map((offer) => {
                   const commissionRange = getCommissionRange(offer);
                   return (
                   <Card key={offer.id} className="overflow-hidden">
-                    <CardHeader className="p-4">
+                    <CardHeader className="p-3">
                       <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">
+                        <CardTitle className="text-md">
                           <button 
                             onClick={() => handleOfferClick(offer.id)} 
                             className="hover:underline text-left"
@@ -202,11 +202,14 @@ export default function OffersList() {
                           </Badge>
                         </div>
                       </div>
-                      <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
+                      <CardDescription className="line-clamp-2 text-xs">{offer.description}</CardDescription>
                     </CardHeader>
-                    <CardContent className="p-4 pt-0 grid gap-2">
+                    <CardContent className="p-3 pt-0 grid gap-1">
                       {offer.offer_image && (
-                        <div className="mb-3 rounded-md overflow-hidden h-32 bg-gray-100">
+                        <div 
+                          className="mb-2 rounded-md overflow-hidden h-24 bg-gray-100 cursor-pointer"
+                          onClick={() => handleOfferClick(offer.id)}
+                        >
                           <img 
                             src={offer.offer_image} 
                             alt={offer.name} 
@@ -215,10 +218,10 @@ export default function OffersList() {
                         </div>
                       )}
                     
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-1">
                         {offer.niche && (
-                          <div className="text-sm flex items-center">
-                            <Tag className="h-4 w-4 mr-1 text-blue-500" />
+                          <div className="text-xs flex items-center">
+                            <Tag className="h-3.5 w-3.5 mr-1 text-blue-500" />
                             <span className="font-medium mr-1">Niche:</span>
                             <Badge variant="outline" className="text-xs ml-1">
                               {offer.niche}
@@ -227,8 +230,8 @@ export default function OffersList() {
                         )}
                         
                         {/* Geo targets display */}
-                        <div className="text-sm flex items-center">
-                          <Globe className="h-4 w-4 mr-1 text-indigo-500" />
+                        <div className="text-xs flex items-center">
+                          <Globe className="h-3.5 w-3.5 mr-1 text-indigo-500" />
                           <span className="font-medium mr-1">Geo:</span>
                           {formatGeoTargets(offer).length > 0 ? (
                             <HoverCard openDelay={0} closeDelay={0}>
@@ -254,8 +257,8 @@ export default function OffersList() {
                         </div>
                         
                         {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
-                          <div className="text-sm flex items-center">
-                            <Target className="h-4 w-4 mr-1 text-purple-500" />
+                          <div className="text-xs flex items-center">
+                            <Target className="h-3.5 w-3.5 mr-1 text-purple-500" />
                             <span className="font-medium mr-1">Traffic:</span>
                             <HoverCard openDelay={0} closeDelay={0}>
                               <HoverCardTrigger asChild>
@@ -279,8 +282,8 @@ export default function OffersList() {
                         
                         {/* Restricted geos display */}
                         {offer.restricted_geos && offer.restricted_geos.length > 0 && (
-                          <div className="text-sm flex items-center">
-                            <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />
+                          <div className="text-xs flex items-center">
+                            <AlertTriangle className="h-3.5 w-3.5 mr-1 text-amber-500" />
                             <span className="font-medium mr-1">Restricted:</span>
                             <HoverCard openDelay={0} closeDelay={0}>
                               <HoverCardTrigger asChild>
@@ -337,14 +340,14 @@ export default function OffersList() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
           ) : filteredOffers?.length ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredOffers.map((offer) => {
                 const commissionRange = getCommissionRange(offer);
                 return (
-                <Card key={offer.id} className="overflow-hidden">
-                  <CardHeader className="p-4">
+                <Card key={offer.id} className="overflow-hidden cursor-pointer" onClick={() => handleOfferClick(offer.id)}>
+                  <CardHeader className="p-3">
                     <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{offer.name}</CardTitle>
+                      <CardTitle className="text-md hover:text-primary">{offer.name}</CardTitle>
                       <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                         <DollarSign className="h-3 w-3 mr-1" />
                         {commissionRange
@@ -355,11 +358,11 @@ export default function OffersList() {
                         </Badge>
                       </Badge>
                     </div>
-                    <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
+                    <CardDescription className="line-clamp-2 text-xs">{offer.description}</CardDescription>
                   </CardHeader>
-                  <CardContent className="p-4 pt-0 grid gap-2">
+                  <CardContent className="p-3 pt-0 grid gap-1">
                     {offer.offer_image && (
-                      <div className="mb-3 rounded-md overflow-hidden h-32 bg-gray-100">
+                      <div className="mb-2 rounded-md overflow-hidden h-24 bg-gray-100">
                         <img 
                           src={offer.offer_image} 
                           alt={offer.name} 
@@ -368,10 +371,10 @@ export default function OffersList() {
                       </div>
                     )}
                   
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-1">
                       {offer.niche && (
-                        <div className="text-sm flex items-center">
-                          <Tag className="h-4 w-4 mr-1 text-blue-500" />
+                        <div className="text-xs flex items-center">
+                          <Tag className="h-3.5 w-3.5 mr-1 text-blue-500" />
                           <span className="font-medium mr-1">Niche:</span>
                           <Badge variant="outline" className="text-xs ml-1">
                             {offer.niche}
@@ -380,8 +383,8 @@ export default function OffersList() {
                       )}
                       
                       {/* Geo targets display */}
-                      <div className="text-sm flex items-center">
-                        <Globe className="h-4 w-4 mr-1 text-indigo-500" />
+                      <div className="text-xs flex items-center">
+                        <Globe className="h-3.5 w-3.5 mr-1 text-indigo-500" />
                         <span className="font-medium mr-1">Geo:</span>
                         {formatGeoTargets(offer).length > 0 ? (
                           <HoverCard openDelay={0} closeDelay={0}>

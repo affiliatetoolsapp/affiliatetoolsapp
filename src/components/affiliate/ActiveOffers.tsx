@@ -57,16 +57,16 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
 
   if (viewMode === 'grid') {
     return (
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {offers.map((affiliateOffer) => {
           
           return (
             <Card key={affiliateOffer.id} className="overflow-hidden">
-              <CardHeader className="p-4 pb-0">
+              <CardHeader className="p-3 pb-0">
                 <div className="flex justify-between items-start">
                   <div>
                     <CardTitle 
-                      className="text-lg flex items-center gap-2 cursor-pointer hover:text-primary"
+                      className="text-md flex items-center gap-2 cursor-pointer hover:text-primary"
                       onClick={() => handleOfferClick(affiliateOffer.offer_id)}
                     >
                       {affiliateOffer.offer.is_featured && (
@@ -82,14 +82,14 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                     Approved
                   </Badge>
                 </div>
-                <CardDescription className="line-clamp-2 mt-2">
+                <CardDescription className="line-clamp-2 mt-1 text-xs">
                   {affiliateOffer.offer.description}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-4 pt-2 grid gap-2">
+              <CardContent className="p-3 pt-2 grid gap-1">
                 {affiliateOffer.offer.offer_image && (
                   <div 
-                    className="mb-3 rounded-md overflow-hidden h-32 bg-gray-100 cursor-pointer"
+                    className="mb-2 rounded-md overflow-hidden h-24 bg-gray-100 cursor-pointer"
                     onClick={() => handleOfferClick(affiliateOffer.offer_id)}
                   >
                     <img
@@ -100,8 +100,8 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                   </div>
                 )}
                 
-                <div className="text-sm flex items-center">
-                  <DollarSign className="h-4 w-4 mr-1 text-green-500" />
+                <div className="text-xs flex items-center">
+                  <DollarSign className="h-3.5 w-3.5 mr-1 text-green-500" />
                   <span className="font-medium">Commission: </span> 
                   <span className="ml-1">
                     {affiliateOffer.offer.commission_type === 'RevShare' 
@@ -111,21 +111,21 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                 </div>
                 
                 {affiliateOffer.offer.niche && (
-                  <div className="text-sm flex items-center">
-                    <Tag className="h-4 w-4 mr-1 text-blue-500" />
+                  <div className="text-xs flex items-center">
+                    <Tag className="h-3.5 w-3.5 mr-1 text-blue-500" />
                     <span className="font-medium">Niche: </span>
                     <span className="ml-1">{affiliateOffer.offer.niche}</span>
                   </div>
                 )}
                 
-                <div className="text-sm flex items-center">
-                  <Calendar className="h-4 w-4 mr-1 text-purple-500" />
+                <div className="text-xs flex items-center">
+                  <Calendar className="h-3.5 w-3.5 mr-1 text-purple-500" />
                   <span className="font-medium">Joined: </span>
                   <span className="ml-1">{affiliateOffer.reviewed_at ? new Date(affiliateOffer.reviewed_at).toLocaleDateString() : 'Recently'}</span>
                 </div>
                 
-                <div className="text-sm flex items-start">
-                  <Globe className="h-4 w-4 mr-1 text-indigo-500 mt-0.5" />
+                <div className="text-xs flex items-start">
+                  <Globe className="h-3.5 w-3.5 mr-1 text-indigo-500 mt-0.5" />
                   <span className="font-medium mr-1">Geo: </span>
                   <div className="flex flex-wrap gap-1">
                     {formatGeoTargets(affiliateOffer.offer).length <= 3 ? (
@@ -162,30 +162,30 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                 </div>
                 
                 {affiliateOffer.traffic_source && (
-                  <div className="text-sm flex items-center">
-                    <MapPin className="h-4 w-4 mr-1 text-red-500" />
+                  <div className="text-xs flex items-center">
+                    <MapPin className="h-3.5 w-3.5 mr-1 text-red-500" />
                     <span className="font-medium">Traffic Source: </span> 
                     <span className="ml-1">{affiliateOffer.traffic_source}</span>
                   </div>
                 )}
               </CardContent>
               
-              <CardFooter className="p-4 pt-0 flex justify-between gap-2">
+              <CardFooter className="p-3 pt-0 flex justify-between gap-2">
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => onViewOfferDetails(affiliateOffer.offer_id)}
                 >
-                  <Eye className="h-4 w-4 mr-2" />
-                  View Offer
+                  <Eye className="h-3.5 w-3.5 mr-1" />
+                  View
                 </Button>
                 
                 <Button
                   size="sm"
                   onClick={() => onGenerateLinks(affiliateOffer.offer_id)}
                 >
-                  <LinkIcon className="h-4 w-4 mr-2" />
-                  Generate Links
+                  <LinkIcon className="h-3.5 w-3.5 mr-1" />
+                  Links
                 </Button>
               </CardFooter>
             </Card>

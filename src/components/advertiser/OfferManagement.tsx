@@ -268,7 +268,7 @@ export default function OfferManagement() {
       const country = countryCodes.find(c => c.code === code);
       return {
         code,
-        flag: country?.flag || '🌐',
+        flag: country?.flag || '🌐',\
         name: country?.name || code
       };
     });
@@ -825,4 +825,4 @@ export default function OfferManagement() {
                                 <Trash2 className="h-4 w-4 mr-2" />
                                 Delete Offer
                               </DropdownMenuItem>
-                            </DropdownMenuContent>
+                            </DropdownMenu

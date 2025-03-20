@@ -877,4 +877,4 @@ export default function CreateOffer({ initialData }: CreateOfferProps) {
                             <ScrollArea className="h-72">
                               {countryOptions.map((country) => (
                                 <CommandItem
-                                  key={country.code
+                                  key={country.code}

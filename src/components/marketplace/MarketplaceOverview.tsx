@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,7 +16,6 @@ import {
   DollarSign,
   Tag,
   Grid,
-  List,
   Table as TableIcon,
   Search,
   Filter
@@ -35,8 +33,8 @@ export default function MarketplaceOverview() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  // Changed to include 'table' view option
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'table'>('list');
+  // Changed to include only 'grid' and 'table' view options, removing 'list'
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   
   // Fetch both featured offers and advertiser's own offers
   const { data: topOffers, isLoading: featuredLoading } = useQuery({
@@ -334,197 +332,6 @@ export default function MarketplaceOverview() {
     );
   };
   
-  // Render an offer in list view
-  const renderOfferListItem = (offer: Offer) => {
-    const geoData = formatGeoTargets(offer);
-    const restrictedGeos = offer.restricted_geos || [];
-    const commissionRange = getCommissionRange(offer);
-    
-    return (
-      <div key={offer.id} className="flex border rounded-md p-4 mb-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors duration-200">
-        {offer.offer_image && (
-          <div className="mr-4 w-20 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
-            <img 
-              src={offer.offer_image} 
-              alt={offer.name} 
-              className="w-full h-full object-cover"
-            />
-          </div>
-        )}
-        
-        <div className="flex-1">
-          <div className="flex justify-between items-start">
-            <div>
-              <h3 className="font-medium text-lg flex items-center gap-2">
-                {offer.is_featured && (
-                  <Badge className="mr-1">
-                    <Award className="h-3 w-3 mr-1" />
-                    Featured
-                  </Badge>
-                )}
-                {offer.name}
-              </h3>
-              {offer.description && <p className="text-sm text-gray-500 line-clamp-1">{offer.description}</p>}
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                  <DollarSign className="h-3 w-3 mr-1" />
-                  {commissionRange
-                    ? `${commissionRange.min}-${commissionRange.max}`
-                    : offer.commission_amount}
-                  {offer.commission_type !== 'RevShare' && (
-                    <span className="ml-1">{getFullCommissionType(offer.commission_type)}</span>
-                  )}
-                </Badge>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
-            {/* Niche */}
-            {offer.niche && (
-              <div className="flex items-center text-sm">
-                <Tag className="h-4 w-4 mr-1 text-blue-500" />
-                <span className="font-medium mr-1">Niche:</span>
-                <Badge variant="outline" className="text-xs ml-1">
-                  {offer.niche}
-                </Badge>
-              </div>
-            )}
-            
-            {/* Traffic Sources - Updated with hover functionality */}
-            {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
-              <div className="flex items-center text-sm">
-                <Target className="h-4 w-4 mr-1 text-purple-500" />
-                <span className="font-medium mr-1">Traffic:</span>
-                {offer.allowed_traffic_sources.length <= 2 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {offer.allowed_traffic_sources.map(source => (
-                      <Badge key={source} variant="outline" className="text-xs">
-                        {source}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <HoverCard openDelay={0} closeDelay={0}>
-                    <HoverCardTrigger asChild>
-                      <Badge variant="outline" className="text-xs cursor-pointer ml-1 hover:bg-gray-100 dark:hover:bg-gray-700">
-                        {offer.allowed_traffic_sources.length} sources
-                      </Badge>
-                    </HoverCardTrigger>
-                    <HoverCardContent 
-                      side="right" 
-                      align="start" 
-                      className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]"
-                    >
-                      <div className="font-medium mb-2">Allowed Traffic Sources:</div>
-                      <div className="flex flex-wrap gap-1 max-w-[300px]">
-                        {offer.allowed_traffic_sources.map((source, i) => (
-                          <Badge key={i} variant="outline" className="text-xs">
-                            {source}
-                          </Badge>
-                        ))}
-                      </div>
-                    </HoverCardContent>
-                  </HoverCard>
-                )}
-              </div>
-            )}
-            
-            {/* Geo Targeting */}
-            <div className="flex items-center text-sm">
-              <Globe className="h-4 w-4 mr-1 text-indigo-500" />
-              <span className="font-medium mr-1">Geo:</span>
-              {geoData.length > 0 ? (
-                <HoverCard>
-                  <HoverCardTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      className="h-auto p-0 hover:bg-transparent"
-                      onClick={(e) => {
-                        // Prevent the click from propagating to parent elements
-                        e.stopPropagation();
-                      }}
-                    >
-                      <Badge 
-                        variant="outline" 
-                        className="text-xs ml-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                      >
-                        {geoData.length} {geoData.length === 1 ? 'country' : 'countries'}
-                      </Badge>
-                    </Button>
-                  </HoverCardTrigger>
-                  <HoverCardContent 
-                    side="right" 
-                    align="start" 
-                    className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]"
-                    sideOffset={10}
-                  >
-                    <div className="font-medium mb-2">Targeted GEO's:</div>
-                    <div className="flex flex-wrap gap-2 max-w-[300px] max-h-[200px] overflow-y-auto">
-                      {geoData.map((geo, i) => (
-                        <Badge 
-                          key={i} 
-                          variant="outline" 
-                          className="text-xs flex items-center gap-1 px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                        >
-                          <span className="inline-block text-base leading-none" style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"' }}>{geo.flag}</span>
-                          <span className="font-medium">{geo.code}</span>
-                        </Badge>
-                      ))}
-                    </div>
-                  </HoverCardContent>
-                </HoverCard>
-              ) : (
-                <span className="text-muted-foreground ml-1">Global</span>
-              )}
-            </div>
-            
-            {/* Restricted Geos */}
-            {restrictedGeos.length > 0 && (
-              <div className="flex items-center text-sm">
-                <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />
-                <span className="font-medium mr-1">Restricted:</span>
-                <HoverCard>
-                  <HoverCardTrigger className="cursor-pointer">
-                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs ml-1 hover:bg-red-100 dark:hover:bg-red-900/40">
-                      {restrictedGeos.length} {restrictedGeos.length === 1 ? 'country' : 'countries'}
-                    </Badge>
-                  </HoverCardTrigger>
-                  <HoverCardContent 
-                    side="right" 
-                    align="start" 
-                    className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]"
-                    sideOffset={10}
-                  >
-                    <div className="font-medium mb-2">Restricted GEO's:</div>
-                    <div className="flex flex-wrap gap-2 max-w-[300px] max-h-[200px] overflow-y-auto">
-                      {restrictedGeos.map((geo, i) => (
-                        <Badge 
-                          key={i} 
-                          variant="outline" 
-                          className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs flex items-center gap-1 px-2 py-1"
-                        >
-                          <span className="inline-block text-base leading-none" style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"' }}>{getCountryFlag(geo)}</span>
-                          <span className="font-medium">{geo}</span>
-                        </Badge>
-                      ))}
-                    </div>
-                  </HoverCardContent>
-                </HoverCard>
-              </div>
-            )}
-          </div>
-        </div>
-        
-        <div className="ml-4 flex items-center">
-          <Button size="sm" onClick={() => handleViewOfferDetails(offer.id)}>View</Button>
-        </div>
-      </div>
-    );
-  };
-  
   if (isLoading) {
     return (
       <div className="flex justify-center p-8">
@@ -600,6 +407,7 @@ export default function MarketplaceOverview() {
                 />
               </div>
               
+              {/* Modified view mode toggle to only include Grid and Table options */}
               <div className="flex items-center border rounded-md w-full sm:w-auto justify-center sm:justify-start">
                 <Button 
                   variant={viewMode === 'grid' ? 'default' : 'ghost'} 
@@ -609,15 +417,6 @@ export default function MarketplaceOverview() {
                 >
                   <Grid className="h-4 w-4 mr-1" />
                   <span className="sm:hidden">Grid</span>
-                </Button>
-                <Button 
-                  variant={viewMode === 'list' ? 'default' : 'ghost'} 
-                  size="sm" 
-                  className="flex-1 sm:flex-none rounded-l-none rounded-r-none border-x border-border" 
-                  onClick={() => setViewMode('list')}
-                >
-                  <List className="h-4 w-4 mr-1" />
-                  <span className="sm:hidden">List</span>
                 </Button>
                 <Button 
                   variant={viewMode === 'table' ? 'default' : 'ghost'} 
@@ -644,10 +443,6 @@ export default function MarketplaceOverview() {
                   <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                     {filteredFeaturedOffers.map(offer => renderOfferCard(offer))}
                   </div>
-                ) : viewMode === 'list' ? (
-                  <div className="space-y-4">
-                    {filteredFeaturedOffers.map(offer => renderOfferListItem(offer))}
-                  </div>
                 ) : (
                   <OfferTable 
                     offers={filteredFeaturedOffers} 
@@ -667,10 +462,6 @@ export default function MarketplaceOverview() {
                 viewMode === 'grid' ? (
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {filteredAdvertiserOffers.map(offer => renderOfferCard(offer))}
-                  </div>
-                ) : viewMode === 'list' ? (
-                  <div>
-                    {filteredAdvertiserOffers.map(offer => renderOfferListItem(offer))}
                   </div>
                 ) : (
                   <OfferTable 

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -132,15 +131,11 @@ export default function OfferBrowser() {
                       <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                         <DollarSign className="h-3 w-3 mr-1" />
                         {commissionRange
-                          ? `${commissionRange.min}-${commissionRange.max}`
-                          : offer.commission_amount}
+                          ? `$${commissionRange.min}-$${commissionRange.max}`
+                          : `$${offer.commission_amount}`}
                       </Badge>
                       <Badge variant="outline" className="text-xs">
-                        {offer.commission_type === 'CPA' ? 'CPA' :
-                         offer.commission_type === 'CPL' ? 'CPL' :
-                         offer.commission_type === 'CPC' ? 'CPC' :
-                         offer.commission_type === 'CPS' ? 'CPS' :
-                         offer.commission_type.slice(2)}
+                        {offer.commission_type}
                       </Badge>
                     </div>
                   </div>

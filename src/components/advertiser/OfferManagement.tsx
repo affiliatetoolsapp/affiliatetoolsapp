@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -49,6 +48,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AffiliateApprovals from '@/components/offers/AffiliateApprovals';
 import countryCodes from '../offers/countryCodes';
 import OfferTable from '@/components/offers/OfferTable';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type SortField = 'created_at' | 'name' | 'status';
 type SortOrder = 'asc' | 'desc';
@@ -66,6 +75,8 @@ export default function OfferManagement() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [filterOption, setFilterOption] = useState<FilterOption>('all');
   const filterMenuRef = useRef<HTMLButtonElement>(null);
+  
+  const [offerToDelete, setOfferToDelete] = useState<string | null>(null);
   
   // Get advertiser's offers
   const { data: offers, isLoading: offersLoading } = useQuery({
@@ -168,7 +179,6 @@ export default function OfferManagement() {
     return 0;
   });
   
-  // Mutation to update offer status
   const updateOfferStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: 'active' | 'inactive' }) => {
       console.log(`Updating offer ${id} to status: ${status}`);
@@ -203,6 +213,52 @@ export default function OfferManagement() {
       console.error(error);
     },
   });
+
+  // Mutation to delete an offer
+  const deleteOffer = useMutation({
+    mutationFn: async (id: string) => {
+      console.log(`Deleting offer ${id}`);
+      
+      const { data, error } = await supabase
+        .from('offers')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        console.error('Error deleting offer:', error);
+        throw error;
+      }
+      
+      return data;
+    },
+    onSuccess: () => {
+      // Invalidate queries to refetch offers
+      queryClient.invalidateQueries({ queryKey: ['advertiser-offers', user?.id] });
+      toast({
+        title: 'Offer Deleted',
+        description: 'The offer has been deleted successfully',
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to delete offer',
+      });
+      console.error(error);
+    },
+  });
+  
+  const handleDeleteOffer = (offerId: string) => {
+    setOfferToDelete(offerId);
+  };
+
+  const confirmDeleteOffer = () => {
+    if (offerToDelete) {
+      deleteOffer.mutate(offerToDelete);
+      setOfferToDelete(null);
+    }
+  };
   
   const handleStatusUpdate = (offerId: string, newStatus: 'active' | 'inactive') => {
     updateOfferStatus.mutate({ id: offerId, status: newStatus });
@@ -734,42 +790,34 @@ export default function OfferManagement() {
                           </div>
                         </div>
                         
-                        <div className="mt-2 flex justify-end" onClick={(e) => e.stopPropagation()}>
+                        <div className="mt-2 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                           <Button variant="outline" size="sm" onClick={() => navigate(`/offers/${offer.id}`)}>
                             Manage
                           </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            ) : viewMode === 'table' ? (
-              <OfferTable 
-                offers={filteredAndSortedOffers}
-                userRole="advertiser"
-                onViewDetails={(offerId) => navigate(`/offers/${offerId}`)}
-                onEdit={(offerId) => navigate(`/offers/${offerId}/edit`)}
-                onRowClick={(offerId) => navigate(`/offers/${offerId}`)}
-              />
-            ) : (
-              renderOffersTable()
-            )
-          ) : (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground mb-4">You don't have any offers yet</p>
-              <Button onClick={() => navigate('/offers/create')}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Create Your First Offer
-              </Button>
-            </Card>
-          )}
-        </TabsContent>
-        
-        <TabsContent value="applications">
-          <AffiliateApprovals />
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/offers/${offer.id}/edit`);
+                              }}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit Offer
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                handleStatusUpdate(offer.id, offer.status === 'active' ? 'inactive' : 'active');
+                              }}>
+                                {offer.status === 'active' ? (
+                                  <>
+                                    <Pause className="h-4 w-4 mr-2" />
+                                    Pause Offer
+                                  </>
+                                ) : (
+                                  <>
+                                    <Play className="h-4 w-4 mr-2" />
+                                    Activate

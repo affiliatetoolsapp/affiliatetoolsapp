@@ -12,6 +12,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Offer } from '@/types';
 import { Check, X } from 'lucide-react';
+import { formatGeoTargets } from '@/components/affiliate/utils/offerUtils';
 
 interface OfferPreviewDialogProps {
   open: boolean;
@@ -31,16 +32,15 @@ export function OfferPreviewDialog({
   if (!offer) return null;
 
   // Helper function to safely format geo_targets for display
-  const formatGeoTargets = (geoTargets: Offer['geo_targets']): string => {
+  const formatGeoTargetsForDisplay = (geoTargets: Offer['geo_targets']): string => {
     if (!geoTargets) return '';
     
     if (Array.isArray(geoTargets)) {
-      // Only call join if it's an array
-      return geoTargets.slice(0, 3).join(', ') + (geoTargets.length > 3 ? '...' : '');
+      const sliced = geoTargets.slice(0, 3);
+      return sliced.join(', ') + (geoTargets.length > 3 ? '...' : '');
     }
     
     if (typeof geoTargets === 'string') {
-      // If it's a string, return it directly
       return geoTargets;
     }
     
@@ -48,7 +48,8 @@ export function OfferPreviewDialog({
     if (typeof geoTargets === 'object') {
       const countries = Object.keys(geoTargets);
       if (countries.length > 0) {
-        return countries.slice(0, 3).join(', ') + (countries.length > 3 ? '...' : '');
+        const sliced = countries.slice(0, 3);
+        return sliced.join(', ') + (countries.length > 3 ? '...' : '');
       }
       return 'Multiple countries';
     }
@@ -111,7 +112,7 @@ export function OfferPreviewDialog({
               </div>
               {offer.geo_targets && (
                 <div className="text-xs text-muted-foreground">
-                  {formatGeoTargets(offer.geo_targets)}
+                  {formatGeoTargetsForDisplay(offer.geo_targets)}
                 </div>
               )}
             </CardFooter>

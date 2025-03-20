@@ -39,6 +39,7 @@ interface DataTableProps<TData, TValue> {
     type?: 'select' | 'text';
     getValueFrom?: keyof TData | ((row: TData) => string);
   }[];
+  onRowClick?: (row: TData) => void;
 }
 
 export function DataTable<TData, TValue>({
@@ -49,6 +50,7 @@ export function DataTable<TData, TValue>({
   emptyMessage = "No data available",
   defaultSorting = [],
   filterableColumns = [],
+  onRowClick,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>(defaultSorting);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -216,9 +218,16 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className={onRowClick ? "cursor-pointer hover:bg-muted/50" : undefined}
+                  onClick={onRowClick ? () => onRowClick(row.original as TData) : undefined}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell key={cell.id} onClick={(e) => {
+                      // Prevent click event if clicking inside a hover card
+                      if ((e.target as HTMLElement).closest('.hover-card-disable-row-click')) {
+                        e.stopPropagation();
+                      }
+                    }}>
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()

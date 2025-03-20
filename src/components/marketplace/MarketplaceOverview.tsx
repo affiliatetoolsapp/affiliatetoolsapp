@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,6 +18,7 @@ import {
   Tag,
   Grid,
   List,
+  Table as TableIcon,
   Search,
   Filter
 } from 'lucide-react';
@@ -27,13 +29,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Offer } from '@/types';
 import { useNavigate } from 'react-router-dom';
+import OfferTable from '@/components/offers/OfferTable';
 
 export default function MarketplaceOverview() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  // Changed default to 'list'
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  // Changed to include 'table' view option
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'table'>('list');
   
   // Fetch both featured offers and advertiser's own offers
   const { data: topOffers, isLoading: featuredLoading } = useQuery({
@@ -610,11 +613,20 @@ export default function MarketplaceOverview() {
                 <Button 
                   variant={viewMode === 'list' ? 'default' : 'ghost'} 
                   size="sm" 
-                  className="flex-1 sm:flex-none rounded-l-none" 
+                  className="flex-1 sm:flex-none rounded-l-none rounded-r-none border-x border-border" 
                   onClick={() => setViewMode('list')}
                 >
                   <List className="h-4 w-4 mr-1" />
                   <span className="sm:hidden">List</span>
+                </Button>
+                <Button 
+                  variant={viewMode === 'table' ? 'default' : 'ghost'} 
+                  size="sm" 
+                  className="flex-1 sm:flex-none rounded-l-none" 
+                  onClick={() => setViewMode('table')}
+                >
+                  <TableIcon className="h-4 w-4 mr-1" />
+                  <span className="sm:hidden">Table</span>
                 </Button>
               </div>
             </div>
@@ -632,10 +644,16 @@ export default function MarketplaceOverview() {
                   <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                     {filteredFeaturedOffers.map(offer => renderOfferCard(offer))}
                   </div>
-                ) : (
+                ) : viewMode === 'list' ? (
                   <div className="space-y-4">
                     {filteredFeaturedOffers.map(offer => renderOfferListItem(offer))}
                   </div>
+                ) : (
+                  <OfferTable 
+                    offers={filteredFeaturedOffers} 
+                    userRole={user?.role}
+                    onViewDetails={handleViewOfferDetails}
+                  />
                 )
               ) : (
                 <Card className="p-6 text-center">
@@ -650,10 +668,16 @@ export default function MarketplaceOverview() {
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {filteredAdvertiserOffers.map(offer => renderOfferCard(offer))}
                   </div>
-                ) : (
+                ) : viewMode === 'list' ? (
                   <div>
                     {filteredAdvertiserOffers.map(offer => renderOfferListItem(offer))}
                   </div>
+                ) : (
+                  <OfferTable 
+                    offers={filteredAdvertiserOffers} 
+                    userRole={user?.role}
+                    onViewDetails={handleViewOfferDetails}
+                  />
                 )
               ) : (
                 <Card className="p-6 text-center">

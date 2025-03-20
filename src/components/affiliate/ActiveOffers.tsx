@@ -14,7 +14,7 @@ import OfferTable from '@/components/offers/OfferTable';
 
 interface ActiveOffersProps {
   offers: AffiliateOfferWithOffer[];
-  viewMode: 'grid' | 'list';
+  viewMode: 'grid' | 'list' | 'table';
   isLoading: boolean;
   onViewOfferDetails: (offerId: string) => void;
   onGenerateLinks: (offerId: string) => void;
@@ -50,6 +50,11 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
     );
   }
 
+  // Handle card or image click
+  const handleOfferClick = (offerId: string) => {
+    onViewOfferDetails(offerId);
+  };
+
   if (viewMode === 'grid') {
     return (
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -60,7 +65,10 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
               <CardHeader className="p-4 pb-0">
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
+                    <CardTitle 
+                      className="text-lg flex items-center gap-2 cursor-pointer hover:text-primary"
+                      onClick={() => handleOfferClick(affiliateOffer.offer_id)}
+                    >
                       {affiliateOffer.offer.is_featured && (
                         <Badge variant="outline" className="mr-1 bg-yellow-100 dark:bg-yellow-900">
                           <Award className="h-3 w-3 mr-1" />
@@ -79,6 +87,19 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 pt-2 grid gap-2">
+                {affiliateOffer.offer.offer_image && (
+                  <div 
+                    className="mb-3 rounded-md overflow-hidden h-32 bg-gray-100 cursor-pointer"
+                    onClick={() => handleOfferClick(affiliateOffer.offer_id)}
+                  >
+                    <img
+                      src={affiliateOffer.offer.offer_image}
+                      alt={affiliateOffer.offer.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                
                 <div className="text-sm flex items-center">
                   <DollarSign className="h-4 w-4 mr-1 text-green-500" />
                   <span className="font-medium">Commission: </span> 
@@ -174,7 +195,7 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
     );
   }
 
-  // List view - Updated to use the reusable OfferTable with improved styling
+  // Table or List view - Updated to use the reusable OfferTable with improved styling
   return (
     <OfferTable 
       offers={offers.map(affiliateOffer => ({
@@ -185,6 +206,7 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
       userRole="affiliate"
       onViewDetails={onViewOfferDetails}
       onGenerateLinks={onGenerateLinks}
+      onRowClick={onViewOfferDetails}
     />
   );
 };

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Offer } from '@/types';
@@ -8,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { toast } from '@/hooks/use-toast';
 import {
   Search,
   DollarSign,
@@ -25,6 +27,7 @@ import OfferTable from '@/components/offers/OfferTable';
 
 export default function OfferBrowser() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [offers, setOffers] = useState<Offer[]>([]);
   // Add view mode state with table option
@@ -101,16 +104,69 @@ export default function OfferBrowser() {
     }
   };
 
-  // View offer details
+  // View offer details - Updated to navigate to offer page
   const handleViewOfferDetails = (offerId: string) => {
     console.log("View offer details:", offerId);
-    // Implement navigation to offer details
+    navigate(`/offers/${offerId}`);
   };
 
-  // Apply to offer
-  const handleApplyToOffer = (offerId: string) => {
-    console.log("Apply to offer:", offerId);
-    // Implement apply functionality
+  // Apply to offer - Implemented with proper functionality
+  const handleApplyToOffer = async (offerId: string) => {
+    try {
+      console.log("Applying to offer:", offerId);
+      
+      // Check if the user has already applied
+      const { data: existingApplication, error: checkError } = await supabase
+        .from('affiliate_offers')
+        .select('*')
+        .eq('offer_id', offerId)
+        .eq('affiliate_id', user?.id)
+        .single();
+      
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+      
+      if (existingApplication) {
+        toast({
+          title: "Already applied",
+          description: `You've already applied to this offer with status: ${existingApplication.status}`,
+          variant: "default"
+        });
+        return;
+      }
+      
+      // Submit application
+      const { data, error } = await supabase
+        .from('affiliate_offers')
+        .insert({
+          offer_id: offerId,
+          affiliate_id: user?.id,
+          status: 'pending',
+          applied_at: new Date().toISOString(),
+        });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Application submitted",
+        description: "Your application has been submitted and is pending review.",
+        variant: "default"
+      });
+      
+    } catch (error) {
+      console.error("Error applying to offer:", error);
+      toast({
+        title: "Application failed",
+        description: "There was an error submitting your application. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle card click for offer details
+  const handleOfferCardClick = (offerId: string) => {
+    navigate(`/offers/${offerId}`);
   };
 
   // Card view for offers
@@ -122,7 +178,10 @@ export default function OfferBrowser() {
       <Card key={offer.id} className="overflow-hidden">
         <CardHeader className="p-4">
           <div className="flex justify-between items-start">
-            <CardTitle className="text-lg flex items-center gap-2">
+            <CardTitle 
+              className="text-lg flex items-center gap-2 cursor-pointer hover:text-primary"
+              onClick={() => handleOfferCardClick(offer.id)}
+            >
               {offer.is_featured && (
                 <Badge className="mr-1">
                   <Award className="h-3 w-3 mr-1" />
@@ -144,7 +203,10 @@ export default function OfferBrowser() {
         </CardHeader>
         <CardContent className="p-4 pt-0 grid gap-2">
           {offer.offer_image && (
-            <div className="mb-3 rounded-md overflow-hidden h-32 bg-gray-100">
+            <div 
+              className="mb-3 rounded-md overflow-hidden h-32 bg-gray-100 cursor-pointer"
+              onClick={() => handleOfferCardClick(offer.id)}
+            >
               <img
                 src={offer.offer_image}
                 alt={offer.name}
@@ -243,7 +305,18 @@ export default function OfferBrowser() {
           </div>
 
           <div className="mt-2 flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => handleApplyToOffer(offer.id)}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mr-2"
+              onClick={() => handleViewOfferDetails(offer.id)}
+            >
+              View Details
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={() => handleApplyToOffer(offer.id)}
+            >
               Apply
             </Button>
           </div>
@@ -317,12 +390,12 @@ export default function OfferBrowser() {
           
           {viewMode === 'list' && (
             <div className="space-y-4">
-              {/* List view implementation would go here - for now using the table */}
               <OfferTable 
                 offers={filteredOffers} 
                 userRole="affiliate"
                 onViewDetails={handleViewOfferDetails}
                 onApply={handleApplyToOffer}
+                onRowClick={handleViewOfferDetails}
               />
             </div>
           )}
@@ -333,6 +406,7 @@ export default function OfferBrowser() {
               userRole="affiliate"
               onViewDetails={handleViewOfferDetails}
               onApply={handleApplyToOffer}
+              onRowClick={handleViewOfferDetails}
             />
           )}
         </>

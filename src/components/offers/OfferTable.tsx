@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Offer } from '@/types';
@@ -45,9 +44,17 @@ interface OfferTableProps {
   onViewDetails?: (offerId: string) => void;
   onApply?: (offerId: string) => void;
   onGenerateLinks?: (offerId: string) => void;
+  onRowClick?: (offerId: string) => void;
 }
 
-export default function OfferTable({ offers, userRole, onViewDetails, onApply, onGenerateLinks }: OfferTableProps) {
+export default function OfferTable({ 
+  offers, 
+  userRole, 
+  onViewDetails, 
+  onApply, 
+  onGenerateLinks,
+  onRowClick
+}: OfferTableProps) {
   const navigate = useNavigate();
   const isAdvertiser = userRole === 'advertiser';
 
@@ -128,15 +135,27 @@ export default function OfferTable({ offers, userRole, onViewDetails, onApply, o
     }
   };
 
-  const handleApply = (offerId: string) => {
+  const handleApply = (offerId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click event from firing
     if (onApply) {
       onApply(offerId);
     }
   };
 
-  const handleGenerateLinks = (offerId: string) => {
+  const handleGenerateLinks = (offerId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click event from firing
     if (onGenerateLinks) {
       onGenerateLinks(offerId);
+    }
+  };
+
+  const handleRowClick = (offerId: string) => {
+    if (onRowClick) {
+      onRowClick(offerId);
+    } else if (onViewDetails) {
+      onViewDetails(offerId);
+    } else {
+      navigate(`/offers/${offerId}`);
     }
   };
 
@@ -166,8 +185,12 @@ export default function OfferTable({ offers, userRole, onViewDetails, onApply, o
               const commissionRange = getCommissionRange(offer);
               
               return (
-                <TableRow key={offer.id} className="hover:bg-muted/50">
-                  {/* Offer column - Improved featured tag placement */}
+                <TableRow 
+                  key={offer.id} 
+                  className="hover:bg-muted/50 cursor-pointer"
+                  onClick={() => handleRowClick(offer.id)}
+                >
+                  {/* Offer column - With clickable image and name */}
                   <TableCell>
                     <div className="flex gap-3">
                       <div className="relative">
@@ -202,7 +225,7 @@ export default function OfferTable({ offers, userRole, onViewDetails, onApply, o
                         )}
                       </div>
                       <div className="flex flex-col">
-                        <div className="font-medium">{offer.name}</div>
+                        <div className="font-medium hover:text-primary">{offer.name}</div>
                         {offer.description && (
                           <p className="text-sm text-muted-foreground line-clamp-2">
                             {offer.description}
@@ -226,7 +249,7 @@ export default function OfferTable({ offers, userRole, onViewDetails, onApply, o
                     )}
                   </TableCell>
                   
-                  {/* Payout column - UPDATED with separate badges and payout frequency */}
+                  {/* Payout column */}
                   <TableCell>
                     <div className="flex flex-col gap-1">
                       {/* Commission amount badge */}
@@ -378,38 +401,44 @@ export default function OfferTable({ offers, userRole, onViewDetails, onApply, o
                     </div>
                   </TableCell>
                   
-                  {/* Actions column - Clean dropdown menu */}
+                  {/* Actions column - Updated with stopPropagation to prevent row click */}
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={(e) => e.stopPropagation()} // Prevent row click
+                          className="hover-card-disable-row-click"
+                        >
                           <MoreHorizontal className="h-4 w-4" />
                           <span className="sr-only">Actions</span>
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                      <DropdownMenuContent align="end" className="dropdown-trigger">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         
-                        <DropdownMenuItem onClick={() => handleViewDetails(offer.id)}>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation(); // Prevent row click
+                          handleViewDetails(offer.id);
+                        }}>
                           <Eye className="h-4 w-4 mr-2" />
                           {isAdvertiser ? 'Manage' : 'View Details'}
                         </DropdownMenuItem>
                         
-                        {!isAdvertiser && (
-                          <>
-                            <DropdownMenuItem onClick={() => handleApply(offer.id)}>
-                              <Check className="h-4 w-4 mr-2" />
-                              Apply
-                            </DropdownMenuItem>
-                            
-                            {onGenerateLinks && (
-                              <DropdownMenuItem onClick={() => handleGenerateLinks(offer.id)}>
-                                <Link className="h-4 w-4 mr-2" />
-                                Generate Links
-                              </DropdownMenuItem>
-                            )}
-                          </>
+                        {!isAdvertiser && onApply && (
+                          <DropdownMenuItem onClick={(e) => handleApply(offer.id, e)}>
+                            <Check className="h-4 w-4 mr-2" />
+                            Apply
+                          </DropdownMenuItem>
+                        )}
+                        
+                        {onGenerateLinks && (
+                          <DropdownMenuItem onClick={(e) => handleGenerateLinks(offer.id, e)}>
+                            <Link className="h-4 w-4 mr-2" />
+                            Generate Links
+                          </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>

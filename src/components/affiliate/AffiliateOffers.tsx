@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Search, Grid, List } from 'lucide-react';
+import { Search, Grid, List, Table as TableIcon } from 'lucide-react';
 
 import { useAffiliateQueries } from './hooks/useAffiliateQueries';
 import ActiveOffers from './ActiveOffers';
@@ -19,7 +19,7 @@ import TrackingLinksTab from './TrackingLinksTab';
 export default function AffiliateOffers() {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'table'>('list');
   const navigate = useNavigate();
   
   // Use our custom hook to fetch all data
@@ -83,10 +83,18 @@ export default function AffiliateOffers() {
           <Button 
             variant={viewMode === 'list' ? 'default' : 'ghost'} 
             size="sm" 
-            className="rounded-l-none" 
+            className="rounded-l-none rounded-r-none border-x border-border" 
             onClick={() => setViewMode('list')}
           >
             <List className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant={viewMode === 'table' ? 'default' : 'ghost'} 
+            size="sm" 
+            className="rounded-l-none" 
+            onClick={() => setViewMode('table')}
+          >
+            <TableIcon className="h-4 w-4" />
           </Button>
         </div>
       </div>

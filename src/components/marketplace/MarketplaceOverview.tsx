@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -77,6 +78,26 @@ export default function MarketplaceOverview() {
   
   const handleViewOfferDetails = (offerId: string) => {
     navigate(`/offers/${offerId}`);
+  };
+  
+  // Get full commission type name
+  const getFullCommissionType = (shortType: string): string => {
+    if (!shortType || !shortType.startsWith('CP')) return shortType;
+    
+    // Extract the last character of the commission type (e.g., 'A' from 'CPA')
+    const typeCode = shortType.slice(2);
+    
+    switch (typeCode) {
+      case 'A': return 'CPA'; // Cost Per Action
+      case 'L': return 'CPL'; // Cost Per Lead
+      case 'S': return 'CPS'; // Cost Per Sale
+      case 'I': return 'CPI'; // Cost Per Install
+      case 'C': return 'CPC'; // Cost Per Click
+      case 'M': return 'CPM'; // Cost Per Mille (Thousand)
+      case 'O': return 'CPO'; // Cost Per Order
+      case 'R': return 'CPR'; // Cost Per Registration
+      default: return shortType;
+    }
   };
   
   // Render an offer card
@@ -251,15 +272,13 @@ export default function MarketplaceOverview() {
               )}
               <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                 <DollarSign className="h-3 w-3 mr-1" />
-                {offer.commission_amount} 
-                <Badge variant="outline" className="ml-1 py-0 px-1 text-xs">
-                  {offer.commission_type.slice(2)}
-                </Badge>
+                {offer.commission_amount} {getFullCommissionType(offer.commission_type)}
               </Badge>
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-x-4 gap-y-2 mt-2">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
+            {/* Niche */}
             {offer.niche && (
               <div className="flex items-center text-sm">
                 <Tag className="h-4 w-4 mr-1 text-blue-500" />
@@ -270,6 +289,42 @@ export default function MarketplaceOverview() {
               </div>
             )}
             
+            {/* Traffic Sources */}
+            {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
+              <div className="flex items-center text-sm">
+                <Target className="h-4 w-4 mr-1 text-purple-500" />
+                <span className="font-medium mr-1">Traffic:</span>
+                {offer.allowed_traffic_sources.length <= 2 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {offer.allowed_traffic_sources.map(source => (
+                      <Badge key={source} variant="outline" className="text-xs">
+                        {source}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <HoverCard openDelay={0} closeDelay={0}>
+                    <HoverCardTrigger asChild>
+                      <Badge variant="outline" className="text-xs cursor-pointer ml-1">
+                        {offer.allowed_traffic_sources.length} sources
+                      </Badge>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                      <div className="font-medium mb-2">Allowed Traffic Sources:</div>
+                      <div className="flex flex-wrap gap-1 max-w-[300px]">
+                        {offer.allowed_traffic_sources.map((source, i) => (
+                          <Badge key={i} variant="outline" className="text-xs">
+                            {source}
+                          </Badge>
+                        ))}
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                )}
+              </div>
+            )}
+            
+            {/* Geo Targeting */}
             <div className="flex items-center text-sm">
               <Globe className="h-4 w-4 mr-1 text-indigo-500" />
               <span className="font-medium mr-1">Geo:</span>
@@ -318,40 +373,7 @@ export default function MarketplaceOverview() {
               )}
             </div>
             
-            {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
-              <div className="flex items-center text-sm">
-                <Target className="h-4 w-4 mr-1 text-purple-500" />
-                <span className="font-medium mr-1">Traffic:</span>
-                {offer.allowed_traffic_sources.length <= 2 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {offer.allowed_traffic_sources.map(source => (
-                      <Badge key={source} variant="outline" className="text-xs">
-                        {source}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <HoverCard openDelay={0} closeDelay={0}>
-                    <HoverCardTrigger asChild>
-                      <Badge variant="outline" className="text-xs cursor-pointer ml-1">
-                        {offer.allowed_traffic_sources.length} sources
-                      </Badge>
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
-                      <div className="font-medium mb-2">Allowed Traffic Sources:</div>
-                      <div className="flex flex-wrap gap-1 max-w-[300px]">
-                        {offer.allowed_traffic_sources.map((source, i) => (
-                          <Badge key={i} variant="outline" className="text-xs">
-                            {source}
-                          </Badge>
-                        ))}
-                      </div>
-                    </HoverCardContent>
-                  </HoverCard>
-                )}
-              </div>
-            )}
-            
+            {/* Restricted Geos */}
             {restrictedGeos.length > 0 && (
               <div className="flex items-center text-sm">
                 <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />

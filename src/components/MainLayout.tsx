@@ -90,7 +90,7 @@ export default function MainLayout() {
           </div>
         </header>
         
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto w-full">
+        <main className="flex-1 p-4 md:p-6 overflow-y-auto w-full max-w-full">
           <Outlet />
         </main>
         

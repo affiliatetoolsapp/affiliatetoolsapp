@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -85,6 +86,30 @@ export default function OffersList() {
     offer.niche?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Get commission range if there are geo-specific commissions
+  const getCommissionRange = (offer: Offer) => {
+    if (!offer.geo_commissions || !Array.isArray(offer.geo_commissions) || offer.geo_commissions.length <= 1) {
+      return null;
+    }
+
+    // Fix: Safely extract amount values from each geo_commission object
+    const amounts = offer.geo_commissions.map(gc => {
+      // Handle different possible types of geo_commission
+      if (typeof gc === 'object' && gc !== null) {
+        const amount = (gc as any).amount;
+        return typeof amount === 'string' ? parseFloat(amount) : typeof amount === 'number' ? amount : 0;
+      }
+      return 0;
+    }).filter(amount => !isNaN(amount));
+    
+    if (amounts.length === 0) return null;
+    
+    const min = Math.min(...amounts);
+    const max = Math.max(...amounts);
+    
+    return { min, max };
+  };
+
   const handleOfferClick = (offerId: string) => {
     console.log("Navigating to offer:", offerId);
     navigate(`/offers/${offerId}`);
@@ -151,7 +176,9 @@ export default function OffersList() {
               </div>
             ) : filteredOffers?.length ? (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {filteredOffers.map((offer) => (
+                {filteredOffers.map((offer) => {
+                  const commissionRange = getCommissionRange(offer);
+                  return (
                   <Card key={offer.id} className="overflow-hidden">
                     <CardHeader className="p-4">
                       <div className="flex justify-between items-start">
@@ -163,13 +190,22 @@ export default function OffersList() {
                             {offer.name}
                           </button>
                         </CardTitle>
-                        <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                          <DollarSign className="h-3 w-3 mr-1" />
-                          {offer.commission_amount}
-                          <Badge variant="outline" className="ml-1 py-0 px-1 text-xs">
-                            {offer.commission_type.slice(2)}
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                            <DollarSign className="h-3 w-3 mr-1" />
+                            {commissionRange
+                              ? `${commissionRange.min}-${commissionRange.max}`
+                              : offer.commission_amount}
                           </Badge>
-                        </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {offer.commission_type === 'CPA' ? 'CPA' :
+                             offer.commission_type === 'CPL' ? 'CPL' :
+                             offer.commission_type === 'CPC' ? 'CPC' :
+                             offer.commission_type === 'CPS' ? 'CPS' :
+                             offer.commission_type === 'RevShare' ? 'RevShare' :
+                             offer.commission_type}
+                          </Badge>
+                        </div>
                       </div>
                       <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
                     </CardHeader>
@@ -226,18 +262,23 @@ export default function OffersList() {
                           <div className="text-sm flex items-center">
                             <Target className="h-4 w-4 mr-1 text-purple-500" />
                             <span className="font-medium mr-1">Traffic:</span>
-                            <div className="flex flex-wrap gap-1">
-                              {offer.allowed_traffic_sources.slice(0, 2).map(source => (
-                                <Badge key={source} variant="outline" className="text-xs">
-                                  {source}
+                            <HoverCard openDelay={0} closeDelay={0}>
+                              <HoverCardTrigger asChild>
+                                <Badge variant="outline" className="text-xs cursor-pointer ml-1">
+                                  {offer.allowed_traffic_sources.length} {offer.allowed_traffic_sources.length === 1 ? 'source' : 'sources'}
                                 </Badge>
-                              ))}
-                              {offer.allowed_traffic_sources.length > 2 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{offer.allowed_traffic_sources.length - 2} more
-                                </Badge>
-                              )}
-                            </div>
+                              </HoverCardTrigger>
+                              <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                                <div className="font-medium mb-2">Traffic Sources:</div>
+                                <div className="flex flex-wrap gap-1 max-w-[300px]">
+                                  {offer.allowed_traffic_sources.map((source, i) => (
+                                    <Badge key={i} variant="outline" className="text-xs">
+                                      {source}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </HoverCardContent>
+                            </HoverCard>
                           </div>
                         )}
                         
@@ -274,7 +315,8 @@ export default function OffersList() {
                       </div>
                     </CardContent>
                   </Card>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <Card className="p-8 text-center">

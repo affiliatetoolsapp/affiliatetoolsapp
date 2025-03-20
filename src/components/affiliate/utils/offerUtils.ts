@@ -50,7 +50,14 @@ export const formatGeoTargets = (offer: Offer): Array<{ flag: string; code: stri
     }));
   } catch (e) {
     console.error("Error parsing geo targets:", e);
-    return []; // Return empty array on error
+    // If parsing fails, it might be a simple string
+    if (typeof offer.geo_targets === 'string') {
+      return [{
+        code: offer.geo_targets.toUpperCase(),
+        flag: getCountryFlag(offer.geo_targets)
+      }];
+    }
+    return []; // Return empty array on other errors
   }
 };
 

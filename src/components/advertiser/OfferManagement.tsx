@@ -103,7 +103,7 @@ export default function OfferManagement() {
     enabled: !!user,
   });
   
-  // Get pending applications count - now used more consistently across components
+  // Get pending applications count
   const { data: pendingApplicationsCount, refetch: refetchApplications } = useQuery({
     queryKey: ['pending-applications-count', user?.id],
     queryFn: async () => {
@@ -265,12 +265,33 @@ export default function OfferManagement() {
       return [];
     }
     
+    let geoTargetsArray: string[] = [];
+    
     // Convert to array if it's a string or handle the case when it's already an array
-    const geoTargetsArray = typeof offer.geo_targets === 'string' 
-      ? [offer.geo_targets] 
-      : Array.isArray(offer.geo_targets) 
-        ? offer.geo_targets 
-        : [];
+    if (typeof offer.geo_targets === 'string') {
+      try {
+        // Try to parse it as JSON first
+        const parsed = JSON.parse(offer.geo_targets);
+        if (Array.isArray(parsed)) {
+          geoTargetsArray = parsed;
+        } else if (typeof parsed === 'object') {
+          // If it's an object, use its keys
+          geoTargetsArray = Object.keys(parsed);
+        } else {
+          // If it's a simple string and not JSON, treat as single country code
+          geoTargetsArray = [offer.geo_targets];
+        }
+      } catch (e) {
+        // If parsing fails, it's a simple string
+        geoTargetsArray = [offer.geo_targets];
+      }
+    } else if (Array.isArray(offer.geo_targets)) {
+      // It's already an array
+      geoTargetsArray = offer.geo_targets;
+    } else if (typeof offer.geo_targets === 'object' && offer.geo_targets !== null) {
+      // It's an object, use its keys as country codes
+      geoTargetsArray = Object.keys(offer.geo_targets);
+    }
     
     return geoTargetsArray.map(code => {
       const country = countryCodes.find(c => c.code === code);

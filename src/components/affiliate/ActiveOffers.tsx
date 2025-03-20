@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
-import { DollarSign, Calendar, Tag, MapPin, Globe, Eye, Link as LinkIcon } from 'lucide-react';
+import { DollarSign, Calendar, Tag, MapPin, Globe, Eye, Link as LinkIcon, Award } from 'lucide-react';
 
 interface ActiveOffersProps {
   offers: AffiliateOfferWithOffer[];
@@ -60,14 +60,15 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
               <CardHeader className="p-4 pb-0">
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle className="text-lg">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      {affiliateOffer.offer.is_featured && (
+                        <Badge variant="outline" className="mr-1 bg-yellow-100 dark:bg-yellow-900">
+                          <Award className="h-3 w-3 mr-1" />
+                          Featured
+                        </Badge>
+                      )}
                       {affiliateOffer.offer.name}
                     </CardTitle>
-                    {affiliateOffer.offer.is_featured && (
-                      <Badge variant="outline" className="mt-1 bg-yellow-100 dark:bg-yellow-900">
-                        Featured Offer
-                      </Badge>
-                    )}
                   </div>
                   <Badge variant="default" className="capitalize">
                     Approved
@@ -190,15 +191,17 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
         <TableBody>
           {offers.map((affiliateOffer) => (
             <TableRow key={affiliateOffer.id}>
-              
               <TableCell className="font-medium">
                 <div className="flex flex-col">
-                  {affiliateOffer.offer.name}
-                  {affiliateOffer.offer.is_featured && (
-                    <Badge variant="outline" className="w-fit mt-1 text-xs bg-yellow-100 dark:bg-yellow-900">
-                      Featured
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {affiliateOffer.offer.is_featured && (
+                      <Badge variant="outline" className="mr-1 text-xs bg-yellow-100 dark:bg-yellow-900">
+                        <Award className="h-3 w-3 mr-1" />
+                        Featured
+                      </Badge>
+                    )}
+                    {affiliateOffer.offer.name}
+                  </div>
                 </div>
               </TableCell>
               <TableCell>
@@ -243,7 +246,6 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                 </div>
               </TableCell>
               <TableCell>
-                
                 <div className="flex space-x-2">
                   <Button 
                     variant="outline" 

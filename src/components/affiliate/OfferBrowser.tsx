@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,7 +15,8 @@ import {
   Globe,
   AlertTriangle,
   Tag,
-  Target
+  Target,
+  Award
 } from 'lucide-react';
 import countryCodes from '../offers/countryCodes';
 
@@ -126,16 +128,24 @@ export default function OfferBrowser() {
               <Card key={offer.id} className="overflow-hidden">
                 <CardHeader className="p-4">
                   <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">{offer.name}</CardTitle>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      {offer.is_featured && (
+                        <Badge className="mr-1">
+                          <Award className="h-3 w-3 mr-1" />
+                          Featured
+                        </Badge>
+                      )}
+                      {offer.name}
+                    </CardTitle>
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                         <DollarSign className="h-3 w-3 mr-1" />
                         {commissionRange
                           ? `${commissionRange.min}-${commissionRange.max}`
                           : offer.commission_amount}
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {offer.commission_type}
+                        {offer.commission_type !== 'RevShare' && (
+                          <span className="ml-1">{offer.commission_type}</span>
+                        )}
                       </Badge>
                     </div>
                   </div>

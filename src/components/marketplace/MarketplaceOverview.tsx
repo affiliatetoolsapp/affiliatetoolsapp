@@ -6,7 +6,20 @@ import { formatGeoTargets, getCountryFlag } from '@/components/affiliate/utils/o
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Award, TrendingUp, Globe, Target, Users, DollarSign, Tag, Grid, List, Search, Filter } from 'lucide-react';
+import {
+  AlertTriangle,
+  Award,
+  TrendingUp,
+  Globe,
+  Target,
+  Users,
+  DollarSign,
+  Tag,
+  Grid,
+  List,
+  Search,
+  Filter
+} from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -132,13 +145,15 @@ export default function MarketplaceOverview() {
       <Card key={offer.id} className="overflow-hidden hover:shadow-md transition-shadow duration-200">
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start">
-            <CardTitle className="text-lg text-left">{offer.name}</CardTitle>
-            {offer.is_featured && (
-              <Badge className="ml-2">
-                <Award className="h-3 w-3 mr-1" />
-                Featured
-              </Badge>
-            )}
+            <CardTitle className="text-lg text-left flex items-center gap-2">
+              {offer.is_featured && (
+                <Badge className="mr-1">
+                  <Award className="h-3 w-3 mr-1" />
+                  Featured
+                </Badge>
+              )}
+              {offer.name}
+            </CardTitle>
           </div>
           <CardDescription className="line-clamp-2 text-left">{offer.description}</CardDescription>
         </CardHeader>
@@ -161,12 +176,10 @@ export default function MarketplaceOverview() {
                 ${commissionRange
                     ? `${commissionRange.min}-${commissionRange.max}`
                     : offer.commission_amount}
+                {offer.commission_type !== 'RevShare' && (
+                  <span className="ml-1">{getFullCommissionType(offer.commission_type)}</span>
+                )}
               </Badge>
-              {offer.commission_type !== 'RevShare' && (
-                <Badge variant="outline">
-                  {getFullCommissionType(offer.commission_type)}
-                </Badge>
-              )}
             </div>
           </div>
           
@@ -178,6 +191,7 @@ export default function MarketplaceOverview() {
             </div>
           )}
           
+          {/* Rest of the code remains the same */}
           {/* Display geo targeting info */}
           {geoData.length > 0 && (
             <div className="flex items-start text-sm">
@@ -338,28 +352,28 @@ export default function MarketplaceOverview() {
         <div className="flex-1">
           <div className="flex justify-between items-start">
             <div>
-              <h3 className="font-medium text-lg">{offer.name}</h3>
+              <h3 className="font-medium text-lg flex items-center gap-2">
+                {offer.is_featured && (
+                  <Badge className="mr-1">
+                    <Award className="h-3 w-3 mr-1" />
+                    Featured
+                  </Badge>
+                )}
+                {offer.name}
+              </h3>
               {offer.description && <p className="text-sm text-gray-500 line-clamp-1">{offer.description}</p>}
             </div>
             <div className="flex items-center gap-2">
-              {offer.is_featured && (
-                <Badge>
-                  <Award className="h-3 w-3 mr-1" />
-                  Featured
-                </Badge>
-              )}
               <div className="flex items-center gap-1">
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                   <DollarSign className="h-3 w-3 mr-1" />
                   {commissionRange
                     ? `${commissionRange.min}-${commissionRange.max}`
                     : offer.commission_amount}
+                  {offer.commission_type !== 'RevShare' && (
+                    <span className="ml-1">{getFullCommissionType(offer.commission_type)}</span>
+                  )}
                 </Badge>
-                {offer.commission_type !== 'RevShare' && (
-                  <Badge variant="outline">
-                    {getFullCommissionType(offer.commission_type)}
-                  </Badge>
-                )}
               </div>
             </div>
           </div>

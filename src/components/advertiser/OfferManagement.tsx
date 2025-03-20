@@ -518,7 +518,7 @@ export default function OfferManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
+      
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
@@ -819,11 +819,9 @@ export default function OfferManagement() {
                           </div>
                         </div>
                         
-                        <div className="mt-2 flex justify-end" onClick={(e) => e.stopPropagation()}>
+                        <div className="mt-2 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                           <Button variant="outline" size="sm" onClick={() => navigate(`/offers/${offer.id}`)}>
                             Manage
                           </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
+                          <DropdownMenu>
+                            <DropdownMenuTrigger as

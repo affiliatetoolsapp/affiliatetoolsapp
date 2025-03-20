@@ -1,3 +1,4 @@
+
 import {
   Table,
   TableBody,
@@ -64,26 +65,35 @@ const OfferTable: React.FC<OfferTableProps> = ({
               <TableCell className="text-right">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
+                    <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
                       <span className="sr-only">Open menu</span>
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     {onViewDetails && (
-                      <DropdownMenuItem onClick={() => onViewDetails(offer.id)}>
+                      <DropdownMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        onViewDetails(offer.id);
+                      }}>
                         <Edit className="h-4 w-4 mr-2" />
                         View Details
                       </DropdownMenuItem>
                     )}
                     {onEdit && (
-                      <DropdownMenuItem onClick={() => onEdit(offer.id)}>
+                      <DropdownMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        onEdit(offer.id);
+                      }}>
                         <Edit className="h-4 w-4 mr-2" />
                         Edit
                       </DropdownMenuItem>
                     )}
                     {onToggleStatus && (
-                      <DropdownMenuItem onClick={() => onToggleStatus(offer.id, offer.status)}>
+                      <DropdownMenuItem onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleStatus(offer.id, offer.status);
+                      }}>
                         {offer.status === 'active' ? (
                           <>
                             <Pause className="h-4 w-4 mr-2" />
@@ -98,7 +108,13 @@ const OfferTable: React.FC<OfferTableProps> = ({
                       </DropdownMenuItem>
                     )}
                     {onDelete && (
-                      <DropdownMenuItem className="text-destructive" onClick={() => onDelete(offer.id)}>
+                      <DropdownMenuItem 
+                        className="text-destructive" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(offer.id);
+                        }}
+                      >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Delete
                       </DropdownMenuItem>

@@ -17,6 +17,22 @@ export type Offer = Database['public']['Tables']['offers']['Row'] & {
   restricted_traffic_sources?: string[];
   restricted_promotion_methods?: string[];
   terms_and_conditions?: string;
+  
+  // Properties from affiliate_offer_details view
+  offer_name?: string;
+  o_id?: string;
+  application_status?: string;
+  affiliate_id?: string;
+  affiliate_offer_id?: string;
+  ao_offer_id?: string;
+  applied_at?: string;
+  description?: string;
+  offer_status?: string;
+  offer_created_at?: string;
+  offer_updated_at?: string;
+  notes?: string;
+  reviewed_at?: string;
+  traffic_source?: string;
 };
 
 export type AffiliateOffer = Database['public']['Tables']['affiliate_offers']['Row'];

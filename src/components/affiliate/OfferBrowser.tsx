@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -14,8 +15,9 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronsUpDown, Check, Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Loader2, Search } from 'lucide-react';
+import { ChevronsUpDown, Check, Loader2, Search } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 
 const ITEMS_PER_PAGE = 12;
@@ -94,7 +96,7 @@ export default function OfferBrowser() {
       }
       
       setTotalOffers(count || 0);
-      return data as Offer[];
+      return data as unknown as Offer[];
     },
   });
   
@@ -267,9 +269,9 @@ export default function OfferBrowser() {
                       View Offer
                     </Button>
                     {offer.application_status === 'approved' ? (
-                      <Badge variant="success">Approved</Badge>
+                      <Badge variant="default" className="bg-green-500">Approved</Badge>
                     ) : offer.application_status === 'pending' ? (
-                      <Badge variant="warning">Pending</Badge>
+                      <Badge variant="outline" className="text-amber-500 border-amber-500">Pending</Badge>
                     ) : (
                       <Button variant="outline" size="sm" onClick={() => handleApplyForOffer(offer.o_id as string)}>
                         Apply Now

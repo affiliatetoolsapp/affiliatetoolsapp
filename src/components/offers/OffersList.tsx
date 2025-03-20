@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -61,7 +62,7 @@ export default function OffersList() {
       return data.map(offer => ({
         ...offer,
         advertiser_name: offer.advertiser?.company_name || 'Unknown'
-      }));
+      })) as unknown as Offer[];
     },
   });
 

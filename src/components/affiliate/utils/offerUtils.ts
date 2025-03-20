@@ -32,7 +32,7 @@ export const formatGeoTargets = (offer: Partial<Offer>): Array<{ flag: string; c
       : offer.geo_targets;
     
     // If it's an empty object or not actually containing country data
-    if (!geoObj || Object.keys(geoObj).length === 0) {
+    if (!geoObj || (typeof geoObj === 'object' && Object.keys(geoObj).length === 0)) {
       return []; // Return empty array
     }
     
@@ -45,10 +45,14 @@ export const formatGeoTargets = (offer: Partial<Offer>): Array<{ flag: string; c
     }
     
     // Handle objects
-    return Object.keys(geoObj).map(code => ({
-      code: code.toUpperCase(),
-      flag: getCountryFlag(code)
-    }));
+    if (typeof geoObj === 'object' && geoObj !== null) {
+      return Object.keys(geoObj).map(code => ({
+        code: code.toUpperCase(),
+        flag: getCountryFlag(code)
+      }));
+    }
+    
+    return []; // Return empty array for unhandled cases
   } catch (e) {
     console.error("Error parsing geo targets:", e);
     return []; // Return empty array on error

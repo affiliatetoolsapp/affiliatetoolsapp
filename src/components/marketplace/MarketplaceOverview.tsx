@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,7 +43,7 @@ export default function MarketplaceOverview() {
       return data.map(offer => ({
         ...offer,
         advertiser_name: offer.users?.company_name || 'Unknown Advertiser'
-      }));
+      })) as unknown as Offer[];
     },
   });
   

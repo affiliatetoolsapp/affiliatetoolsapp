@@ -1,4 +1,3 @@
-
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -55,7 +54,7 @@ export default function OffersPage() {
         return null;
       }
       
-      return data;
+      return data as unknown as Offer;
     },
     enabled: !!id && !!user,
   });
@@ -147,14 +146,10 @@ export default function OffersPage() {
       );
     }
     
-    // For advertisers and admins, continue using the existing OfferDetails component
-    // But pass a prop to handle edit mode
+    // For advertisers and admins, update the OfferDetails component to accept onEditClick prop
     return <OfferDetails 
       offerId={id} 
-      onEditClick={() => {
-        // When edit is clicked, set edit mode to true
-        setIsEditMode(true);
-      }} 
+      onEditClick={() => setIsEditMode(true)}
     />;
   }
   

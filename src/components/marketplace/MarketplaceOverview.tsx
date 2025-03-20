@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { formatGeoTargets } from '@/components/affiliate/utils/offerUtils';
+import { formatGeoTargets, getCountryFlag } from '@/components/affiliate/utils/offerUtils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -305,11 +305,15 @@ export default function MarketplaceOverview() {
                 ) : (
                   <HoverCard openDelay={0} closeDelay={0}>
                     <HoverCardTrigger asChild>
-                      <Badge variant="outline" className="text-xs cursor-pointer ml-1">
+                      <Badge variant="outline" className="text-xs cursor-pointer ml-1 hover:bg-gray-100 dark:hover:bg-gray-700">
                         {offer.allowed_traffic_sources.length} sources
                       </Badge>
                     </HoverCardTrigger>
-                    <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                    <HoverCardContent 
+                      side="right" 
+                      align="start" 
+                      className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]"
+                    >
                       <div className="font-medium mb-2">Allowed Traffic Sources:</div>
                       <div className="flex flex-wrap gap-1 max-w-[300px]">
                         {offer.allowed_traffic_sources.map((source, i) => (
@@ -380,7 +384,7 @@ export default function MarketplaceOverview() {
                 <span className="font-medium mr-1">Restricted:</span>
                 <HoverCard>
                   <HoverCardTrigger className="cursor-pointer">
-                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs ml-1">
+                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs ml-1 hover:bg-red-100 dark:hover:bg-red-900/40">
                       {restrictedGeos.length} {restrictedGeos.length === 1 ? 'country' : 'countries'}
                     </Badge>
                   </HoverCardTrigger>
@@ -391,10 +395,15 @@ export default function MarketplaceOverview() {
                     sideOffset={10}
                   >
                     <div className="font-medium mb-2">Restricted GEO's:</div>
-                    <div className="flex flex-wrap gap-2 max-w-[300px]">
+                    <div className="flex flex-wrap gap-2 max-w-[300px] max-h-[200px] overflow-y-auto">
                       {restrictedGeos.map((geo, i) => (
-                        <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs">
-                          {geo}
+                        <Badge 
+                          key={i} 
+                          variant="outline" 
+                          className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs flex items-center gap-1 px-2 py-1"
+                        >
+                          <span className="inline-block text-base leading-none" style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"' }}>{getCountryFlag(geo)}</span>
+                          <span className="font-medium">{geo}</span>
                         </Badge>
                       ))}
                     </div>
@@ -560,3 +569,4 @@ export default function MarketplaceOverview() {
     </div>
   );
 }
+

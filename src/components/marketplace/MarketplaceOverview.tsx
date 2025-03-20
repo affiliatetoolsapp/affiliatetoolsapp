@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -100,9 +99,34 @@ export default function MarketplaceOverview() {
     }
   };
   
+  // Get commission range if there are geo-specific commissions
+  const getCommissionRange = (offer: Offer) => {
+    if (!offer.geo_commissions || !Array.isArray(offer.geo_commissions) || offer.geo_commissions.length <= 1) {
+      return null;
+    }
+
+    // Fix: Safely extract amount values from each geo_commission object
+    const amounts = offer.geo_commissions.map(gc => {
+      // Handle different possible types of geo_commission
+      if (typeof gc === 'object' && gc !== null) {
+        const amount = (gc as any).amount;
+        return typeof amount === 'string' ? parseFloat(amount) : typeof amount === 'number' ? amount : 0;
+      }
+      return 0;
+    }).filter(amount => !isNaN(amount));
+    
+    if (amounts.length === 0) return null;
+    
+    const min = Math.min(...amounts);
+    const max = Math.max(...amounts);
+    
+    return { min, max };
+  };
+  
   // Render an offer card
   const renderOfferCard = (offer: Offer) => {
     const geoData = formatGeoTargets(offer);
+    const commissionRange = getCommissionRange(offer);
     
     return (
       <Card key={offer.id} className="overflow-hidden hover:shadow-md transition-shadow duration-200">
@@ -134,7 +158,9 @@ export default function MarketplaceOverview() {
             <span className="font-medium mr-1">Commission:</span>
             <div className="flex items-center gap-1">
               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                ${offer.commission_amount}
+                ${commissionRange
+                    ? `${commissionRange.min}-${commissionRange.max}`
+                    : offer.commission_amount}
               </Badge>
               {offer.commission_type !== 'RevShare' && (
                 <Badge variant="outline">
@@ -295,6 +321,7 @@ export default function MarketplaceOverview() {
   const renderOfferListItem = (offer: Offer) => {
     const geoData = formatGeoTargets(offer);
     const restrictedGeos = offer.restricted_geos || [];
+    const commissionRange = getCommissionRange(offer);
     
     return (
       <div key={offer.id} className="flex border rounded-md p-4 mb-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors duration-200">
@@ -324,7 +351,9 @@ export default function MarketplaceOverview() {
               <div className="flex items-center gap-1">
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                   <DollarSign className="h-3 w-3 mr-1" />
-                  {offer.commission_amount}
+                  {commissionRange
+                    ? `${commissionRange.min}-${commissionRange.max}`
+                    : offer.commission_amount}
                 </Badge>
                 {offer.commission_type !== 'RevShare' && (
                   <Badge variant="outline">

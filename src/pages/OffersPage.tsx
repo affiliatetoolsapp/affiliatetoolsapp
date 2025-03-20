@@ -17,6 +17,7 @@ import AffiliatePostbackSetup from '@/components/affiliate/AffiliatePostbackSetu
 import AdvertiserPostbackSetup from '@/components/advertiser/AdvertiserPostbackSetup';
 import { Offer } from '@/types';
 import { toast } from '@/hooks/use-toast';
+import EditOfferPage from './EditOfferPage';
 
 export default function OffersPage() {
   const { id } = useParams();
@@ -58,7 +59,7 @@ export default function OffersPage() {
     },
     enabled: !!id && !!user,
   });
-
+  
   // Fetch application status for affiliate
   const { data: applicationData } = useQuery({
     queryKey: ['offer-application', id, user?.id],
@@ -96,6 +97,13 @@ export default function OffersPage() {
   if (id === 'create' && (user.role === 'advertiser' || user.role === 'admin')) {
     console.log("[OffersPage] Rendering CreateOffer component");
     return <CreateOffer />;
+  }
+  
+  // If we have "edit" in the path, show the dedicated edit page
+  if (id && id.includes('edit') && (user.role === 'advertiser' || user.role === 'admin')) {
+    console.log("[OffersPage] Rendering EditOfferPage component");
+    const offerId = id.split('/')[0]; // Extract offer ID from the path
+    return <EditOfferPage />;
   }
   
   // If we have "approve" in the URL, show the approval interface (only for advertisers)

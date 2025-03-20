@@ -230,38 +230,38 @@ export default function OfferManagement() {
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => navigate(`/offers/${offer.id}`)}>
                       <Edit className="h-4 w-4 mr-2" />
-                      Edit
+                      View Details
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleStatusUpdate(offer.id, offer.status === 'active' ? 'inactive' : 'active')}>
-                      {offer.status === 'active' ? (
-                        <>
-                          <Pause className="h-4 w-4 mr-2" />
-                          Pause
-                        </>
-                      ) : (
-                        <>
-                          <Play className="h-4 w-4 mr-2" />
-                          Activate
-                        </>
-                      )}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive">
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate(`/offers/${offer.id}/applications`)}>
-                      <Users className="h-4 w-4 mr-2" />
-                      View Applications
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
+                  <DropdownMenuItem onClick={() => navigate(`/offers/${offer.id}/edit`)}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit Offer
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleStatusUpdate(offer.id, offer.status === 'active' ? 'inactive' : 'active')}>
+                    {offer.status === 'active' ? (
+                      <>
+                        <Pause className="h-4 w-4 mr-2" />
+                        Pause
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-4 w-4 mr-2" />
+                        Activate
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </div>
+);
   
   // Get sort icon based on current sort configuration
   const getSortIcon = () => {

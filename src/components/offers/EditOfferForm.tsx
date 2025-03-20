@@ -83,6 +83,7 @@ const formSchema = z.object({
   target_audience: z.string().optional(),
   conversion_requirements: z.string().optional(),
   restrictions: z.string().optional(),
+  payout_frequency: z.string().optional(),
 });
 
 interface EditOfferFormProps {
@@ -125,6 +126,7 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
       target_audience: offer.target_audience || '',
       conversion_requirements: offer.conversion_requirements || '',
       restrictions: offer.restrictions || '',
+      payout_frequency: offer.payout_frequency || 'Monthly',
     },
   });
 
@@ -655,6 +657,37 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
               />
             )}
           </div>
+        
+          {/* Add Payout Frequency field */}
+          <FormField
+            control={form.control}
+            name="payout_frequency"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Payout Frequency</FormLabel>
+                <Select 
+                  onValueChange={field.onChange} 
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select payout frequency" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="Daily">Daily</SelectItem>
+                    <SelectItem value="Weekly">Weekly</SelectItem>
+                    <SelectItem value="Biweekly">Biweekly</SelectItem>
+                    <SelectItem value="Monthly">Monthly</SelectItem>
+                    <SelectItem value="Quarterly">Quarterly</SelectItem>
+                  </SelectContent>
+                  <FormDescription>
+                    How often affiliates will receive payouts for this offer
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+          />
         </div>
 
         <Separator />

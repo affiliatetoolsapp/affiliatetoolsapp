@@ -12,6 +12,7 @@ export type Offer = Database['public']['Tables']['offers']['Row'] & {
   conversion_requirements?: string;
   geo_targets?: string[] | string | Record<string, any> | null;
   offer_image?: string;
+  payout_frequency?: string;
 };
 export type AffiliateOffer = Database['public']['Tables']['affiliate_offers']['Row'];
 export type Click = Database['public']['Tables']['clicks']['Row'];

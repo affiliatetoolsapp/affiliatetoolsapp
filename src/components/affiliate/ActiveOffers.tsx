@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AffiliateOfferWithOffer } from '@/types';
@@ -178,7 +179,7 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
     <OfferTable 
       offers={offers.map(affiliateOffer => ({
         ...affiliateOffer.offer,
-        // Add payout_frequency if it's not already present
+        // Ensure payout_frequency is properly passed
         payout_frequency: affiliateOffer.offer.payout_frequency || 'Monthly'
       }))}
       userRole="affiliate"

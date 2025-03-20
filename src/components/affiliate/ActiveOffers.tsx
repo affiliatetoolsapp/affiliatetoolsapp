@@ -14,7 +14,7 @@ import OfferTable from '@/components/offers/OfferTable';
 
 interface ActiveOffersProps {
   offers: AffiliateOfferWithOffer[];
-  viewMode: 'grid' | 'list' | 'table';
+  viewMode: 'grid' | 'table';
   isLoading: boolean;
   onViewOfferDetails: (offerId: string) => void;
   onGenerateLinks: (offerId: string) => void;
@@ -195,7 +195,7 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
     );
   }
 
-  // Table or List view - Updated to use the reusable OfferTable with improved styling
+  // Table view - Updated to use the reusable OfferTable with improved styling
   return (
     <OfferTable 
       offers={offers.map(affiliateOffer => ({

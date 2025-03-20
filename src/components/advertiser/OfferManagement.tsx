@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -31,7 +30,6 @@ import {
   Pause, 
   Play, 
   Grid, 
-  List, 
   SortAsc, 
   SortDesc,
   ArrowDownAZ,
@@ -49,11 +47,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AffiliateApprovals from '@/components/offers/AffiliateApprovals';
 import countryCodes from '../offers/countryCodes';
 import OfferTable from '@/components/offers/OfferTable';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type SortField = 'created_at' | 'name' | 'status';
 type SortOrder = 'asc' | 'desc';
 type FilterOption = 'all' | 'active' | 'inactive' | 'paused';
-type ViewMode = 'grid' | 'list' | 'table';
+type ViewMode = 'grid' | 'table';
 
 export default function OfferManagement() {
   const { user } = useAuth();
@@ -66,374 +74,211 @@ export default function OfferManagement() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [filterOption, setFilterOption] = useState<FilterOption>('all');
   const filterMenuRef = useRef<HTMLButtonElement>(null);
+  const [offerToDelete, setOfferToDelete] = useState<string | null>(null);
   
-  // Get advertiser's offers
-  const { data: offers, isLoading: offersLoading } = useQuery({
-    queryKey: ['advertiser-offers', user?.id],
+  const isAdvertiser = user?.role === 'advertiser';
+  
+  // Get all offers query
+  const { data: offers, isLoading: offersLoading, refetch } = useQuery({
+    queryKey: ['offers', user?.id, user?.role],
     queryFn: async () => {
       if (!user) return [];
       
-      const { data, error } = await supabase
-        .from('offers')
-        .select('*')
-        .eq('advertiser_id', user.id);
+      let query = supabase.from('offers').select('*');
       
-      if (error) throw error;
-      console.log("Advertiser offers:", data);
-      return data as Offer[];
-    },
-    enabled: !!user && user.role === 'advertiser',
-  });
-  
-  // Get pending applications directly with a proper query that filters by this advertiser
-  const { data: pendingApplicationsCount = 0, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery({
-    queryKey: ['pending-applications-count', user?.id],
-    queryFn: async () => {
-      if (!user) return 0;
-      
-      try {
-        console.log('[OfferManagement] Fetching pending applications count for advertiser:', user.id);
-        
-        // Get pending applications count directly with a database filter
-        const { data, count, error } = await supabase
-          .from('affiliate_offers')
-          .select('id, offers!inner(advertiser_id)', { count: 'exact' })
-          .eq('status', 'pending')
-          .eq('offers.advertiser_id', user.id);
-        
-        if (error) {
-          console.error("[OfferManagement] Error fetching applications count:", error);
-          throw error;
-        }
-        
-        console.log("[OfferManagement] Pending applications count:", count);
-        return count || 0;
-      } catch (err) {
-        console.error("[OfferManagement] Error in applications count query:", err);
-        throw err;
+      // If user is an advertiser, only show their offers
+      if (isAdvertiser) {
+        query = query.eq('advertiser_id', user.id);
       }
-    },
-    enabled: !!user && user.role === 'advertiser',
-    refetchInterval: 30000, // Check every 30 seconds
-    refetchOnWindowFocus: true,
-    staleTime: 0,
-  });
-  
-  // Refresh applications when the applications tab is selected
-  const [activeTab, setActiveTab] = useState('offers');
-  
-  useEffect(() => {
-    if (activeTab === 'applications') {
-      refetchApplications();
-    }
-  }, [activeTab, refetchApplications]);
-  
-  // Filter offers based on search term, sort options, and filter options
-  const filteredAndSortedOffers = offers?.filter(offer => {
-    // First apply text search filter
-    const matchesSearch = 
-      offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      offer.niche?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // Then apply status filter
-    const matchesFilter = 
-      filterOption === 'all' ||
-      (filterOption === 'active' && offer.status === 'active') ||
-      (filterOption === 'inactive' && offer.status === 'inactive') ||
-      (filterOption === 'paused' && offer.status === 'paused');
-    
-    return matchesSearch && matchesFilter;
-  })
-  .sort((a, b) => {
-    // Sort based on selected field and order
-    if (sortField === 'created_at') {
-      const dateA = new Date(a.created_at || 0).getTime();
-      const dateB = new Date(b.created_at || 0).getTime();
-      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-    }
-    
-    if (sortField === 'name') {
-      return sortOrder === 'asc' 
-        ? a.name.localeCompare(b.name)
-        : b.name.localeCompare(a.name);
-    }
-    
-    if (sortField === 'status') {
-      return sortOrder === 'asc'
-        ? (a.status || '').localeCompare(b.status || '')
-        : (b.status || '').localeCompare(a.status || '');
-    }
-    
-    return 0;
-  });
-  
-  // Mutation to update offer status
-  const updateOfferStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: string, status: 'active' | 'inactive' }) => {
-      console.log(`Updating offer ${id} to status: ${status}`);
       
-      const { data, error } = await supabase
-        .from('offers')
-        .update({ status })
-        .eq('id', id)
-        .select();
-      
+      const { data, error } = await query;
       if (error) {
-        console.error('Error updating offer status:', error);
+        console.error("Error fetching offers:", error);
         throw error;
       }
       
-      return data;
+      console.log("Fetched offers:", data?.length);
+      return data as Offer[];
     },
-    onSuccess: () => {
-      // Invalidate queries to refetch offers
-      queryClient.invalidateQueries({ queryKey: ['advertiser-offers', user?.id] });
-      toast({
-        title: 'Offer Status Updated',
-        description: 'The offer status has been updated successfully',
-      });
-    },
-    onError: (error) => {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to update offer status',
-      });
-      console.error(error);
-    },
+    enabled: !!user,
   });
   
-  const handleStatusUpdate = (offerId: string, newStatus: 'active' | 'inactive') => {
-    updateOfferStatus.mutate({ id: offerId, status: newStatus });
-  };
-  
-  // Format geo targets for display
-  const formatGeoTargets = (offer: Offer) => {
-    if (!offer.geo_targets || !Array.isArray(offer.geo_targets) || offer.geo_targets.length === 0) {
-      return [];
-    }
-
-    return offer.geo_targets.map(code => {
-      const country = countryCodes.find(c => c.code === code);
-      return {
-        code,
-        flag: country?.flag || '🌐',
-        name: country?.name || code
-      };
-    });
-  };
-
-  // Get commission range if there are geo-specific commissions
-  const getCommissionRange = (offer: Offer) => {
-    if (!offer.geo_commissions || !Array.isArray(offer.geo_commissions) || offer.geo_commissions.length <= 1) {
-      return null;
-    }
-
-    // Fix: Safely extract amount values from each geo_commission object
-    const amounts = offer.geo_commissions.map(gc => {
-      // Handle different possible types of geo_commission
-      if (typeof gc === 'object' && gc !== null) {
-        const amount = (gc as any).amount;
-        return typeof amount === 'string' ? parseFloat(amount) : typeof amount === 'number' ? amount : 0;
+  // Get pending applications count - now used more consistently across components
+  const { data: pendingApplicationsCount, refetch: refetchApplications } = useQuery({
+    queryKey: ['pending-applications-count', user?.id],
+    queryFn: async () => {
+      if (!user || !isAdvertiser) return 0;
+      
+      // Get all pending applications first
+      const { data, error } = await supabase
+        .from('affiliate_offers')
+        .select(`
+          id, 
+          offers!inner(advertiser_id)
+        `)
+        .eq('status', 'pending');
+      
+      if (error) {
+        console.error("Error fetching pending applications count:", error);
+        throw error;
       }
-      return 0;
-    }).filter(amount => !isNaN(amount));
-    
-    if (amounts.length === 0) return null;
-    
-    const min = Math.min(...amounts);
-    const max = Math.max(...amounts);
-    
-    return { min, max };
+      
+      // Filter for this advertiser's offers
+      const filteredApplications = data.filter(app => 
+        app.offers?.advertiser_id === user.id
+      );
+      
+      console.log("Pending applications count:", filteredApplications.length);
+      return filteredApplications.length;
+    },
+    enabled: !!user && isAdvertiser,
+    refetchInterval: 30000,
+  });
+  
+  // Function to handle status updates
+  const handleStatusUpdate = async (offerId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('offers')
+        .update({ status: newStatus })
+        .eq('id', offerId);
+      
+      if (error) throw error;
+      
+      // Invalidate and refetch offers to update the UI
+      await queryClient.invalidateQueries(['offers', user?.id, user?.role]);
+      await refetch();
+      
+      toast({
+        title: "Offer status updated",
+        description: `Offer status updated to ${newStatus}`,
+        variant: "default"
+      });
+    } catch (error) {
+      console.error("Error updating offer status:", error);
+      toast({
+        title: "Failed to update status",
+        description: "There was an error updating the offer status. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
   
-  const renderOffersTable = () => (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Offer</TableHead>
-            <TableHead>Niche</TableHead>
-            <TableHead>Commission</TableHead>
-            <TableHead>Targeting</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredAndSortedOffers?.map((offer) => {
-            const commissionRange = getCommissionRange(offer);
-            const geoTargets = formatGeoTargets(offer);
-            
-            return (
-              <TableRow key={offer.id} onClick={() => navigate(`/offers/${offer.id}`)} className="cursor-pointer">
-                <TableCell className="font-medium">
-                  <div>{offer.name}</div>
-                  {offer.description && (
-                    <div className="text-sm text-muted-foreground line-clamp-1">{offer.description}</div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {offer.niche ? (
-                    <Badge variant="outline" className="text-xs">
-                      {offer.niche}
-                    </Badge>
-                  ) : '-'}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                      <DollarSign className="h-3 w-3 mr-1" />
-                      {commissionRange 
-                        ? `${commissionRange.min}-${commissionRange.max}` 
-                        : offer.commission_amount}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      {offer.commission_type === 'CPA' ? 'CPA' :
-                       offer.commission_type === 'CPL' ? 'CPL' :
-                       offer.commission_type === 'CPC' ? 'CPC' :
-                       offer.commission_type === 'CPS' ? 'CPS' :
-                       offer.commission_type === 'RevShare' ? 'RevShare' :
-                       offer.commission_type}
-                    </Badge>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col gap-1">
-                    {/* Geo targets display */}
-                    <div className="flex items-center gap-1">
-                      <Globe className="h-4 w-4 text-indigo-500" />
-                      {geoTargets.length > 0 ? (
-                        <HoverCard openDelay={0} closeDelay={0}>
-                          <HoverCardTrigger asChild>
-                            <Badge variant="outline" className="text-xs cursor-pointer">
-                              {geoTargets.length} {geoTargets.length === 1 ? 'country' : 'countries'}
-                            </Badge>
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
-                            <div className="font-medium mb-2">Targeted GEO's:</div>
-                            <div className="flex flex-wrap gap-1 max-w-[300px]">
-                              {geoTargets.map((geo, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  {geo.flag} {geo.code}
-                                </Badge>
-                              ))}
-                            </div>
-                          </HoverCardContent>
-                        </HoverCard>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Global</span>
-                      )}
-                    </div>
-                    
-                    {/* Traffic sources display */}
-                    {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
-                      <div className="flex items-center gap-1">
-                        <Target className="h-4 w-4 text-purple-500" />
-                        <HoverCard openDelay={0} closeDelay={0}>
-                          <HoverCardTrigger asChild>
-                            <Badge variant="outline" className="text-xs cursor-pointer">
-                              {offer.allowed_traffic_sources.length} {offer.allowed_traffic_sources.length === 1 ? 'source' : 'sources'}
-                            </Badge>
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
-                            <div className="font-medium mb-2">Traffic Sources:</div>
-                            <div className="flex flex-wrap gap-1 max-w-[300px]">
-                              {offer.allowed_traffic_sources.map((source, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  {source}
-                                </Badge>
-                              ))}
-                            </div>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </div>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="capitalize">
-                  <Badge variant={offer.status === 'active' ? 'default' : 'secondary'}>
-                    {offer.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
-                        <span className="sr-only">Open menu</span>
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/offers/${offer.id}`);
-                      }}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        View Details
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/offers/${offer.id}/edit`);
-                      }}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Edit Offer
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation();
-                        handleStatusUpdate(offer.id, offer.status === 'active' ? 'inactive' : 'active');
-                      }}>
-                        {offer.status === 'active' ? (
-                          <>
-                            <Pause className="h-4 w-4 mr-2" />
-                            Pause
-                          </>
-                        ) : (
-                          <>
-                            <Play className="h-4 w-4 mr-2" />
-                            Activate
-                          </>
-                        )}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={(e) => e.stopPropagation()}>
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
-    </div>
-  );
+  // Function to handle offer deletion
+  const handleDeleteOffer = (offerId: string) => {
+    setOfferToDelete(offerId);
+  };
   
-  // Get sort icon based on current sort configuration
-  const getSortIcon = () => {
+  const confirmDeleteOffer = async () => {
+    if (!offerToDelete) return;
+    
+    try {
+      const { error } = await supabase
+        .from('offers')
+        .delete()
+        .eq('id', offerToDelete);
+      
+      if (error) throw error;
+      
+      // Invalidate and refetch offers to update the UI
+      await queryClient.invalidateQueries(['offers', user?.id, user?.role]);
+      await refetch();
+      
+      toast({
+        title: "Offer deleted",
+        description: "The offer has been successfully deleted.",
+        variant: "default"
+      });
+    } catch (error) {
+      console.error("Error deleting offer:", error);
+      toast({
+        title: "Failed to delete offer",
+        description: "There was an error deleting the offer. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setOfferToDelete(null); // Clear the offer to delete
+    }
+  };
+  
+  // Filter offers based on search query and filter option
+  const filteredOffers = offers?.filter(offer => 
+    offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    offer.niche?.toLowerCase().includes(searchQuery.toLowerCase())
+  ).filter(offer => {
+    if (filterOption === 'all') return true;
+    return offer.status?.toLowerCase() === filterOption;
+  });
+  
+  // Sort offers based on sort field and sort order
+  const sortedOffers = filteredOffers?.sort((a, b) => {
+    let comparison = 0;
+    
     if (sortField === 'created_at') {
-      return sortOrder === 'desc' ? <CalendarClock className="h-4 w-4" /> : <CalendarClock className="h-4 w-4" />;
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+      comparison = dateA - dateB;
+    } else if (sortField === 'name') {
+      comparison = a.name.localeCompare(b.name);
+    } else if (sortField === 'status') {
+      comparison = (a.status || '').localeCompare(b.status || '');
     }
-    if (sortField === 'name') {
-      return sortOrder === 'asc' ? <ArrowDownAZ className="h-4 w-4" /> : <ArrowUpAZ className="h-4 w-4" />;
-    }
-    return sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />;
-  };
+    
+    return sortOrder === 'asc' ? comparison : comparison * -1;
+  });
   
-  // Get filter label based on current filter
+  const filteredAndSortedOffers = sortedOffers;
+  
   const getFilterLabel = () => {
     switch (filterOption) {
+      case 'all': return 'All Offers';
       case 'active': return 'Active Only';
       case 'inactive': return 'Inactive Only';
       case 'paused': return 'Paused Only';
-      default: return 'All Offers';
+      default: return 'Filter';
     }
   };
   
+  const getSortIcon = () => {
+    if (sortField === 'created_at') {
+      return sortOrder === 'asc' ? <CalendarClock className="mr-2 h-4 w-4" /> : <CalendarClock className="mr-2 h-4 w-4" />;
+    } else if (sortField === 'name') {
+      return sortOrder === 'asc' ? <ArrowDownAZ className="mr-2 h-4 w-4" /> : <ArrowUpAZ className="mr-2 h-4 w-4" />;
+    } else if (sortField === 'status') {
+      return sortOrder === 'asc' ? <SortAsc className="mr-2 h-4 w-4" /> : <SortDesc className="mr-2 h-4 w-4" />;
+    }
+    return <CalendarClock className="mr-2 h-4 w-4" />;
+  };
+
+  const setActiveTab = (tab: string) => {
+    // You can add any tab-specific logic here if needed
+    console.log(`[OfferManagement] Active tab changed to: ${tab}`);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!offerToDelete} onOpenChange={(open) => !open && setOfferToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this offer?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the offer and all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDeleteOffer}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
@@ -585,14 +430,6 @@ export default function OfferManagement() {
               <Grid className="h-4 w-4" />
             </Button>
             <Button 
-              variant={viewMode === 'list' ? 'default' : 'ghost'} 
-              size="sm" 
-              className="rounded-l-none rounded-r-none border-x border-border" 
-              onClick={() => setViewMode('list')}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-            <Button 
               variant={viewMode === 'table' ? 'default' : 'ghost'} 
               size="sm" 
               className="rounded-l-none" 
@@ -623,144 +460,137 @@ export default function OfferManagement() {
           ) : filteredAndSortedOffers?.length ? (
             viewMode === 'grid' ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {filteredAndSortedOffers.map((offer) => {
-                  const commissionRange = getCommissionRange(offer);
-                  const geoTargets = formatGeoTargets(offer);
-                  
-                  return (
-                    <Card key={offer.id} className="overflow-hidden cursor-pointer" onClick={() => navigate(`/offers/${offer.id}`)}>
-                      <CardHeader className="p-3">
-                        <div className="flex justify-between items-start">
-                          <CardTitle className="text-md hover:text-primary">{offer.name}</CardTitle>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                              <DollarSign className="h-3 w-3 mr-1" />
-                              {commissionRange 
-                                ? `${commissionRange.min}-${commissionRange.max}` 
-                                : offer.commission_amount}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {offer.commission_type === 'CPA' ? 'CPA' :
-                               offer.commission_type === 'CPL' ? 'CPL' :
-                               offer.commission_type === 'CPC' ? 'CPC' :
-                               offer.commission_type === 'CPS' ? 'CPS' :
-                               offer.commission_type === 'RevShare' ? 'RevShare' :
-                               offer.commission_type}
-                            </Badge>
-                          </div>
+                {filteredAndSortedOffers.map((offer) => (
+                  <Card key={offer.id} className="overflow-hidden">
+                    <CardHeader className="p-3">
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-md">
+                          <button 
+                            onClick={() => navigate(`/offers/${offer.id}`)} 
+                            className="hover:underline text-left"
+                          >
+                            {offer.name}
+                          </button>
+                        </CardTitle>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => navigate(`/offers/${offer.id}/edit`)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteOffer(offer.id)}>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleStatusUpdate(offer.id, offer.status === 'active' ? 'paused' : 'active')}>
+                              {offer.status === 'active' ? (
+                                <>
+                                  <Pause className="mr-2 h-4 w-4" />
+                                  Pause Offer
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="mr-2 h-4 w-4" />
+                                  Activate Offer
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate(`/offers/${offer.id}/approve`)}>
+                              <Users className="mr-2 h-4 w-4" />
+                              View Applications
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      <CardDescription className="line-clamp-2 text-xs">{offer.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-3 pt-0 grid gap-1">
+                      {offer.offer_image && (
+                        <div 
+                          className="mb-2 rounded-md overflow-hidden h-24 bg-gray-100 cursor-pointer"
+                          onClick={() => navigate(`/offers/${offer.id}`)}
+                        >
+                          <img 
+                            src={offer.offer_image} 
+                            alt={offer.name} 
+                            className="w-full h-full object-cover"
+                          />
                         </div>
-                        <CardDescription className="line-clamp-2 text-xs">{offer.description}</CardDescription>
-                      </CardHeader>
-                      <CardContent className="p-3 pt-0 grid gap-1">
-                        {offer.offer_image && (
-                          <div className="mb-2 rounded-md overflow-hidden h-24 bg-gray-100">
-                            <img 
-                              src={offer.offer_image} 
-                              alt={offer.name} 
-                              className="w-full h-full object-cover"
-                            />
+                      )}
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-3 gap-y-1">
+                        {offer.niche && (
+                          <div className="text-xs flex items-center">
+                            <Tag className="h-3.5 w-3.5 mr-1 text-blue-500" />
+                            <span className="font-medium mr-1">Niche:</span>
+                            <Badge variant="outline" className="text-xs ml-1">
+                              {offer.niche}
+                            </Badge>
                           </div>
                         )}
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
-                          {offer.niche && (
-                            <div className="text-xs flex items-center">
-                              <Tag className="h-3.5 w-3.5 mr-1 text-blue-500" />
-                              <span className="font-medium mr-1">Niche:</span>
-                              <Badge variant="outline" className="text-xs ml-1">
-                                {offer.niche}
-                              </Badge>
-                            </div>
+                        {/* Geo targets display */}
+                        <div className="text-xs flex items-center">
+                          <Globe className="h-3.5 w-3.5 mr-1 text-indigo-500" />
+                          <span className="font-medium mr-1">Geo:</span>
+                          {offer.geo_targets && offer.geo_targets.length > 0 ? (
+                            <HoverCard openDelay={0} closeDelay={0}>
+                              <HoverCardTrigger asChild>
+                                <Badge variant="outline" className="text-xs cursor-pointer ml-1">
+                                  {offer.geo_targets.length} {offer.geo_targets.length === 1 ? 'country' : 'countries'}
+                                </Badge>
+                              </HoverCardTrigger>
+                              <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                                <div className="font-medium mb-2">Targeted GEO's:</div>
+                                <div className="flex flex-wrap gap-1 max-w-[300px]">
+                                  {offer.geo_targets.map((geo, i) => (
+                                    <Badge key={i} variant="outline" className="text-xs">
+                                      {countryCodes[geo]?.flag} {geo}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </HoverCardContent>
+                            </HoverCard>
+                          ) : (
+                            <span className="text-muted-foreground ml-1">Global</span>
                           )}
-                          
-                          {/* Geo targets display */}
-                          <div className="text-xs flex items-center">
-                            <Globe className="h-3.5 w-3.5 mr-1 text-indigo-500" />
-                            <span className="font-medium mr-1">Geo:</span>
-                            {geoTargets.length > 0 ? (
-                              <HoverCard openDelay={0} closeDelay={0}>
-                                <HoverCardTrigger asChild>
-                                  <Badge variant="outline" className="text-xs cursor-pointer ml-1">
-                                    {geoTargets.length} {geoTargets.length === 1 ? 'country' : 'countries'}
-                                  </Badge>
-                                </HoverCardTrigger>
-                                <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
-                                  <div className="font-medium mb-2">Targeted GEO's:</div>
-                                  <div className="flex flex-wrap gap-1 max-w-[300px]">
-                                    {geoTargets.map((geo, i) => (
-                                      <Badge key={i} variant="outline" className="text-xs">
-                                        {geo.flag} {geo.code}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                </HoverCardContent>
-                              </HoverCard>
-                            ) : (
-                              <span className="text-muted-foreground ml-1">Global</span>
-                            )}
-                          </div>
-                          
-                          {/* Traffic Sources */}
-                          {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
-                            <div className="text-xs flex items-center">
-                              <Target className="h-3.5 w-3.5 mr-1 text-purple-500" />
-                              <span className="font-medium mr-1">Traffic:</span>
-                              <HoverCard openDelay={0} closeDelay={0}>
-                                <HoverCardTrigger asChild>
-                                  <Badge variant="outline" className="text-xs cursor-pointer ml-1">
-                                    {offer.allowed_traffic_sources.length} {offer.allowed_traffic_sources.length === 1 ? 'source' : 'sources'}
-                                  </Badge>
-                                </HoverCardTrigger>
-                                <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
-                                  <div className="font-medium mb-2">Traffic Sources:</div>
-                                  <div className="flex flex-wrap gap-1 max-w-[300px]">
-                                    {offer.allowed_traffic_sources.map((source, i) => (
-                                      <Badge key={i} variant="outline" className="text-xs">
-                                        {source}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                </HoverCardContent>
-                              </HoverCard>
-                            </div>
-                          )}
-                          
-                          {/* Status */}
-                          <div className="text-xs flex items-center">
-                            <span className="font-medium mr-1">Status:</span>
-                            <Badge variant={offer.status === 'active' ? 'default' : 'secondary'}>
-                              {offer.status}
-                            </Badge>
-                          </div>
                         </div>
-                        
-                        <div className="mt-2 flex justify-end" onClick={(e) => e.stopPropagation()}>
-                          <Button variant="outline" size="sm" onClick={() => navigate(`/offers/${offer.id}`)}>
-                            Manage
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                      </div>
+                      
+                      <div className="mt-2 flex justify-end">
+                        <Badge variant="secondary">{offer.status}</Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-            ) : viewMode === 'table' ? (
+            ) : (
               <OfferTable 
                 offers={filteredAndSortedOffers}
                 userRole="advertiser"
                 onViewDetails={(offerId) => navigate(`/offers/${offerId}`)}
                 onEdit={(offerId) => navigate(`/offers/${offerId}/edit`)}
-                onRowClick={(offerId) => navigate(`/offers/${offerId}`)}
+                onStatusUpdate={handleStatusUpdate}
+                onDelete={handleDeleteOffer}
               />
-            ) : (
-              renderOffersTable()
             )
           ) : (
             <Card className="p-8 text-center">
               <p className="text-muted-foreground mb-4">You don't have any offers yet</p>
-              <Button onClick={() => navigate('/offers/create')}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Create Your First Offer
+              <Button asChild>
+                <a href="/offers/create">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Create Your First Offer
+                </a>
               </Button>
             </Card>
           )}

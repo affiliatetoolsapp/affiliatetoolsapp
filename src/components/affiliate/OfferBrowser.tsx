@@ -19,7 +19,6 @@ import {
   Target,
   Award,
   Grid,
-  List,
   Table as TableIcon
 } from 'lucide-react';
 import { formatGeoTargets } from '../affiliate/utils/offerUtils';
@@ -30,8 +29,8 @@ export default function OfferBrowser() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [offers, setOffers] = useState<Offer[]>([]);
-  // Add view mode state with table option
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'table'>('grid');
+  // Updated to only use grid or table
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
   // Get all offers
   const { data: allOffers, isLoading: offersLoading } = useQuery({
@@ -358,14 +357,6 @@ export default function OfferBrowser() {
             <Grid className="h-4 w-4" />
           </Button>
           <Button 
-            variant={viewMode === 'list' ? 'default' : 'ghost'} 
-            size="sm" 
-            className="rounded-l-none rounded-r-none border-x border-border" 
-            onClick={() => setViewMode('list')}
-          >
-            <List className="h-4 w-4" />
-          </Button>
-          <Button 
             variant={viewMode === 'table' ? 'default' : 'ghost'} 
             size="sm" 
             className="rounded-l-none" 
@@ -385,18 +376,6 @@ export default function OfferBrowser() {
           {viewMode === 'grid' && (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {filteredOffers.map((offer) => renderOfferCard(offer))}
-            </div>
-          )}
-          
-          {viewMode === 'list' && (
-            <div className="space-y-4">
-              <OfferTable 
-                offers={filteredOffers} 
-                userRole="affiliate"
-                onViewDetails={handleViewOfferDetails}
-                onApply={handleApplyToOffer}
-                onRowClick={handleViewOfferDetails}
-              />
             </div>
           )}
           

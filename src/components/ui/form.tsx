@@ -9,6 +9,7 @@ import {
   FieldValues,
   FormProvider,
   useFormContext,
+  UseFormReturn
 } from "react-hook-form"
 
 import { cn } from "@/lib/utils"
@@ -165,20 +166,28 @@ const FormMessage = React.forwardRef<
 })
 FormMessage.displayName = "FormMessage"
 
-// Export Form as a React component that wraps FormProvider
-const FormRoot = React.forwardRef<
-  HTMLFormElement, 
-  React.ComponentPropsWithoutRef<"form"> & { onSubmit?: (e: React.FormEvent) => void }
->(({ children, className, ...props }, ref) => {
+// Updated FormRoot component that correctly handles types
+interface FormRootProps<TFieldValues extends FieldValues = FieldValues> 
+  extends Omit<React.FormHTMLAttributes<HTMLFormElement>, "children"> {
+  form: UseFormReturn<TFieldValues>;
+  children: React.ReactNode;
+}
+
+const FormRoot = <TFieldValues extends FieldValues = FieldValues>({
+  form,
+  children,
+  className,
+  ...props
+}: FormRootProps<TFieldValues>) => {
   return (
-    <FormProvider {...props}>
-      <form ref={ref} className={cn(className)} {...props}>
+    <FormProvider {...form}>
+      <form className={cn(className)} {...props}>
         {children}
       </form>
     </FormProvider>
   );
-});
-FormRoot.displayName = "Form";
+};
+FormRoot.displayName = "FormRoot";
 
 export {
   useFormField,

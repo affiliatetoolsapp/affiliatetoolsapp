@@ -30,6 +30,15 @@ export function OfferPreviewDialog({
 }: OfferPreviewDialogProps) {
   if (!offer) return null;
 
+  // Helper function to safely display geo_targets
+  const formatGeoTargets = (targets: any): string => {
+    if (!targets) return '';
+    if (typeof targets === 'string') return targets;
+    if (Array.isArray(targets)) return targets.slice(0, 3).join(', ');
+    if (typeof targets === 'object') return Object.keys(targets).slice(0, 3).join(', ');
+    return '';
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
@@ -83,9 +92,9 @@ export function OfferPreviewDialog({
                   <span>${offer.commission_amount} {offer.commission_type}</span>
                 )}
               </div>
-              {offer.geo_targets && offer.geo_targets.length > 0 && (
+              {offer.geo_targets && (
                 <div className="text-xs text-muted-foreground">
-                  {Array.isArray(offer.geo_targets) ? offer.geo_targets.slice(0, 3).join(', ') : ''}
+                  {formatGeoTargets(offer.geo_targets)}
                   {Array.isArray(offer.geo_targets) && offer.geo_targets.length > 3 ? '...' : ''}
                 </div>
               )}

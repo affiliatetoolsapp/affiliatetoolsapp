@@ -1,4 +1,3 @@
-
 import { Database } from '@/integrations/supabase/types';
 
 export type Offer = Database['public']['Tables']['offers']['Row'] & {

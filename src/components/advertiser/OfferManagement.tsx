@@ -34,7 +34,8 @@ import {
   SortDesc,
   ArrowDownAZ,
   ArrowUpAZ,
-  CalendarClock
+  CalendarClock,
+  Pencil
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import AffiliateApprovals from '@/components/offers/AffiliateApprovals';

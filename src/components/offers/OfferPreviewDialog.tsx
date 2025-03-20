@@ -30,6 +30,26 @@ export function OfferPreviewDialog({
 }: OfferPreviewDialogProps) {
   if (!offer) return null;
 
+  // Helper function to safely format geo_targets for display
+  const formatGeoTargets = (geoTargets: Offer['geo_targets']): string => {
+    if (!geoTargets) return '';
+    
+    if (Array.isArray(geoTargets)) {
+      return geoTargets.slice(0, 3).join(', ') + (geoTargets.length > 3 ? '...' : '');
+    }
+    
+    if (typeof geoTargets === 'string') {
+      return geoTargets;
+    }
+    
+    // For object type geo_targets
+    if (typeof geoTargets === 'object') {
+      return 'Multiple countries';
+    }
+    
+    return '';
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
@@ -83,10 +103,9 @@ export function OfferPreviewDialog({
                   <span>${offer.commission_amount} {offer.commission_type}</span>
                 )}
               </div>
-              {offer.geo_targets && offer.geo_targets.length > 0 && (
+              {offer.geo_targets && (
                 <div className="text-xs text-muted-foreground">
-                  {Array.isArray(offer.geo_targets) ? offer.geo_targets.slice(0, 3).join(', ') : ''}
-                  {Array.isArray(offer.geo_targets) && offer.geo_targets.length > 3 ? '...' : ''}
+                  {formatGeoTargets(offer.geo_targets)}
                 </div>
               )}
             </CardFooter>
@@ -130,7 +149,7 @@ export function OfferPreviewDialog({
                     {offer.commission_type}
                   </Badge>
                 )}
-                {offer.geo_targets && offer.geo_targets.length > 0 && (
+                {offer.geo_targets && (
                   <Badge variant="outline" className="text-xs">
                     {Array.isArray(offer.geo_targets) ? 
                       `${offer.geo_targets.length} countries` : 

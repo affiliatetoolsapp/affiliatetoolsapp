@@ -23,6 +23,7 @@ export default function OffersPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [applicationStatus, setApplicationStatus] = useState<string | null>(null);
+  const [isEditMode, setIsEditMode] = useState<boolean>(false);
   
   useEffect(() => {
     // If user is affiliate and tries to create an offer, redirect to the offers list
@@ -37,7 +38,7 @@ export default function OffersPage() {
     console.log("[OffersPage] Current user:", user);
   }, [id, user]);
 
-  // Fetch application status if this is an affiliate viewing an offer
+  // Fetch offer data
   const { data: offerData } = useQuery({
     queryKey: ['offer', id],
     queryFn: async () => {
@@ -92,6 +93,11 @@ export default function OffersPage() {
   
   if (!user) return null;
   
+  // If we're in edit mode and have offer data, show the creation form with the offer data
+  if (isEditMode && offerData && (user.role === 'advertiser' || user.role === 'admin')) {
+    return <CreateOffer initialData={offerData as Offer} />;
+  }
+  
   // If we have an ID with "create", we show the creation form (only for advertisers and admins)
   if (id === 'create' && (user.role === 'advertiser' || user.role === 'admin')) {
     console.log("[OffersPage] Rendering CreateOffer component");
@@ -137,7 +143,14 @@ export default function OffersPage() {
     }
     
     // For advertisers and admins, continue using the existing OfferDetails component
-    return <OfferDetails offerId={id} />;
+    // But pass a prop to handle edit mode
+    return <OfferDetails 
+      offerId={id} 
+      onEditClick={() => {
+        // When edit is clicked, set edit mode to true
+        setIsEditMode(true);
+      }} 
+    />;
   }
   
   // For the main offers page, we show different views based on the user role

@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Offer, AffiliateOffer } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { formatGeoTargets } from './utils/offerUtils';
+import { formatGeoTargets, formatRestrictedGeos } from './utils/offerUtils';
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -260,7 +260,7 @@ export default function OfferBrowser() {
             <DollarSign className="h-3 w-3 mr-1" />
             {offer.commission_amount}
             <Badge variant="outline" className="ml-1 py-0 px-1 text-xs">
-              {offer.commission_type.slice(2)}
+              {offer.commission_type}
             </Badge>
           </Badge>
         </td>
@@ -310,9 +310,36 @@ export default function OfferBrowser() {
                   <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
                     <div className="font-medium mb-2">Restricted GEO's:</div>
                     <div className="flex flex-wrap gap-1 max-w-[300px]">
-                      {restrictedGeos.map((geo, i) => (
-                        <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs">
-                          {geo}
+                      {restrictedGeos.map((geo, i) => {
+                        const countryFlag = formatGeoTargets({ geo_targets: [geo] })[0]?.flag || '';
+                        return (
+                          <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs flex items-center gap-1">
+                            <span>{countryFlag}</span> <span>{geo}</span>
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              </div>
+            )}
+
+            {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="text-xs font-medium">Traffic:</div>
+                <HoverCard openDelay={0} closeDelay={0}>
+                  <HoverCardTrigger asChild>
+                    <Badge variant="outline" className="text-xs cursor-pointer">
+                      <Target className="h-3 w-3 mr-1" />
+                      {offer.allowed_traffic_sources.length} sources
+                    </Badge>
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
+                    <div className="font-medium mb-2">Allowed Traffic Sources:</div>
+                    <div className="flex flex-wrap gap-1 max-w-[300px]">
+                      {offer.allowed_traffic_sources.map((source, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          {source}
                         </Badge>
                       ))}
                     </div>
@@ -424,6 +451,7 @@ export default function OfferBrowser() {
     );
   };
 
+  // Loading state
   if (offersLoading || applicationsLoading) {
     return (
       <div className="flex justify-center items-center p-12">

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { formatGeoTargets } from '@/components/affiliate/utils/offerUtils';
+import { formatGeoTargets, formatRestrictedGeos } from '@/components/affiliate/utils/offerUtils';
 import { Offer } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -167,7 +167,7 @@ export default function OffersList() {
                           <DollarSign className="h-3 w-3 mr-1" />
                           {offer.commission_amount}
                           <Badge variant="outline" className="ml-1 py-0 px-1 text-xs">
-                            {offer.commission_type.slice(2)}
+                            {offer.commission_type}
                           </Badge>
                         </Badge>
                       </div>
@@ -184,7 +184,7 @@ export default function OffersList() {
                         </div>
                       )}
                     
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
+                      <div className="flex flex-wrap gap-x-4 gap-y-2 items-center">
                         {offer.niche && (
                           <div className="text-sm flex items-center">
                             <Tag className="h-4 w-4 mr-1 text-blue-500" />
@@ -192,6 +192,40 @@ export default function OffersList() {
                             <Badge variant="outline" className="text-xs ml-1">
                               {offer.niche}
                             </Badge>
+                          </div>
+                        )}
+                        
+                        {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
+                          <div className="text-sm flex items-center">
+                            <Target className="h-4 w-4 mr-1 text-purple-500" />
+                            <span className="font-medium mr-1">Traffic:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {offer.allowed_traffic_sources.length <= 2 ? (
+                                offer.allowed_traffic_sources.map(source => (
+                                  <Badge key={source} variant="outline" className="text-xs">
+                                    {source}
+                                  </Badge>
+                                ))
+                              ) : (
+                                <HoverCard openDelay={0} closeDelay={0}>
+                                  <HoverCardTrigger asChild>
+                                    <Badge variant="outline" className="text-xs cursor-pointer">
+                                      {offer.allowed_traffic_sources.length} sources
+                                    </Badge>
+                                  </HoverCardTrigger>
+                                  <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                                    <div className="font-medium mb-2">Allowed Traffic Sources:</div>
+                                    <div className="flex flex-wrap gap-1 max-w-[300px]">
+                                      {offer.allowed_traffic_sources.map((source, i) => (
+                                        <Badge key={i} variant="outline" className="text-xs">
+                                          {source}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </HoverCardContent>
+                                </HoverCard>
+                              )}
+                            </div>
                           </div>
                         )}
                         
@@ -210,8 +244,8 @@ export default function OffersList() {
                                 <div className="font-medium mb-2">Targeted GEO's:</div>
                                 <div className="flex flex-wrap gap-1 max-w-[300px]">
                                   {formatGeoTargets(offer).map((geo, i) => (
-                                    <Badge key={i} variant="outline" className="text-xs">
-                                      {geo.flag} {geo.code}
+                                    <Badge key={i} variant="outline" className="text-xs flex items-center gap-1">
+                                      <span>{geo.flag}</span> <span>{geo.code}</span>
                                     </Badge>
                                   ))}
                                 </div>
@@ -221,25 +255,6 @@ export default function OffersList() {
                             <span className="text-muted-foreground ml-1">Global</span>
                           )}
                         </div>
-                        
-                        {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
-                          <div className="text-sm flex items-center">
-                            <Target className="h-4 w-4 mr-1 text-purple-500" />
-                            <span className="font-medium mr-1">Traffic:</span>
-                            <div className="flex flex-wrap gap-1">
-                              {offer.allowed_traffic_sources.slice(0, 2).map(source => (
-                                <Badge key={source} variant="outline" className="text-xs">
-                                  {source}
-                                </Badge>
-                              ))}
-                              {offer.allowed_traffic_sources.length > 2 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{offer.allowed_traffic_sources.length - 2} more
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        )}
                         
                         {/* Restricted geos display */}
                         {offer.restricted_geos && offer.restricted_geos.length > 0 && (
@@ -255,11 +270,14 @@ export default function OffersList() {
                               <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
                                 <div className="font-medium mb-2">Restricted GEO's:</div>
                                 <div className="flex flex-wrap gap-1 max-w-[300px]">
-                                  {offer.restricted_geos.map((geo, i) => (
-                                    <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs">
-                                      {geo}
-                                    </Badge>
-                                  ))}
+                                  {offer.restricted_geos.map((geo, i) => {
+                                    const countryFlag = formatGeoTargets({ geo_targets: [geo] })[0]?.flag || '';
+                                    return (
+                                      <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs flex items-center gap-1">
+                                        <span>{countryFlag}</span> <span>{geo}</span>
+                                      </Badge>
+                                    );
+                                  })}
                                 </div>
                               </HoverCardContent>
                             </HoverCard>
@@ -310,7 +328,7 @@ export default function OffersList() {
                         <DollarSign className="h-3 w-3 mr-1" />
                         {offer.commission_amount}
                         <Badge variant="outline" className="ml-1 py-0 px-1 text-xs">
-                          {offer.commission_type.slice(2)}
+                          {offer.commission_type}
                         </Badge>
                       </Badge>
                     </div>

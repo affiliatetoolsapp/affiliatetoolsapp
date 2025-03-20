@@ -1,3 +1,4 @@
+
 import { Offer } from '@/types';
 
 /**
@@ -52,6 +53,17 @@ export const formatGeoTargets = (offer: Offer): Array<{ flag: string; code: stri
     console.error("Error parsing geo targets:", e);
     return []; // Return empty array on error
   }
+};
+
+/**
+ * Format restricted geos for display
+ */
+export const formatRestrictedGeos = (offer: Offer): string[] | null => {
+  if (!offer.restricted_geos || !Array.isArray(offer.restricted_geos) || offer.restricted_geos.length === 0) {
+    return null;
+  }
+  
+  return offer.restricted_geos;
 };
 
 /**

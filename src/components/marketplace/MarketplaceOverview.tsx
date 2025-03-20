@@ -1,8 +1,9 @@
+
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { formatGeoTargets } from '@/components/affiliate/utils/offerUtils';
+import { formatGeoTargets, formatRestrictedGeos } from '@/components/affiliate/utils/offerUtils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,6 @@ export default function MarketplaceOverview() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  // Changed default to 'list'
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   
   // Fetch both featured offers and advertiser's own offers
@@ -222,7 +222,7 @@ export default function MarketplaceOverview() {
   // Render an offer in list view
   const renderOfferListItem = (offer: Offer) => {
     const geoData = formatGeoTargets(offer);
-    const restrictedGeos = offer.restricted_geos || [];
+    const restrictedGeos = formatRestrictedGeos(offer) || [];
     
     return (
       <div key={offer.id} className="flex border rounded-md p-4 mb-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors duration-200">
@@ -251,15 +251,12 @@ export default function MarketplaceOverview() {
               )}
               <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                 <DollarSign className="h-3 w-3 mr-1" />
-                {offer.commission_amount} 
-                <Badge variant="outline" className="ml-1 py-0 px-1 text-xs">
-                  {offer.commission_type.slice(2)}
-                </Badge>
+                {offer.commission_amount} {offer.commission_type}
               </Badge>
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-x-4 gap-y-2 mt-2">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2 items-center">
             {offer.niche && (
               <div className="flex items-center text-sm">
                 <Tag className="h-4 w-4 mr-1 text-blue-500" />
@@ -267,6 +264,40 @@ export default function MarketplaceOverview() {
                 <Badge variant="outline" className="text-xs ml-1">
                   {offer.niche}
                 </Badge>
+              </div>
+            )}
+            
+            {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
+              <div className="flex items-center text-sm">
+                <Target className="h-4 w-4 mr-1 text-purple-500" />
+                <span className="font-medium mr-1">Traffic:</span>
+                {offer.allowed_traffic_sources.length <= 2 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {offer.allowed_traffic_sources.map(source => (
+                      <Badge key={source} variant="outline" className="text-xs">
+                        {source}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <HoverCard openDelay={0} closeDelay={0}>
+                    <HoverCardTrigger asChild>
+                      <Badge variant="outline" className="text-xs cursor-pointer ml-1">
+                        {offer.allowed_traffic_sources.length} sources
+                      </Badge>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                      <div className="font-medium mb-2">Allowed Traffic Sources:</div>
+                      <div className="flex flex-wrap gap-1 max-w-[300px]">
+                        {offer.allowed_traffic_sources.map((source, i) => (
+                          <Badge key={i} variant="outline" className="text-xs">
+                            {source}
+                          </Badge>
+                        ))}
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                )}
               </div>
             )}
             
@@ -306,7 +337,7 @@ export default function MarketplaceOverview() {
                           variant="outline" 
                           className="text-xs flex items-center gap-1 px-2 py-1 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                         >
-                          <span className="inline-block text-base leading-none" style={{ fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"' }}>{geo.flag}</span>
+                          <span className="inline-block text-base leading-none">{geo.flag}</span>
                           <span className="font-medium">{geo.code}</span>
                         </Badge>
                       ))}
@@ -317,40 +348,6 @@ export default function MarketplaceOverview() {
                 <span className="text-muted-foreground ml-1">Global</span>
               )}
             </div>
-            
-            {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
-              <div className="flex items-center text-sm">
-                <Target className="h-4 w-4 mr-1 text-purple-500" />
-                <span className="font-medium mr-1">Traffic:</span>
-                {offer.allowed_traffic_sources.length <= 2 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {offer.allowed_traffic_sources.map(source => (
-                      <Badge key={source} variant="outline" className="text-xs">
-                        {source}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <HoverCard openDelay={0} closeDelay={0}>
-                    <HoverCardTrigger asChild>
-                      <Badge variant="outline" className="text-xs cursor-pointer ml-1">
-                        {offer.allowed_traffic_sources.length} sources
-                      </Badge>
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
-                      <div className="font-medium mb-2">Allowed Traffic Sources:</div>
-                      <div className="flex flex-wrap gap-1 max-w-[300px]">
-                        {offer.allowed_traffic_sources.map((source, i) => (
-                          <Badge key={i} variant="outline" className="text-xs">
-                            {source}
-                          </Badge>
-                        ))}
-                      </div>
-                    </HoverCardContent>
-                  </HoverCard>
-                )}
-              </div>
-            )}
             
             {restrictedGeos.length > 0 && (
               <div className="flex items-center text-sm">
@@ -370,11 +367,15 @@ export default function MarketplaceOverview() {
                   >
                     <div className="font-medium mb-2">Restricted GEO's:</div>
                     <div className="flex flex-wrap gap-2 max-w-[300px]">
-                      {restrictedGeos.map((geo, i) => (
-                        <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs">
-                          {geo}
-                        </Badge>
-                      ))}
+                      {restrictedGeos.map((geo, i) => {
+                        const countryFlag = formatGeoTargets({ geo_targets: [geo] })[0]?.flag || '';
+                        return (
+                          <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs flex items-center gap-1">
+                            <span className="inline-block">{countryFlag}</span>
+                            <span>{geo}</span>
+                          </Badge>
+                        );
+                      })}
                     </div>
                   </HoverCardContent>
                 </HoverCard>

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +9,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdvertiserPostbackSetup from '@/components/advertiser/AdvertiserPostbackSetup';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Pencil } from 'lucide-react';
+import { Offer } from '@/types';
+import EditOfferForm from './EditOfferForm';
 
 export default function OfferDetails({ offerId }: { offerId: string }) {
   const { toast } = useToast();
@@ -15,6 +20,7 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('details');
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
   // Fetch offer details
   const { data: offer, isLoading } = useQuery({
@@ -136,6 +142,11 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
       }
     }
   }, [offer, user, navigate, toast]);
+
+  const handleEditComplete = () => {
+    setIsEditDialogOpen(false);
+    queryClient.invalidateQueries({ queryKey: ['offer', offerId] });
+  };
   
   if (isLoading) {
     return (
@@ -196,8 +207,22 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
         
         <TabsContent value="details">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Offer Details</CardTitle>
+              <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="flex items-center gap-1">
+                    <Pencil className="h-4 w-4" />
+                    Edit Offer
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Edit Offer</DialogTitle>
+                  </DialogHeader>
+                  {offer && <EditOfferForm offer={offer as Offer} onComplete={handleEditComplete} />}
+                </DialogContent>
+              </Dialog>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -233,12 +258,6 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
                     <p>{offer.description}</p>
                   </div>
                 )}
-              </div>
-              
-              <div className="pt-4">
-                <Button onClick={() => navigate(`/offers/${offerId}/edit`)}>
-                  Edit Offer
-                </Button>
               </div>
             </CardContent>
           </Card>

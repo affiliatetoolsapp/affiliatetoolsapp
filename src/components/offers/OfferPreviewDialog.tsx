@@ -66,7 +66,18 @@ export function OfferPreviewDialog({
       return null;
     }
 
-    const amounts = offer.geo_commissions.map(gc => parseFloat(gc.amount));
+    // Fix the type issue by safely extracting amount value from each geo_commission object
+    const amounts = offer.geo_commissions.map(gc => {
+      // Handle different possible types of geo_commission
+      if (typeof gc === 'object' && gc !== null) {
+        const amount = (gc as any).amount;
+        return typeof amount === 'string' ? parseFloat(amount) : typeof amount === 'number' ? amount : 0;
+      }
+      return 0;
+    }).filter(amount => !isNaN(amount));
+    
+    if (amounts.length === 0) return null;
+    
     const min = Math.min(...amounts);
     const max = Math.max(...amounts);
     

@@ -146,7 +146,8 @@ export default function OfferManagement() {
       if (error) throw error;
       
       // Invalidate and refetch offers to update the UI
-      await queryClient.invalidateQueries(['offers', user?.id, user?.role]);
+      // Fix: Use proper React Query v5 invalidateQueries syntax
+      await queryClient.invalidateQueries({ queryKey: ['offers', user?.id, user?.role] });
       await refetch();
       
       toast({
@@ -181,7 +182,8 @@ export default function OfferManagement() {
       if (error) throw error;
       
       // Invalidate and refetch offers to update the UI
-      await queryClient.invalidateQueries(['offers', user?.id, user?.role]);
+      // Fix: Use proper React Query v5 invalidateQueries syntax
+      await queryClient.invalidateQueries({ queryKey: ['offers', user?.id, user?.role] });
       await refetch();
       
       toast({
@@ -254,6 +256,30 @@ export default function OfferManagement() {
   const setActiveTab = (tab: string) => {
     // You can add any tab-specific logic here if needed
     console.log(`[OfferManagement] Active tab changed to: ${tab}`);
+  };
+
+  // Format geo targets for display - Fixed to handle string or array
+  const formatGeoTargets = (offer: Offer) => {
+    // Fix: Check if geo_targets is an array before using array methods
+    if (!offer.geo_targets) {
+      return [];
+    }
+    
+    // Convert to array if it's a string
+    const geoTargetsArray = Array.isArray(offer.geo_targets) 
+      ? offer.geo_targets 
+      : typeof offer.geo_targets === 'string' 
+        ? [offer.geo_targets] 
+        : [];
+    
+    return geoTargetsArray.map(code => {
+      const country = countryCodes.find(c => c.code === code);
+      return {
+        code,
+        flag: country?.flag || '🌐',
+        name: country?.name || code
+      };
+    });
   };
 
   return (
@@ -579,7 +605,6 @@ export default function OfferManagement() {
                 userRole="advertiser"
                 onViewDetails={(offerId) => navigate(`/offers/${offerId}`)}
                 onEdit={(offerId) => navigate(`/offers/${offerId}/edit`)}
-                onStatusUpdate={handleStatusUpdate}
                 onDelete={handleDeleteOffer}
               />
             )

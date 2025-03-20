@@ -20,7 +20,9 @@ import {
   Link,
   TagIcon,
   Clock,
-  Pencil
+  Pencil,
+  Play,
+  Trash2
 } from 'lucide-react';
 import {
   Table,
@@ -46,6 +48,7 @@ interface OfferTableProps {
   onApply?: (offerId: string) => void;
   onGenerateLinks?: (offerId: string) => void;
   onEdit?: (offerId: string) => void;
+  onDelete?: (offerId: string) => void;
   onRowClick?: (offerId: string) => void;
 }
 
@@ -56,6 +59,7 @@ export default function OfferTable({
   onApply, 
   onGenerateLinks,
   onEdit,
+  onDelete,
   onRowClick
 }: OfferTableProps) {
   const navigate = useNavigate();
@@ -159,6 +163,13 @@ export default function OfferTable({
     }
   };
 
+  const handleDelete = (offerId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click event from firing
+    if (onDelete) {
+      onDelete(offerId);
+    }
+  };
+
   const handleRowClick = (offerId: string) => {
     if (onRowClick) {
       onRowClick(offerId);
@@ -200,7 +211,7 @@ export default function OfferTable({
                   className="hover:bg-muted/50 cursor-pointer"
                   onClick={() => handleRowClick(offer.id)}
                 >
-                  {/* Offer column - With clickable image and name */}
+                  {/* Offer column */}
                   <TableCell>
                     <div className="flex gap-3">
                       <div className="relative">
@@ -430,7 +441,7 @@ export default function OfferTable({
                         <DropdownMenuSeparator />
                         
                         <DropdownMenuItem onClick={(e) => {
-                          e.stopPropagation(); // Prevent row click
+                          e.stopPropagation();
                           handleViewDetails(offer.id);
                         }}>
                           <Eye className="h-4 w-4 mr-2" />
@@ -455,6 +466,13 @@ export default function OfferTable({
                           <DropdownMenuItem onClick={(e) => handleGenerateLinks(offer.id, e)}>
                             <Link className="h-4 w-4 mr-2" />
                             Generate Links
+                          </DropdownMenuItem>
+                        )}
+                        
+                        {isAdvertiser && onDelete && (
+                          <DropdownMenuItem onClick={(e) => handleDelete(offer.id, e)} className="text-destructive">
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>

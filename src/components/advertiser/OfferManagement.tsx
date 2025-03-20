@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -49,6 +48,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AffiliateApprovals from '@/components/offers/AffiliateApprovals';
 import countryCodes from '../offers/countryCodes';
 import OfferTable from '@/components/offers/OfferTable';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type SortField = 'created_at' | 'name' | 'status';
 type SortOrder = 'asc' | 'desc';
@@ -66,8 +75,8 @@ export default function OfferManagement() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [filterOption, setFilterOption] = useState<FilterOption>('all');
   const filterMenuRef = useRef<HTMLButtonElement>(null);
+  const [offerToDelete, setOfferToDelete] = useState<string | null>(null);
   
-  // Get advertiser's offers
   const { data: offers, isLoading: offersLoading } = useQuery({
     queryKey: ['advertiser-offers', user?.id],
     queryFn: async () => {
@@ -85,7 +94,6 @@ export default function OfferManagement() {
     enabled: !!user && user.role === 'advertiser',
   });
   
-  // Get pending applications directly with a proper query that filters by this advertiser
   const { data: pendingApplicationsCount = 0, isLoading: applicationsLoading, refetch: refetchApplications } = useQuery({
     queryKey: ['pending-applications-count', user?.id],
     queryFn: async () => {
@@ -119,7 +127,6 @@ export default function OfferManagement() {
     staleTime: 0,
   });
   
-  // Refresh applications when the applications tab is selected
   const [activeTab, setActiveTab] = useState('offers');
   
   useEffect(() => {
@@ -128,7 +135,6 @@ export default function OfferManagement() {
     }
   }, [activeTab, refetchApplications]);
   
-  // Filter offers based on search term, sort options, and filter options
   const filteredAndSortedOffers = offers?.filter(offer => {
     // First apply text search filter
     const matchesSearch = 
@@ -168,7 +174,6 @@ export default function OfferManagement() {
     return 0;
   });
   
-  // Mutation to update offer status
   const updateOfferStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: 'active' | 'inactive' }) => {
       console.log(`Updating offer ${id} to status: ${status}`);
@@ -203,12 +208,57 @@ export default function OfferManagement() {
       console.error(error);
     },
   });
+
+  // Mutation to delete an offer
+  const deleteOffer = useMutation({
+    mutationFn: async (id: string) => {
+      console.log(`Deleting offer ${id}`);
+      
+      const { data, error } = await supabase
+        .from('offers')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        console.error('Error deleting offer:', error);
+        throw error;
+      }
+      
+      return data;
+    },
+    onSuccess: () => {
+      // Invalidate queries to refetch offers
+      queryClient.invalidateQueries({ queryKey: ['advertiser-offers', user?.id] });
+      toast({
+        title: 'Offer Deleted',
+        description: 'The offer has been deleted successfully',
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to delete offer',
+      });
+      console.error(error);
+    },
+  });
+  
+  const handleDeleteOffer = (offerId: string) => {
+    setOfferToDelete(offerId);
+  };
+
+  const confirmDeleteOffer = () => {
+    if (offerToDelete) {
+      deleteOffer.mutate(offerToDelete);
+      setOfferToDelete(null);
+    }
+  };
   
   const handleStatusUpdate = (offerId: string, newStatus: 'active' | 'inactive') => {
     updateOfferStatus.mutate({ id: offerId, status: newStatus });
   };
   
-  // Format geo targets for display
   const formatGeoTargets = (offer: Offer) => {
     if (!offer.geo_targets || !Array.isArray(offer.geo_targets) || offer.geo_targets.length === 0) {
       return [];
@@ -224,7 +274,6 @@ export default function OfferManagement() {
     });
   };
 
-  // Get commission range if there are geo-specific commissions
   const getCommissionRange = (offer: Offer) => {
     if (!offer.geo_commissions || !Array.isArray(offer.geo_commissions) || offer.geo_commissions.length <= 1) {
       return null;
@@ -411,7 +460,6 @@ export default function OfferManagement() {
     </div>
   );
   
-  // Get sort icon based on current sort configuration
   const getSortIcon = () => {
     if (sortField === 'created_at') {
       return sortOrder === 'desc' ? <CalendarClock className="h-4 w-4" /> : <CalendarClock className="h-4 w-4" />;
@@ -422,7 +470,6 @@ export default function OfferManagement() {
     return sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />;
   };
   
-  // Get filter label based on current filter
   const getFilterLabel = () => {
     switch (filterOption) {
       case 'active': return 'Active Only';
@@ -734,42 +781,48 @@ export default function OfferManagement() {
                           </div>
                         </div>
                         
-                        <div className="mt-2 flex justify-end" onClick={(e) => e.stopPropagation()}>
+                        <div className="mt-2 flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                           <Button variant="outline" size="sm" onClick={() => navigate(`/offers/${offer.id}`)}>
                             Manage
                           </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            ) : viewMode === 'table' ? (
-              <OfferTable 
-                offers={filteredAndSortedOffers}
-                userRole="advertiser"
-                onViewDetails={(offerId) => navigate(`/offers/${offerId}`)}
-                onEdit={(offerId) => navigate(`/offers/${offerId}/edit`)}
-                onRowClick={(offerId) => navigate(`/offers/${offerId}`)}
-              />
-            ) : (
-              renderOffersTable()
-            )
-          ) : (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground mb-4">You don't have any offers yet</p>
-              <Button onClick={() => navigate('/offers/create')}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Create Your First Offer
-              </Button>
-            </Card>
-          )}
-        </TabsContent>
-        
-        <TabsContent value="applications">
-          <AffiliateApprovals />
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/offers/${offer.id}/edit`);
+                              }}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit Offer
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => {
+                                e.stopPropagation();
+                                handleStatusUpdate(offer.id, offer.status === 'active' ? 'inactive' : 'active');
+                              }}>
+                                {offer.status === 'active' ? (
+                                  <>
+                                    <Pause className="h-4 w-4 mr-2" />
+                                    Pause Offer
+                                  </>
+                                ) : (
+                                  <>
+                                    <Play className="h-4 w-4 mr-2" />
+                                    Activate Offer
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={(e) => {
+                                  e.stopPropagation(); 
+                                  handleDeleteOffer(offer.id);
+                                }}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete Offer
+                              </DropdownMenuItem>
+                            </DropdownMenu

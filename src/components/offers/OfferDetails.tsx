@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -8,8 +9,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdvertiserPostbackSetup from '@/components/advertiser/AdvertiserPostbackSetup';
-import { Pencil } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { Offer } from '@/types';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function OfferDetails({ offerId }: { offerId: string }) {
   const { toast } = useToast();
@@ -17,6 +28,7 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('details');
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   // Fetch offer details
   const { data: offer, isLoading } = useQuery({
@@ -89,6 +101,34 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
     },
   });
   
+  // Mutation to delete offer
+  const deleteOfferMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('offers')
+        .delete()
+        .eq('id', offerId);
+      
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Offer Deleted',
+        description: 'The offer has been deleted successfully',
+      });
+      navigate('/offers');
+    },
+    onError: (error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to delete offer',
+      });
+      console.error(error);
+    },
+  });
+  
   // Mutation to update affiliate application status
   const updateAffiliateStatus = useMutation({
     mutationFn: async ({ affiliateOfferId, status }: { affiliateOfferId: string, status: string }) => {
@@ -143,6 +183,15 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
   const handleEditClick = () => {
     navigate(`/offers/${offerId}/edit`);
   };
+
+  // Delete offer
+  const handleDeleteOffer = () => {
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteOffer = () => {
+    deleteOfferMutation.mutate();
+  };
   
   if (isLoading) {
     return (
@@ -189,6 +238,13 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
             }}
           >
             {offer.status === 'active' ? 'Pause Offer' : 'Activate Offer'}
+          </Button>
+          <Button 
+            variant="destructive" 
+            onClick={handleDeleteOffer}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete Offer
           </Button>
         </div>
       </div>
@@ -371,6 +427,25 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
           <AdvertiserPostbackSetup />
         </TabsContent>
       </Tabs>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this offer?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the offer
+              and remove it from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteOffer} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

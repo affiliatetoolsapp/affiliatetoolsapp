@@ -51,7 +51,9 @@ export function OfferPreviewDialog({
 
   const getDisplayedTrafficSources = (): string => {
     const sources = getTrafficSources();
-    if (sources.length <= 3) return sources.join(', ');
+    if (sources.length <= 3) {
+      return sources.join(', ');
+    }
     return `${sources.slice(0, 3).join(', ')} +${sources.length - 3} more`;
   };
 
@@ -82,7 +84,6 @@ export function OfferPreviewDialog({
   };
 
   const trafficSources = getTrafficSources();
-  const displaySources = getDisplayedTrafficSources();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -208,7 +209,9 @@ export function OfferPreviewDialog({
                         <Badge variant="outline" className="text-xs">
                           {Array.isArray(offer.geo_targets) ? 
                             `${offer.geo_targets.length} countries` : 
-                            'Multiple countries'}
+                            typeof offer.geo_targets === 'object' ?
+                              `${Object.keys(offer.geo_targets).length} countries` :
+                              'Multiple countries'}
                         </Badge>
                       </TooltipTrigger>
                       <TooltipContent>

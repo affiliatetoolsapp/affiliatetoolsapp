@@ -11,8 +11,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Offer } from '@/types';
-import { Check, X } from 'lucide-react';
-import { formatGeoTargets } from '@/components/affiliate/utils/offerUtils';
+import { Check, X, Info } from 'lucide-react';
+import { 
+  HoverCard,
+  HoverCardTrigger,
+  HoverCardContent 
+} from '@/components/ui/hover-card';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface OfferPreviewDialogProps {
   open: boolean;
@@ -31,13 +41,28 @@ export function OfferPreviewDialog({
 }: OfferPreviewDialogProps) {
   if (!offer) return null;
 
-  // Helper function to safely format geo_targets for display
-  const formatGeoTargetsForDisplay = (geoTargets: Offer['geo_targets']): string => {
+  // Helper functions for display formatting
+  const getTrafficSources = (): string[] => {
+    if (!offer.allowed_traffic_sources || !Array.isArray(offer.allowed_traffic_sources) || offer.allowed_traffic_sources.length === 0) {
+      return ["All traffic sources allowed"];
+    }
+    return offer.allowed_traffic_sources;
+  };
+
+  const getDisplayedTrafficSources = (): string => {
+    const sources = getTrafficSources();
+    if (sources.length <= 3) return sources.join(', ');
+    return `${sources.slice(0, 3).join(', ')} +${sources.length - 3} more`;
+  };
+
+  // Function to safely format geo_targets for display
+  const formatGeoTargetsDisplay = (): string => {
+    const geoTargets = offer.geo_targets;
     if (!geoTargets) return '';
     
     if (Array.isArray(geoTargets)) {
-      const sliced = geoTargets.slice(0, 3);
-      return sliced.join(', ') + (geoTargets.length > 3 ? '...' : '');
+      const displayedGeos = geoTargets.slice(0, 3);
+      return displayedGeos.join(', ') + (geoTargets.length > 3 ? ` +${geoTargets.length - 3} more` : '');
     }
     
     if (typeof geoTargets === 'string') {
@@ -47,15 +72,17 @@ export function OfferPreviewDialog({
     // For object type geo_targets
     if (typeof geoTargets === 'object') {
       const countries = Object.keys(geoTargets);
-      if (countries.length > 0) {
-        const sliced = countries.slice(0, 3);
-        return sliced.join(', ') + (countries.length > 3 ? '...' : '');
-      }
-      return 'Multiple countries';
+      if (countries.length === 0) return '';
+      
+      const displayedCountries = countries.slice(0, 3);
+      return displayedCountries.join(', ') + (countries.length > 3 ? ` +${countries.length - 3} more` : '');
     }
     
     return '';
   };
+
+  const trafficSources = getTrafficSources();
+  const displaySources = getDisplayedTrafficSources();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -112,7 +139,7 @@ export function OfferPreviewDialog({
               </div>
               {offer.geo_targets && (
                 <div className="text-xs text-muted-foreground">
-                  {formatGeoTargetsForDisplay(offer.geo_targets)}
+                  {formatGeoTargetsDisplay()}
                 </div>
               )}
             </CardFooter>
@@ -156,12 +183,39 @@ export function OfferPreviewDialog({
                     {offer.commission_type}
                   </Badge>
                 )}
+                
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <Badge variant="outline" className="text-xs cursor-help flex items-center gap-1">
+                      <Info className="h-3 w-3" />
+                      <span>Traffic Sources: {trafficSources.length > 1 ? `${trafficSources.length} sources` : '1 source'}</span>
+                    </Badge>
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-72 p-3">
+                    <h4 className="text-sm font-medium mb-2">Allowed Traffic Sources</h4>
+                    <div className="space-y-1">
+                      {trafficSources.map((source, index) => (
+                        <div key={index} className="text-xs px-2 py-1 bg-muted/50 rounded">{source}</div>
+                      ))}
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+                
                 {offer.geo_targets && (
-                  <Badge variant="outline" className="text-xs">
-                    {Array.isArray(offer.geo_targets) ? 
-                      `${offer.geo_targets.length} countries` : 
-                      'Multiple countries'}
-                  </Badge>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="outline" className="text-xs">
+                          {Array.isArray(offer.geo_targets) ? 
+                            `${offer.geo_targets.length} countries` : 
+                            'Multiple countries'}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Available in {formatGeoTargetsDisplay()}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
               </div>
             </div>

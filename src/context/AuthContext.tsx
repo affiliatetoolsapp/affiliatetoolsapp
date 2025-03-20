@@ -325,30 +325,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut() {
+    console.log('Attempting to sign out...');
+    setIsLoading(true);
+    
     try {
-      console.log('Attempting to sign out...');
-      setIsLoading(true);
+      // First, clear local state to ensure UI updates immediately
+      setUser(null);
+      setSession(null);
       
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error('Sign out API error:', error);
-        toast({
-          title: "Error",
-          description: error.message || "An error occurred during sign out",
-          variant: "destructive",
-        });
-      } else {
-        // Clear local state
-        setUser(null);
-        setSession(null);
+      // Attempt to sign out with Supabase
+      try {
+        const { error } = await supabase.auth.signOut();
         
-        console.log('Signed out successfully');
-        toast({
-          title: "Signed out",
-          description: "You have been signed out successfully",
-        });
+        if (error) {
+          console.warn('Supabase sign out API error:', error);
+          // Don't throw here, we already cleared local state
+        }
+      } catch (apiError) {
+        // If sign out fails on the API side but we've already cleared
+        // local state, we can still consider this a successful sign out
+        console.warn('Supabase sign out API exception:', apiError);
       }
+      
+      console.log('Signed out successfully');
+      toast({
+        title: "Signed out",
+        description: "You have been signed out successfully",
+      });
     } catch (error: any) {
       console.error('Sign out unexpected error:', error);
       toast({

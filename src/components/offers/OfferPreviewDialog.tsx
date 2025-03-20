@@ -35,15 +35,21 @@ export function OfferPreviewDialog({
     if (!geoTargets) return '';
     
     if (Array.isArray(geoTargets)) {
+      // Only call join if it's an array
       return geoTargets.slice(0, 3).join(', ') + (geoTargets.length > 3 ? '...' : '');
     }
     
     if (typeof geoTargets === 'string') {
+      // If it's a string, return it directly
       return geoTargets;
     }
     
     // For object type geo_targets
     if (typeof geoTargets === 'object') {
+      const countries = Object.keys(geoTargets);
+      if (countries.length > 0) {
+        return countries.slice(0, 3).join(', ') + (countries.length > 3 ? '...' : '');
+      }
       return 'Multiple countries';
     }
     
@@ -153,7 +159,7 @@ export function OfferPreviewDialog({
                   <Badge variant="outline" className="text-xs">
                     {Array.isArray(offer.geo_targets) ? 
                       `${offer.geo_targets.length} countries` : 
-                      '0 countries'}
+                      'Multiple countries'}
                   </Badge>
                 )}
               </div>

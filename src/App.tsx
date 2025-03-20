@@ -17,6 +17,7 @@ import UnauthorizedPage from '@/pages/UnauthorizedPage';
 import ClickRedirectPage from '@/pages/ClickRedirectPage';
 import LinkRedirectPage from '@/pages/LinkRedirectPage';
 import OffersPage from '@/pages/OffersPage';
+import EditOfferPage from '@/pages/EditOfferPage';
 import ReportsPage from '@/pages/ReportsPage';
 import PaymentsPage from '@/pages/PaymentsPage';
 import LinksPage from '@/pages/LinksPage';
@@ -88,6 +89,8 @@ function AppContent() {
             {/* Common routes */}
             <Route path="offers" element={<OffersPage />} />
             <Route path="offers/:id" element={<OffersPage />} />
+            {/* Add dedicated route for editing offers */}
+            <Route path="offers/:id/edit" element={<EditOfferPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="payments" element={<PaymentsPage />} />
             <Route path="wallet" element={<WalletPage />} />

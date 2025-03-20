@@ -17,7 +17,6 @@ import AffiliatePostbackSetup from '@/components/affiliate/AffiliatePostbackSetu
 import AdvertiserPostbackSetup from '@/components/advertiser/AdvertiserPostbackSetup';
 import { Offer } from '@/types';
 import { toast } from '@/hooks/use-toast';
-import EditOfferPage from './EditOfferPage';
 
 export default function OffersPage() {
   const { id } = useParams();
@@ -99,12 +98,7 @@ export default function OffersPage() {
     return <CreateOffer />;
   }
   
-  // If we have "edit" in the path, show the dedicated edit page
-  if (id && id.includes('edit') && (user.role === 'advertiser' || user.role === 'admin')) {
-    console.log("[OffersPage] Rendering EditOfferPage component");
-    const offerId = id.split('/')[0]; // Extract offer ID from the path
-    return <EditOfferPage />;
-  }
+  // No longer handling edit routes here - they are handled by the dedicated EditOfferPage component
   
   // If we have "approve" in the URL, show the approval interface (only for advertisers)
   if (id === 'approve' && user.role === 'advertiser') {

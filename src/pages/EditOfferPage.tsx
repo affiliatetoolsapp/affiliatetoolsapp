@@ -23,6 +23,8 @@ export default function EditOfferPage() {
   useEffect(() => {
     if (!id || !user) return;
 
+    console.log("EditOfferPage: Fetching offer with ID:", id);
+
     const fetchOffer = async () => {
       setIsLoading(true);
       try {
@@ -33,6 +35,8 @@ export default function EditOfferPage() {
           .single();
 
         if (error) throw error;
+        
+        console.log("EditOfferPage: Fetched offer data:", data);
         
         // Check if user is authorized to edit this offer
         const authorized = 

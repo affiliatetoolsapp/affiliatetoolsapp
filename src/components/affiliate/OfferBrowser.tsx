@@ -136,11 +136,7 @@ export default function OfferBrowser() {
                           : offer.commission_amount}
                       </Badge>
                       <Badge variant="outline" className="text-xs">
-                        {offer.commission_type === 'CPA' ? 'CPA' :
-                         offer.commission_type === 'CPL' ? 'CPL' :
-                         offer.commission_type === 'CPC' ? 'CPC' :
-                         offer.commission_type === 'CPS' ? 'CPS' :
-                         offer.commission_type.slice(2)}
+                        {offer.commission_type}
                       </Badge>
                     </div>
                   </div>

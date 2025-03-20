@@ -198,12 +198,7 @@ export default function OffersList() {
                               : offer.commission_amount}
                           </Badge>
                           <Badge variant="outline" className="text-xs">
-                            {offer.commission_type === 'CPA' ? 'CPA' :
-                             offer.commission_type === 'CPL' ? 'CPL' :
-                             offer.commission_type === 'CPC' ? 'CPC' :
-                             offer.commission_type === 'CPS' ? 'CPS' :
-                             offer.commission_type === 'RevShare' ? 'RevShare' :
-                             offer.commission_type}
+                            {offer.commission_type}
                           </Badge>
                         </div>
                       </div>
@@ -343,16 +338,20 @@ export default function OffersList() {
             </div>
           ) : filteredOffers?.length ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredOffers.map((offer) => (
+              {filteredOffers.map((offer) => {
+                const commissionRange = getCommissionRange(offer);
+                return (
                 <Card key={offer.id} className="overflow-hidden">
                   <CardHeader className="p-4">
                     <div className="flex justify-between items-start">
                       <CardTitle className="text-lg">{offer.name}</CardTitle>
                       <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                         <DollarSign className="h-3 w-3 mr-1" />
-                        {offer.commission_amount}
+                        {commissionRange
+                          ? `${commissionRange.min}-${commissionRange.max}`
+                          : offer.commission_amount}
                         <Badge variant="outline" className="ml-1 py-0 px-1 text-xs">
-                          {offer.commission_type.slice(2)}
+                          {offer.commission_type}
                         </Badge>
                       </Badge>
                     </div>
@@ -409,7 +408,8 @@ export default function OffersList() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <Card className="p-8 text-center">

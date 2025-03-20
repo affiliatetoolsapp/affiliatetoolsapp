@@ -260,16 +260,16 @@ export default function OfferManagement() {
 
   // Format geo targets for display - Fixed to handle string or array
   const formatGeoTargets = (offer: Offer) => {
-    // Fix: Check if geo_targets is an array before using array methods
+    // If geo_targets is undefined or null, return empty array
     if (!offer.geo_targets) {
       return [];
     }
     
-    // Convert to array if it's a string
-    const geoTargetsArray = Array.isArray(offer.geo_targets) 
-      ? offer.geo_targets 
-      : typeof offer.geo_targets === 'string' 
-        ? [offer.geo_targets] 
+    // Convert to array if it's a string or handle the case when it's already an array
+    const geoTargetsArray = typeof offer.geo_targets === 'string' 
+      ? [offer.geo_targets] 
+      : Array.isArray(offer.geo_targets) 
+        ? offer.geo_targets 
         : [];
     
     return geoTargetsArray.map(code => {

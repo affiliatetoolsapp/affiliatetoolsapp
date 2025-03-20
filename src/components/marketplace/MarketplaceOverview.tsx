@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -79,35 +80,29 @@ export default function MarketplaceOverview() {
     navigate(`/offers/${offerId}`);
   };
   
+  // Get full commission type name
+  const getFullCommissionType = (shortType: string): string => {
+    if (!shortType || !shortType.startsWith('CP')) return shortType;
+    
+    // Extract the last character of the commission type (e.g., 'A' from 'CPA')
+    const typeCode = shortType.slice(2);
+    
+    switch (typeCode) {
+      case 'A': return 'CPA'; // Cost Per Action
+      case 'L': return 'CPL'; // Cost Per Lead
+      case 'S': return 'CPS'; // Cost Per Sale
+      case 'I': return 'CPI'; // Cost Per Install
+      case 'C': return 'CPC'; // Cost Per Click
+      case 'M': return 'CPM'; // Cost Per Mille (Thousand)
+      case 'O': return 'CPO'; // Cost Per Order
+      case 'R': return 'CPR'; // Cost Per Registration
+      default: return shortType;
+    }
+  };
+  
   // Render an offer card
   const renderOfferCard = (offer: Offer) => {
     const geoData = formatGeoTargets(offer);
-    
-    // Get commission range if there are geo-specific commissions
-    const getCommissionRange = (offer: Offer) => {
-      if (!offer.geo_commissions || !Array.isArray(offer.geo_commissions) || offer.geo_commissions.length <= 1) {
-        return null;
-      }
-
-      // Safely extract amount values from each geo_commission object
-      const amounts = offer.geo_commissions.map(gc => {
-        // Handle different possible types of geo_commission
-        if (typeof gc === 'object' && gc !== null) {
-          const amount = (gc as any).amount;
-          return typeof amount === 'string' ? parseFloat(amount) : typeof amount === 'number' ? amount : 0;
-        }
-        return 0;
-      }).filter(amount => !isNaN(amount));
-      
-      if (amounts.length === 0) return null;
-      
-      const min = Math.min(...amounts);
-      const max = Math.max(...amounts);
-      
-      return { min, max };
-    };
-
-    const commissionRange = getCommissionRange(offer);
     
     return (
       <Card key={offer.id} className="overflow-hidden hover:shadow-md transition-shadow duration-200">
@@ -139,13 +134,13 @@ export default function MarketplaceOverview() {
             <span className="font-medium mr-1">Commission:</span>
             <div className="flex items-center gap-1">
               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                {commissionRange 
-                  ? `$${commissionRange.min} - $${commissionRange.max}`
-                  : `$${offer.commission_amount}`}
+                ${offer.commission_amount}
               </Badge>
-              <Badge variant="outline">
-                {offer.commission_type}
-              </Badge>
+              {offer.commission_type !== 'RevShare' && (
+                <Badge variant="outline">
+                  {getFullCommissionType(offer.commission_type)}
+                </Badge>
+              )}
             </div>
           </div>
           
@@ -275,33 +270,6 @@ export default function MarketplaceOverview() {
             </div>
           )}
           
-          {/* Restricted geos display */}
-          {offer.restricted_geos && Array.isArray(offer.restricted_geos) && offer.restricted_geos.length > 0 && (
-            <div className="flex items-start text-sm">
-              <AlertTriangle className="h-4 w-4 mr-1 text-amber-500 mt-0.5" />
-              <div>
-                <span className="font-medium mr-1">Restricted:</span>
-                <HoverCard openDelay={0} closeDelay={0}>
-                  <HoverCardTrigger asChild>
-                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs cursor-pointer ml-1">
-                      {offer.restricted_geos.length} {offer.restricted_geos.length === 1 ? 'country' : 'countries'}
-                    </Badge>
-                  </HoverCardTrigger>
-                  <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
-                    <div className="font-medium mb-2">Restricted GEO's:</div>
-                    <div className="flex flex-wrap gap-1 max-w-[300px]">
-                      {offer.restricted_geos.map((geo, i) => (
-                        <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs">
-                          {geo}
-                        </Badge>
-                      ))}
-                    </div>
-                  </HoverCardContent>
-                </HoverCard>
-              </div>
-            </div>
-          )}
-          
           {/* Additional offer details */}
           {offer.target_audience && (
             <div className="flex items-start text-sm mt-2">
@@ -327,32 +295,6 @@ export default function MarketplaceOverview() {
   const renderOfferListItem = (offer: Offer) => {
     const geoData = formatGeoTargets(offer);
     const restrictedGeos = offer.restricted_geos || [];
-    
-    // Get commission range if there are geo-specific commissions
-    const getCommissionRange = (offer: Offer) => {
-      if (!offer.geo_commissions || !Array.isArray(offer.geo_commissions) || offer.geo_commissions.length <= 1) {
-        return null;
-      }
-
-      // Safely extract amount values from each geo_commission object
-      const amounts = offer.geo_commissions.map(gc => {
-        // Handle different possible types of geo_commission
-        if (typeof gc === 'object' && gc !== null) {
-          const amount = (gc as any).amount;
-          return typeof amount === 'string' ? parseFloat(amount) : typeof amount === 'number' ? amount : 0;
-        }
-        return 0;
-      }).filter(amount => !isNaN(amount));
-      
-      if (amounts.length === 0) return null;
-      
-      const min = Math.min(...amounts);
-      const max = Math.max(...amounts);
-      
-      return { min, max };
-    };
-
-    const commissionRange = getCommissionRange(offer);
     
     return (
       <div key={offer.id} className="flex border rounded-md p-4 mb-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors duration-200">
@@ -382,13 +324,13 @@ export default function MarketplaceOverview() {
               <div className="flex items-center gap-1">
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                   <DollarSign className="h-3 w-3 mr-1" />
-                  {commissionRange 
-                    ? `$${commissionRange.min} - $${commissionRange.max}`
-                    : `$${offer.commission_amount}`}
+                  {offer.commission_amount}
                 </Badge>
-                <Badge variant="outline">
-                  {offer.commission_type}
-                </Badge>
+                {offer.commission_type !== 'RevShare' && (
+                  <Badge variant="outline">
+                    {getFullCommissionType(offer.commission_type)}
+                  </Badge>
+                )}
               </div>
             </div>
           </div>

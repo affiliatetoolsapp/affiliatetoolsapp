@@ -33,8 +33,8 @@ export default function MarketplaceOverview() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  // Changed to include only 'grid' and 'table' view options, removing 'list'
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  // Changed default viewMode from 'grid' to 'table'
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   
   // Fetch both featured offers and advertiser's own offers
   const { data: topOffers, isLoading: featuredLoading } = useQuery({
@@ -407,7 +407,6 @@ export default function MarketplaceOverview() {
                 />
               </div>
               
-              {/* Modified view mode toggle to only include Grid and Table options */}
               <div className="flex items-center border rounded-md w-full sm:w-auto justify-center sm:justify-start">
                 <Button 
                   variant={viewMode === 'grid' ? 'default' : 'ghost'} 
@@ -440,7 +439,8 @@ export default function MarketplaceOverview() {
             <TabsContent value="featured">
               {filteredFeaturedOffers?.length ? (
                 viewMode === 'grid' ? (
-                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  // Updated grid layout to use 4 columns at large screens, matching OfferManagement
+                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {filteredFeaturedOffers.map(offer => renderOfferCard(offer))}
                   </div>
                 ) : (
@@ -460,7 +460,8 @@ export default function MarketplaceOverview() {
             <TabsContent value="myoffers">
               {filteredAdvertiserOffers?.length ? (
                 viewMode === 'grid' ? (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  // Updated grid layout to use 4 columns at large screens, matching OfferManagement
+                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {filteredAdvertiserOffers.map(offer => renderOfferCard(offer))}
                   </div>
                 ) : (

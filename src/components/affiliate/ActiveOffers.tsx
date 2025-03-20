@@ -114,25 +114,27 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                         </Badge>
                       ))
                     ) : (
-                      // Fixed HoverCard implementation with specific delays and improved styling
-                      <HoverCard openDelay={0} closeDelay={0}>
-                        <HoverCardTrigger asChild>
-                          <Badge variant="outline" className="text-xs cursor-pointer">
-                            <Globe className="h-3 w-3 mr-1" />
-                            {formatGeoTargets(affiliateOffer.offer).length} GEO's
-                          </Badge>
-                        </HoverCardTrigger>
-                        <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
-                          <div className="font-medium mb-2">Targeted GEO's:</div>
-                          <div className="flex flex-wrap gap-1 max-w-[300px]">
-                            {formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
-                              <Badge key={i} variant="outline" className="text-xs">
-                                {geo.flag} {geo.code}
-                              </Badge>
-                            ))}
-                          </div>
-                        </HoverCardContent>
-                      </HoverCard>
+                      // Updated HoverCard implementation with proper z-index
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="outline" className="text-xs cursor-pointer">
+                              <Globe className="h-3 w-3 mr-1" />
+                              {formatGeoTargets(affiliateOffer.offer).length} countries
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="w-auto p-3 z-50" sideOffset={5}>
+                            <div className="font-medium mb-2">Targeted countries:</div>
+                            <div className="flex flex-wrap gap-1 max-w-[300px]">
+                              {formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {geo.flag} {geo.code}
+                                </Badge>
+                              ))}
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     )}
                   </div>
                 </div>
@@ -216,25 +218,27 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                       </Badge>
                     ))
                   ) : (
-                    // Fixed HoverCard implementation with specific delays and improved styling
-                    <HoverCard openDelay={0} closeDelay={0}>
-                      <HoverCardTrigger asChild>
-                        <Badge variant="outline" className="text-xs cursor-pointer">
-                          <Globe className="h-3 w-3 mr-1" />
-                          {formatGeoTargets(affiliateOffer.offer).length} GEO's
-                        </Badge>
-                      </HoverCardTrigger>
-                      <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
-                        <div className="font-medium mb-2">Targeted GEO's:</div>
-                        <div className="flex flex-wrap gap-1 max-w-[300px]">
-                          {formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
-                            <Badge key={i} variant="outline" className="text-xs">
-                              {geo.flag} {geo.code}
-                            </Badge>
-                          ))}
-                        </div>
-                      </HoverCardContent>
-                    </HoverCard>
+                    // Updated tooltip implementation
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge variant="outline" className="text-xs cursor-pointer">
+                            <Globe className="h-3 w-3 mr-1" />
+                            {formatGeoTargets(affiliateOffer.offer).length} countries
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="w-auto p-3 z-50" sideOffset={5}>
+                          <div className="font-medium mb-2">Targeted countries:</div>
+                          <div className="flex flex-wrap gap-1 max-w-[300px]">
+                            {formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
+                              <Badge key={i} variant="outline" className="text-xs">
+                                {geo.flag} {geo.code}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   )}
                 </div>
               </TableCell>

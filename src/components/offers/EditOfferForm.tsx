@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -15,6 +14,62 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { Offer } from '@/types';
+import { COUNTRY_CODES } from '@/components/offers/countryCodes';
+import { X, Upload, Trash2, Image } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+
+const TRAFFIC_SOURCES = [
+  "Search",
+  "Social",
+  "Email",
+  "Display",
+  "Native Ads",
+  "Push",
+  "Pop",
+  "Mobile",
+  "Contextual",
+  "Google",
+  "Facebook",
+  "TikTok",
+  "LinkedIn",
+  "Twitter",
+  "SEO",
+  "PPC",
+  "Content Marketing",
+  "Affiliate",
+  "Referral",
+  "Direct"
+];
+
+const NICHES = [
+  "Health & Wellness",
+  "Finance",
+  "E-commerce",
+  "Education",
+  "Technology",
+  "Travel",
+  "Dating",
+  "Gaming",
+  "Entertainment",
+  "Fashion",
+  "Beauty",
+  "Fitness",
+  "Home & Garden",
+  "Business",
+  "Crypto",
+  "Insurance",
+  "Gambling",
+  "Adult",
+  "Utilities",
+  "Other"
+];
+
+// Transform the COUNTRY_CODES list to array of objects with code and name
+const COUNTRIES = Object.entries(COUNTRY_CODES).map(([code, name]) => ({
+  code,
+  name: `${name} (${code})`
+}));
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
@@ -49,6 +104,12 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
           ? Object.keys(offer.geo_targets) 
           : []
   );
+  const [offerImage, setOfferImage] = useState<string | null>(offer.offer_image || null);
+  const [offerImageFile, setOfferImageFile] = useState<File | null>(null);
+  const [creatives, setCreatives] = useState<any[]>(offer.marketing_materials || []);
+  const [newCreativeFiles, setNewCreativeFiles] = useState<File[]>([]);
+  const [creativesToDelete, setCreativesToDelete] = useState<string[]>([]);
+  const [showCreativesDialog, setShowCreativesDialog] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -70,12 +131,76 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
     try {
+      // First, handle file uploads if any
+      let updatedOfferImage = offerImage;
+      
+      // Upload new offer image if changed
+      if (offerImageFile) {
+        const imagePath = `${offer.advertiser_id}/offer-images/offer-image-${Math.random().toString(36).substring(2, 15)}.${offerImageFile.name.split('.').pop()}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('offer-assets')
+          .upload(imagePath, offerImageFile);
+        
+        if (uploadError) throw uploadError;
+        
+        // Get public URL
+        const { data: publicUrlData } = supabase.storage
+          .from('offer-assets')
+          .getPublicUrl(imagePath);
+        
+        updatedOfferImage = publicUrlData.publicUrl;
+      }
+      
+      // Handle creative uploads
+      let updatedCreatives = [...creatives];
+      
+      // Remove creatives marked for deletion
+      if (creativesToDelete.length > 0) {
+        // Remove from Supabase storage
+        for (const path of creativesToDelete) {
+          await supabase.storage
+            .from('offer-assets')
+            .remove([path]);
+        }
+        
+        // Remove from local state
+        updatedCreatives = updatedCreatives.filter(
+          creative => !creativesToDelete.includes(creative.path)
+        );
+      }
+      
+      // Upload new creatives
+      for (const file of newCreativeFiles) {
+        const filePath = `${offer.advertiser_id}/new/${Math.random().toString(36).substring(2, 15)}.${file.name.split('.').pop()}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('offer-assets')
+          .upload(filePath, file);
+        
+        if (uploadError) throw uploadError;
+        
+        // Get public URL
+        const { data: publicUrlData } = supabase.storage
+          .from('offer-assets')
+          .getPublicUrl(filePath);
+        
+        updatedCreatives.push({
+          url: publicUrlData.publicUrl,
+          name: file.name,
+          path: filePath,
+          size: file.size,
+          type: file.type
+        });
+      }
+      
       // Create the offer update object
       const offerUpdate = {
         ...values,
         allowed_traffic_sources: trafficSources.length > 0 ? trafficSources : null,
         restricted_geos: restrictedGeos.length > 0 ? restrictedGeos : null,
         geo_targets: geoTargets.length > 0 ? geoTargets : null,
+        offer_image: updatedOfferImage,
+        marketing_materials: updatedCreatives.length > 0 ? updatedCreatives : null,
         updated_at: new Date().toISOString(),
       };
       
@@ -146,6 +271,40 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
     setRestrictedGeos(restrictedGeos.filter(g => g !== geo));
   };
 
+  // Offer image management
+  const handleOfferImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setOfferImageFile(file);
+      setOfferImage(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveOfferImage = () => {
+    setOfferImage(null);
+    setOfferImageFile(null);
+  };
+
+  // Creatives management
+  const handleAddCreatives = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const filesArray = Array.from(e.target.files);
+      setNewCreativeFiles([...newCreativeFiles, ...filesArray]);
+    }
+  };
+
+  const handleRemoveNewCreative = (index: number) => {
+    setNewCreativeFiles(newCreativeFiles.filter((_, i) => i !== index));
+  };
+
+  const handleMarkCreativeForDeletion = (path: string) => {
+    setCreativesToDelete([...creativesToDelete, path]);
+  };
+
+  const handleRestoreCreative = (path: string) => {
+    setCreativesToDelete(creativesToDelete.filter(p => p !== path));
+  };
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -210,9 +369,23 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Niche</FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
+                <Select 
+                  onValueChange={field.onChange} 
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select niche" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {NICHES.map((niche) => (
+                      <SelectItem key={niche} value={niche.toLowerCase()}>
+                        {niche}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormDescription>
                   The category or industry of your offer
                 </FormDescription>
@@ -239,6 +412,184 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
             </FormItem>
           )}
         />
+
+        <Separator />
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">Offer Image</h3>
+          <div className="flex items-start space-x-4">
+            {offerImage ? (
+              <div className="relative group">
+                <img 
+                  src={offerImage} 
+                  alt="Offer Preview" 
+                  className="w-32 h-32 object-cover rounded-md border"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemoveOfferImage}
+                  className="absolute top-1 right-1 bg-background/80 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center w-32 h-32 border-2 border-dashed rounded-md">
+                <span className="text-muted-foreground text-sm">No image</span>
+              </div>
+            )}
+            <div>
+              <Label htmlFor="offerImage" className="cursor-pointer">
+                <div className="flex items-center gap-2 bg-primary/10 text-primary rounded-md py-2 px-3">
+                  <Upload className="h-4 w-4" />
+                  <span>{offerImage ? 'Change Image' : 'Upload Image'}</span>
+                </div>
+              </Label>
+              <Input 
+                id="offerImage" 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={handleOfferImageChange}
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                Recommended: 1200×628px. Max 5MB
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-medium">Creatives</h3>
+            <Button 
+              type="button"
+              variant="outline" 
+              onClick={() => setShowCreativesDialog(true)}
+            >
+              Manage Creatives
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Add banners, images, and other creative assets for affiliates to use
+          </p>
+        </div>
+
+        <Dialog open={showCreativesDialog} onOpenChange={setShowCreativesDialog}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Manage Creatives</DialogTitle>
+              <DialogDescription>
+                Upload, replace, or delete creative assets for your offer
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 mt-4">
+              <div className="border rounded-md p-4">
+                <Label htmlFor="uploadCreatives" className="cursor-pointer">
+                  <div className="flex flex-col items-center gap-2 p-6 border-2 border-dashed rounded-md">
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <span className="font-medium">Click to upload creatives</span>
+                    <span className="text-sm text-muted-foreground">
+                      PNG, JPG, GIF up to 10MB
+                    </span>
+                  </div>
+                </Label>
+                <Input 
+                  id="uploadCreatives" 
+                  type="file" 
+                  accept="image/*" 
+                  multiple 
+                  className="hidden" 
+                  onChange={handleAddCreatives}
+                />
+              </div>
+              
+              {/* New files to upload */}
+              {newCreativeFiles.length > 0 && (
+                <>
+                  <h4 className="font-medium mt-4">New Files</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {newCreativeFiles.map((file, index) => (
+                      <div key={index} className="border rounded-md p-2 relative group">
+                        <img 
+                          src={URL.createObjectURL(file)} 
+                          alt={file.name} 
+                          className="w-full h-32 object-cover mb-2 rounded"
+                        />
+                        <div className="text-sm truncate">{file.name}</div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveNewCreative(index)}
+                          className="absolute top-1 right-1 bg-background/80 p-1 rounded-full"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              
+              {/* Existing creatives */}
+              {creatives.length > 0 && (
+                <>
+                  <h4 className="font-medium mt-4">Existing Creatives</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {creatives.map((creative, index) => {
+                      const isMarkedForDeletion = creativesToDelete.includes(creative.path);
+                      
+                      return (
+                        <div 
+                          key={index} 
+                          className={`border rounded-md p-2 relative group ${isMarkedForDeletion ? 'opacity-50' : ''}`}
+                        >
+                          <img 
+                            src={creative.url} 
+                            alt={creative.name} 
+                            className="w-full h-32 object-cover mb-2 rounded"
+                          />
+                          <div className="text-sm truncate">{creative.name}</div>
+                          {isMarkedForDeletion ? (
+                            <div className="absolute inset-0 flex items-center justify-center bg-background/30">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleRestoreCreative(creative.path)}
+                              >
+                                Restore
+                              </Button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleMarkCreativeForDeletion(creative.path)}
+                              className="absolute top-1 right-1 bg-background/80 p-1 rounded-full"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+              
+              <div className="flex justify-end mt-4">
+                <Button
+                  type="button"
+                  onClick={() => setShowCreativesDialog(false)}
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <Separator />
 
@@ -315,30 +666,26 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
             <CardContent className="pt-6">
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="trafficSource">Allowed Traffic Sources</Label>
+                  <Label>Allowed Traffic Sources</Label>
                   <div className="flex mt-2">
-                    <Input 
-                      id="trafficSource"
-                      className="flex-1 mr-2"
-                      placeholder="e.g., Email, Social, Search"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddTrafficSource((e.target as HTMLInputElement).value);
-                          (e.target as HTMLInputElement).value = '';
-                        }
-                      }}
-                    />
-                    <Button 
-                      type="button"
-                      onClick={() => {
-                        const input = document.getElementById('trafficSource') as HTMLInputElement;
-                        handleAddTrafficSource(input.value);
-                        input.value = '';
-                      }}
-                    >
-                      Add
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                          Select Traffic Sources
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-auto">
+                        {TRAFFIC_SOURCES.map((source) => (
+                          <DropdownMenuItem
+                            key={source}
+                            onClick={() => handleAddTrafficSource(source)}
+                            disabled={trafficSources.includes(source)}
+                          >
+                            {source}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                   
                   <div className="flex flex-wrap gap-2 mt-2">
@@ -361,30 +708,26 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
                 </div>
 
                 <div>
-                  <Label htmlFor="geoTarget">Geo Targeting</Label>
+                  <Label>Geo Targeting</Label>
                   <div className="flex mt-2">
-                    <Input 
-                      id="geoTarget"
-                      className="flex-1 mr-2"
-                      placeholder="e.g., US, CA, UK"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddGeoTarget((e.target as HTMLInputElement).value.toUpperCase());
-                          (e.target as HTMLInputElement).value = '';
-                        }
-                      }}
-                    />
-                    <Button 
-                      type="button"
-                      onClick={() => {
-                        const input = document.getElementById('geoTarget') as HTMLInputElement;
-                        handleAddGeoTarget(input.value.toUpperCase());
-                        input.value = '';
-                      }}
-                    >
-                      Add
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                          Select Countries
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-72 max-h-80 overflow-auto">
+                        {COUNTRIES.map((country) => (
+                          <DropdownMenuItem
+                            key={country.code}
+                            onClick={() => handleAddGeoTarget(country.code)}
+                            disabled={geoTargets.includes(country.code)}
+                          >
+                            {country.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                   
                   <div className="flex flex-wrap gap-2 mt-2">
@@ -393,7 +736,7 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
                         key={index} 
                         className="bg-secondary text-secondary-foreground px-3 py-1 rounded-full flex items-center"
                       >
-                        <span>{geo}</span>
+                        <span>{geo} - {COUNTRY_CODES[geo] || ''}</span>
                         <button 
                           type="button"
                           className="ml-2 text-secondary-foreground/70 hover:text-secondary-foreground"
@@ -407,30 +750,26 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
                 </div>
 
                 <div>
-                  <Label htmlFor="restrictedGeo">Restricted Geos</Label>
+                  <Label>Restricted Geos</Label>
                   <div className="flex mt-2">
-                    <Input 
-                      id="restrictedGeo"
-                      className="flex-1 mr-2"
-                      placeholder="e.g., RU, CN, IR"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddRestrictedGeo((e.target as HTMLInputElement).value.toUpperCase());
-                          (e.target as HTMLInputElement).value = '';
-                        }
-                      }}
-                    />
-                    <Button 
-                      type="button"
-                      onClick={() => {
-                        const input = document.getElementById('restrictedGeo') as HTMLInputElement;
-                        handleAddRestrictedGeo(input.value.toUpperCase());
-                        input.value = '';
-                      }}
-                    >
-                      Add
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                          Select Restricted Countries
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-72 max-h-80 overflow-auto">
+                        {COUNTRIES.map((country) => (
+                          <DropdownMenuItem
+                            key={country.code}
+                            onClick={() => handleAddRestrictedGeo(country.code)}
+                            disabled={restrictedGeos.includes(country.code)}
+                          >
+                            {country.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                   
                   <div className="flex flex-wrap gap-2 mt-2">
@@ -439,7 +778,7 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
                         key={index} 
                         className="bg-destructive/10 text-destructive px-3 py-1 rounded-full flex items-center"
                       >
-                        <span>{geo}</span>
+                        <span>{geo} - {COUNTRY_CODES[geo] || ''}</span>
                         <button 
                           type="button"
                           className="ml-2 text-destructive/70 hover:text-destructive"

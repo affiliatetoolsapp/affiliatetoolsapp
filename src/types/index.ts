@@ -10,8 +10,15 @@ export type Offer = Database['public']['Tables']['offers']['Row'] & {
   restrictions?: string;
   marketing_materials?: any;
   conversion_requirements?: string;
-  geo_targets?: string | Record<string, any> | null;
+  geo_targets?: string | Record<string, any> | string[] | null;
+  
+  // Add these missing properties that are used in CreateOffer.tsx
+  offer_url?: string; // Alias for url
+  restricted_traffic_sources?: string[];
+  restricted_promotion_methods?: string[];
+  terms_and_conditions?: string;
 };
+
 export type AffiliateOffer = Database['public']['Tables']['affiliate_offers']['Row'];
 export type Click = Database['public']['Tables']['clicks']['Row'];
 export type Conversion = Database['public']['Tables']['conversions']['Row'];

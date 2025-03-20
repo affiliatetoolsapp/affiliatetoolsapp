@@ -221,7 +221,7 @@ export default function CreateOffer({ initialData }: CreateOfferProps) {
       form.reset({
         name: initialData.name || "",
         description: initialData.description || "",
-        offer_url: initialData.offer_url || "",
+        offer_url: initialData.url || initialData.offer_url || "", // Handle both url and offer_url
         offer_image: initialData.offer_image || "",
         niche: initialData.niche || "",
         commission_type: initialData.commission_type as any || "CPA",
@@ -241,14 +241,14 @@ export default function CreateOffer({ initialData }: CreateOfferProps) {
 
       // Set selected countries from geo_targets
       if (Array.isArray(geoTargets)) {
-        setSelectedCountries(geoTargets);
+        setSelectedCountries(geoTargets.map(c => String(c)));
       } else if (geoTargets && typeof geoTargets === 'object') {
-        setSelectedCountries(Object.keys(geoTargets));
+        setSelectedCountries(Object.keys(geoTargets).map(c => String(c)));
       }
 
       // Set restricted countries
       if (initialData.restricted_geos && Array.isArray(initialData.restricted_geos)) {
-        setRestrictedCountries(initialData.restricted_geos);
+        setRestrictedCountries(initialData.restricted_geos.map(c => String(c)));
       }
 
       // Set image URL
@@ -269,6 +269,7 @@ export default function CreateOffer({ initialData }: CreateOfferProps) {
       // Prepare the data for submission
       const offerData = {
         ...data,
+        url: data.offer_url, // Map offer_url to url for database
         advertiser_id: user.id,
         geo_targets: selectedCountries.length > 0 ? selectedCountries : null,
         restricted_geos: restrictedCountries.length > 0 ? restrictedCountries : null,
@@ -876,266 +877,4 @@ export default function CreateOffer({ initialData }: CreateOfferProps) {
                             <ScrollArea className="h-72">
                               {countryOptions.map((country) => (
                                 <CommandItem
-                                  key={country.code}
-                                  value={country.code}
-                                  onSelect={() => toggleRestrictedCountry(country.code)}
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      restrictedCountries.includes(country.code)
-                                        ? "opacity-100"
-                                        : "opacity-0"
-                                    )}
-                                  />
-                                  {country.name} ({country.code})
-                                </CommandItem>
-                              ))}
-                            </ScrollArea>
-                          </CommandGroup>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {restrictedCountries.map((code) => {
-                        const country = countryOptions.find(c => c.code === code);
-                        return (
-                          <Badge key={code} variant="outline" className="flex items-center gap-1 bg-red-50 text-red-700 border-red-200">
-                            {country?.name || code}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-4 w-4 p-0 ml-1"
-                              onClick={() => toggleRestrictedCountry(code)}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Countries where your offer cannot be promoted
-                    </p>
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="allowed_traffic_sources"
-                    render={() => (
-                      <FormItem>
-                        <div className="mb-4">
-                          <FormLabel className="text-base">Allowed Traffic Sources</FormLabel>
-                          <FormDescription>
-                            Select the traffic sources that affiliates can use to promote your offer
-                          </FormDescription>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          {trafficSourceOptions.map((item) => (
-                            <FormField
-                              key={item.id}
-                              control={form.control}
-                              name="allowed_traffic_sources"
-                              render={({ field }) => {
-                                return (
-                                  <FormItem
-                                    key={item.id}
-                                    className="flex flex-row items-start space-x-3 space-y-0"
-                                  >
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={field.value?.includes(item.id)}
-                                        onCheckedChange={(checked) => {
-                                          return checked
-                                            ? field.onChange([...field.value || [], item.id])
-                                            : field.onChange(
-                                                field.value?.filter(
-                                                  (value) => value !== item.id
-                                                )
-                                              )
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormLabel className="font-normal">
-                                      {item.label}
-                                    </FormLabel>
-                                  </FormItem>
-                                )
-                              }}
-                            />
-                          ))}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="target_audience"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Target Audience</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Describe your ideal audience" 
-                            className="min-h-[80px]" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Describe the demographics, interests, or behaviors of your ideal customers
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    onClick={() => setCurrentTab("commission")}
-                  >
-                    Previous
-                  </Button>
-                  <Button 
-                    type="button" 
-                    onClick={() => setCurrentTab("requirements")}
-                  >
-                    Next
-                  </Button>
-                </CardFooter>
-              </Card>
-            </TabsContent>
-
-            {/* Requirements Tab */}
-            <TabsContent value="requirements" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Offer Requirements</CardTitle>
-                  <CardDescription>
-                    Define the rules and requirements for promoting your offer
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="conversion_requirements"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Conversion Requirements</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Describe what constitutes a valid conversion" 
-                            className="min-h-[80px]" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Clearly define what actions qualify for a commission
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="restricted_promotion_methods"
-                    render={() => (
-                      <FormItem>
-                        <div className="mb-4">
-                          <FormLabel className="text-base">Restricted Promotion Methods</FormLabel>
-                          <FormDescription>
-                            Select methods that affiliates are NOT allowed to use
-                          </FormDescription>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          {restrictedPromotionOptions.map((item) => (
-                            <FormField
-                              key={item.id}
-                              control={form.control}
-                              name="restricted_promotion_methods"
-                              render={({ field }) => {
-                                return (
-                                  <FormItem
-                                    key={item.id}
-                                    className="flex flex-row items-start space-x-3 space-y-0"
-                                  >
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={field.value?.includes(item.id)}
-                                        onCheckedChange={(checked) => {
-                                          return checked
-                                            ? field.onChange([...field.value || [], item.id])
-                                            : field.onChange(
-                                                field.value?.filter(
-                                                  (value) => value !== item.id
-                                                )
-                                              )
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormLabel className="font-normal">
-                                      {item.label}
-                                    </FormLabel>
-                                  </FormItem>
-                                )
-                              }}
-                            />
-                          ))}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="terms_and_conditions"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Terms and Conditions</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Enter any additional terms and conditions" 
-                            className="min-h-[120px]" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Any additional rules or requirements for affiliates
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    onClick={() => setCurrentTab("targeting")}
-                  >
-                    Previous
-                  </Button>
-                  <Button 
-                    type="submit"
-                    disabled={mutation.isPending}
-                  >
-                    {mutation.isPending && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    )}
-                    {isEditMode ? "Update Offer" : "Create Offer"}
-                  </Button>
-                </CardFooter>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </form>
-      </Form>
-    </div>
-  );
-}
+                                  key={country.code

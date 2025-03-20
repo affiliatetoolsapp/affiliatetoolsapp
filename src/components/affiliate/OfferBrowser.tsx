@@ -1,810 +1,319 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Offer, AffiliateOffer } from '@/types';
 import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { formatGeoTargets, formatRestrictedGeos } from './utils/offerUtils';
+import { Offer } from '@/types';
+import { formatGeoTargets } from './utils/offerUtils';
+import { toast } from '@/hooks/use-toast';
 
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ArrowUpRight, Clock, Eye, Filter, Grid, List, MapPin, Search, Trash2, Award, Tag, Target, DollarSign, Globe, AlertTriangle } from 'lucide-react';
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import OfferDetailView from './OfferDetailView';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ChevronsUpDown, Check, Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Loader2, Search } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+
+const ITEMS_PER_PAGE = 12;
 
 export default function OfferBrowser() {
-  const { user } = useAuth();
-  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentNiche, setCurrentNiche] = useState<string | null>(null);
+  const [selectedNiche, setSelectedNiche] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalOffers, setTotalOffers] = useState(0);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  // Changed default to 'list'
-  const [displayMode, setDisplayMode] = useState<'grid' | 'list'>('list');
-  const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
-  const [trafficSource, setTrafficSource] = useState('');
-  const [applicationNotes, setApplicationNotes] = useState('');
-  const [showOfferDetail, setShowOfferDetail] = useState(false);
-  const [currentOfferId, setCurrentOfferId] = useState<string | null>(null);
-  const queryClient = useQueryClient();
-
-  // Fetch all active offers
-  const { data: offers, isLoading: offersLoading } = useQuery({
-    queryKey: ['marketplace-offers'],
+  const { user } = useAuth();
+  
+  // Get initial search query from URL
+  useEffect(() => {
+    const initialSearchQuery = searchParams.get('search') || '';
+    setSearchQuery(initialSearchQuery);
+  }, [searchParams]);
+  
+  // Get initial niche from URL
+  useEffect(() => {
+    const initialNiche = searchParams.get('niche') || null;
+    setSelectedNiche(initialNiche);
+  }, [searchParams]);
+  
+  // Update URL when search query changes
+  useEffect(() => {
+    const newParams = new URLSearchParams(searchParams);
+    if (searchQuery) {
+      newParams.set('search', searchQuery);
+    } else {
+      newParams.delete('search');
+    }
+    setSearchParams(newParams);
+  }, [searchQuery, setSearchParams, searchParams]);
+  
+  // Update URL when niche changes
+  useEffect(() => {
+    const newParams = new URLSearchParams(searchParams);
+    if (selectedNiche) {
+      newParams.set('niche', selectedNiche);
+    } else {
+      newParams.delete('niche');
+    }
+    setSearchParams(newParams);
+  }, [selectedNiche, setSearchParams, searchParams]);
+  
+  // Fetch offers based on search query, niche, and pagination
+  const { data: offers, isLoading, error } = useQuery({
+    queryKey: ['offers', searchQuery, selectedNiche, page],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('offers')
-        .select('*')
-        .eq('status', 'active');
+      let query = supabase
+        .from('affiliate_offer_details')
+        .select('*', { count: 'exact' })
+        .order('offer_name', { ascending: true })
+        .range((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE - 1);
+      
+      if (searchQuery) {
+        query = query.ilike('offer_name', `%${searchQuery}%`);
+      }
+      
+      if (selectedNiche) {
+        query = query.eq('niche', selectedNiche);
+      }
+      
+      if (user?.id) {
+        query = query.eq('affiliate_id', user.id);
+      }
+      
+      const { data, error, count } = await query;
       
       if (error) {
-        console.error('Error fetching offers:', error);
+        console.error("Error fetching offers:", error);
         throw error;
       }
       
-      console.log('Fetched offers:', data);
+      setTotalOffers(count || 0);
       return data as Offer[];
     },
   });
-
-  // Fetch user's applications
-  const { data: applications, isLoading: applicationsLoading } = useQuery({
-    queryKey: ['affiliate-applications', user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      
-      const { data, error } = await supabase
-        .from('affiliate_offers')
-        .select('*, offers(*)')
-        .eq('affiliate_id', user.id);
-      
-      if (error) throw error;
-      console.log('Fetched applications:', data);
-      return data as AffiliateOffer[];
-    },
-    enabled: !!user,
-  });
-
-  // Apply to offer mutation
-  const applyToOffer = useMutation({
-    mutationFn: async ({
-      offerId,
-      affiliateId,
-      source,
-      notes
-    }: {
-      offerId: string;
-      affiliateId: string;
-      source: string;
-      notes: string;
-    }) => {
-      const { data, error } = await supabase
-        .from('affiliate_offers')
-        .insert({
-          offer_id: offerId,
-          affiliate_id: affiliateId,
-          traffic_source: source,
-          notes: notes,
-          status: 'pending',
-          applied_at: new Date().toISOString()
-        })
-        .select();
-      
-      if (error) throw error;
-      return data[0];
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['affiliate-applications'] });
-      toast({
-        title: 'Application Submitted',
-        description: 'Your application has been submitted successfully',
-      });
-    },
-    onError: (error) => {
+  
+  // Calculate total number of pages
+  const totalPages = Math.ceil(totalOffers / ITEMS_PER_PAGE);
+  
+  // Handle search query change
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    setPage(1); // Reset to the first page when searching
+  };
+  
+  // Handle niche selection
+  const handleNicheSelect = (niche: string | null) => {
+    setSelectedNiche(niche);
+    setPage(1); // Reset to the first page when filtering by niche
+    setIsFilterOpen(false); // Close the filter popover
+  };
+  
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
+  
+  // Handle apply for offer
+  const handleApplyForOffer = async (offerId: string) => {
+    if (!user?.id) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to submit application',
+        description: 'You must be logged in to apply for offers.',
       });
-      console.error(error);
+      return;
     }
-  });
-
-  // Cancel application mutation
-  const cancelApplication = useMutation({
-    mutationFn: async (applicationId: string) => {
-      const { error } = await supabase
+    
+    try {
+      const { data, error } = await supabase
         .from('affiliate_offers')
-        .delete()
-        .eq('id', applicationId);
+        .insert([{ offer_id: offerId, affiliate_id: user.id, status: 'pending', applied_at: new Date().toISOString() }]);
       
-      if (error) throw error;
-      return applicationId;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['affiliate-applications'] });
+      if (error) {
+        console.error("Error applying for offer:", error);
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Failed to apply for offer. Please try again.',
+        });
+        return;
+      }
+      
       toast({
-        title: 'Application Cancelled',
-        description: 'Your application has been successfully cancelled',
+        title: 'Application Sent',
+        description: 'Your application has been submitted and is awaiting approval.',
       });
-    },
-    onError: (error) => {
+    } catch (error) {
+      console.error("Error applying for offer:", error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to cancel application. Please try again.',
+        description: 'Failed to apply for offer. Please try again.',
       });
-      console.error(error);
     }
-  });
-
-  // Handle apply to offer
-  const handleApply = () => {
-    if (!user || !selectedOffer) return;
-    
-    applyToOffer.mutate({
-      offerId: selectedOffer.id,
-      affiliateId: user.id,
-      source: trafficSource,
-      notes: applicationNotes
-    });
-    
-    setSelectedOffer(null);
-    setTrafficSource('');
-    setApplicationNotes('');
   };
-
-  // Handle cancel application
-  const handleCancelApplication = (applicationId: string) => {
-    cancelApplication.mutate(applicationId);
-  };
-
-  // View offer details
-  const handleViewOffer = (offer: Offer) => {
-    setCurrentOfferId(offer.id);
-    setShowOfferDetail(true);
-  };
-
-  // Get unique niches
-  const niches = [...new Set(offers?.map(offer => offer.niche).filter(Boolean))];
   
-  // Filter offers
-  const filteredOffers = offers?.filter(offer => {
-    const matchesSearch = 
-      offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (offer.description && offer.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (offer.niche && offer.niche.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesNiche = currentNiche ? offer.niche === currentNiche : true;
-    
-    return matchesSearch && matchesNiche;
-  });
-
-  // Check application status for an offer
-  const getApplicationStatus = (offerId: string) => {
-    if (!applications) return null;
-    
-    const application = applications.find(app => app.offer_id === offerId);
-    return application ? { status: application.status, id: application.id } : null;
-  };
-
-  
-  // Format restricted geos for display - keep this
-  const formatRestrictedGeos = (offer: Offer) => {
-    if (!offer.restricted_geos || !Array.isArray(offer.restricted_geos) || offer.restricted_geos.length === 0) {
-      return null;
-    }
-    
-    return offer.restricted_geos;
-  };
-
-  // Back from offer detail
-  const handleBackFromDetail = () => {
-    setShowOfferDetail(false);
-    setCurrentOfferId(null);
-  };
-
-  // Loading state
-  if (offersLoading || applicationsLoading) {
-    return (
-      <div className="flex justify-center items-center p-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  // Show offer detail view if an offer is selected
-  if (showOfferDetail && currentOfferId) {
-    const offer = offers?.find(o => o.id === currentOfferId);
-    if (!offer) return null;
-    
-    const applicationStatus = getApplicationStatus(currentOfferId)?.status || null;
-    
-    return (
-      <OfferDetailView 
-        offer={offer} 
-        applicationStatus={applicationStatus} 
-        onBack={handleBackFromDetail} 
-      />
-    );
-  }
-
-  const renderOfferListItem = (offer: Offer) => {
-    const application = getApplicationStatus(offer.id);
-    const geoData = formatGeoTargets(offer);
-    const restrictedGeos = formatRestrictedGeos(offer);
-    
-    return (
-      <tr key={offer.id} className="hover:bg-muted/50">
-        <td className="p-3">
-          <div className="font-medium">{offer.name}</div>
-          <div className="text-sm text-muted-foreground line-clamp-1">{offer.description}</div>
-        </td>
-        <td className="p-3">
-          {offer.niche ? (
-            <Badge variant="outline" className="text-xs">
-              {offer.niche}
-            </Badge>
-          ) : '-'}
-        </td>
-        <td className="p-3">
-          <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-            <DollarSign className="h-3 w-3 mr-1" />
-            {offer.commission_amount}
-            <Badge variant="outline" className="ml-1 py-0 px-1 text-xs">
-              {offer.commission_type}
-            </Badge>
-          </Badge>
-        </td>
-        <td className="p-3 hide-on-mobile">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1">
-              <div className="text-xs font-medium">Targeted:</div>
-              {geoData.length <= 3 ? (
-                <div className="flex flex-wrap gap-1">
-                  {geoData.map((geo, index) => (
-                    <Badge key={index} variant="outline" className="flex items-center">
-                      {geo.flag} {geo.code}
-                    </Badge>
-                  ))}
-                </div>
-              ) : (
-                <HoverCard openDelay={0} closeDelay={0}>
-                  <HoverCardTrigger asChild>
-                    <Badge variant="outline" className="text-xs cursor-pointer">
-                      <Globe className="h-3 w-3 mr-1" />
-                      {geoData.length} GEO's
-                    </Badge>
-                  </HoverCardTrigger>
-                  <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
-                    <div className="font-medium mb-2">Targeted GEO's:</div>
-                    <div className="flex flex-wrap gap-1 max-w-[300px]">
-                      {geoData.map((geo, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">
-                          {geo.flag} {geo.code}
-                        </Badge>
-                      ))}
-                    </div>
-                  </HoverCardContent>
-                </HoverCard>
-              )}
-            </div>
-            
-            {restrictedGeos && restrictedGeos.length > 0 && (
-              <div className="flex items-center gap-1">
-                <div className="text-xs font-medium text-amber-700">Restricted:</div>
-                <HoverCard openDelay={0} closeDelay={0}>
-                  <HoverCardTrigger asChild>
-                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs cursor-pointer">
-                      {restrictedGeos.length} {restrictedGeos.length === 1 ? 'country' : 'countries'}
-                    </Badge>
-                  </HoverCardTrigger>
-                  <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
-                    <div className="font-medium mb-2">Restricted GEO's:</div>
-                    <div className="flex flex-wrap gap-1 max-w-[300px]">
-                      {restrictedGeos.map((geo, i) => {
-                        const countryFlag = formatGeoTargets({ geo_targets: [geo] })[0]?.flag || '';
-                        return (
-                          <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs flex items-center gap-1">
-                            <span>{countryFlag}</span> <span>{geo}</span>
-                          </Badge>
-                        );
-                      })}
-                    </div>
-                  </HoverCardContent>
-                </HoverCard>
-              </div>
-            )}
-
-            {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
-              <div className="flex items-center gap-1">
-                <div className="text-xs font-medium">Traffic:</div>
-                <HoverCard openDelay={0} closeDelay={0}>
-                  <HoverCardTrigger asChild>
-                    <Badge variant="outline" className="text-xs cursor-pointer">
-                      <Target className="h-3 w-3 mr-1" />
-                      {offer.allowed_traffic_sources.length} sources
-                    </Badge>
-                  </HoverCardTrigger>
-                  <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
-                    <div className="font-medium mb-2">Allowed Traffic Sources:</div>
-                    <div className="flex flex-wrap gap-1 max-w-[300px]">
-                      {offer.allowed_traffic_sources.map((source, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">
-                          {source}
-                        </Badge>
-                      ))}
-                    </div>
-                  </HoverCardContent>
-                </HoverCard>
-              </div>
-            )}
-          </div>
-        </td>
-        <td className="p-3">
-          {application?.status === 'approved' ? (
-            <Badge variant="default">Approved</Badge>
-          ) : application?.status === 'pending' ? (
-            <Badge variant="outline">
-              <Clock className="h-3 w-3 mr-1" />
-              Pending
-            </Badge>
-          ) : application?.status === 'rejected' ? (
-            <Badge variant="destructive">Rejected</Badge>
-          ) : (
-            <Badge variant="outline">Not Applied</Badge>
-          )}
-        </td>
-        <td className="p-3">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleViewOffer(offer)}
-            >
-              <Eye className="h-4 w-4 mr-1" />
-              View
-            </Button>
-            
-            {application?.status === 'pending' && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="text-destructive">
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Cancel
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Cancel Application</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to cancel your application for "{offer.name}"? This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>No, keep it</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleCancelApplication(application.id)}>
-                      Yes, cancel application
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-            
-            {!application && (
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button size="sm">Apply</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Apply to Promote: {offer.name}</DialogTitle>
-                    <DialogDescription>
-                      Tell the advertiser how you plan to promote their offer
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="traffic-source">Traffic Source</Label>
-                      <Input
-                        id="traffic-source"
-                        placeholder="e.g., Email, Social Media, Blog"
-                        value={trafficSource}
-                        onChange={(e) => setTrafficSource(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="notes">Additional Notes (Optional)</Label>
-                      <Input
-                        id="notes"
-                        placeholder="Tell the advertiser more about your promotion plan"
-                        value={applicationNotes}
-                        onChange={(e) => setApplicationNotes(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button 
-                      onClick={() => {
-                        setSelectedOffer(offer);
-                        handleApply();
-                      }}
-                      disabled={!trafficSource || applyToOffer.isPending}
-                    >
-                      {applyToOffer.isPending ? 'Submitting...' : 'Submit Application'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            )}
-          </div>
-        </td>
-      </tr>
-    );
-  };
-
-  // Loading state
-  if (offersLoading || applicationsLoading) {
-    return (
-      <div className="flex justify-center items-center p-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (showOfferDetail && currentOfferId) {
-    const offer = offers?.find(o => o.id === currentOfferId);
-    if (!offer) return null;
-    
-    const applicationStatus = getApplicationStatus(currentOfferId)?.status || null;
-    
-    return (
-      <OfferDetailView 
-        offer={offer} 
-        applicationStatus={applicationStatus} 
-        onBack={handleBackFromDetail} 
-      />
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="relative max-w-md w-full">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search offers..."
-            className="pl-8 w-full"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+    <div className="container mx-auto py-6 max-w-7xl">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Browse Offers</h1>
+        <div className="flex items-center space-x-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-500" />
+            <Input
+              type="text"
+              placeholder="Search offers..."
+              className="pl-10"
+              value={searchQuery}
+              onChange={handleSearchChange}
+            />
+          </div>
+          <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" role="combobox" aria-expanded={isFilterOpen} className="justify-between">
+                {selectedNiche || 'Select Niche'}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[200px] p-0" align="end">
+              <Command>
+                <CommandInput placeholder="Search niche..." />
+                <CommandEmpty>No niche found.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem onSelect={() => handleNicheSelect(null)}>
+                    <Check className={cn("mr-2 h-4 w-4", selectedNiche === null ? "opacity-100" : "opacity-0")} />
+                    All Niches
+                  </CommandItem>
+                  <CommandItem onSelect={() => handleNicheSelect('health_fitness')}>
+                    <Check className={cn("mr-2 h-4 w-4", selectedNiche === 'health_fitness' ? "opacity-100" : "opacity-0")} />
+                    Health & Fitness
+                  </CommandItem>
+                  <CommandItem onSelect={() => handleNicheSelect('finance')}>
+                    <Check className={cn("mr-2 h-4 w-4", selectedNiche === 'finance' ? "opacity-100" : "opacity-0")} />
+                    Finance
+                  </CommandItem>
+                  <CommandItem onSelect={() => handleNicheSelect('ecommerce')}>
+                    <Check className={cn("mr-2 h-4 w-4", selectedNiche === 'ecommerce' ? "opacity-100" : "opacity-0")} />
+                    E-commerce
+                  </CommandItem>
+                  <CommandItem onSelect={() => handleNicheSelect('education')}>
+                    <Check className={cn("mr-2 h-4 w-4", selectedNiche === 'education' ? "opacity-100" : "opacity-0")} />
+                    Education
+                  </CommandItem>
+                  <CommandItem onSelect={() => handleNicheSelect('software')}>
+                    <Check className={cn("mr-2 h-4 w-4", selectedNiche === 'software' ? "opacity-100" : "opacity-0")} />
+                    Software
+                  </CommandItem>
+                </CommandGroup>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
-        <div className="flex items-center space-x-2">
-          <Tabs defaultValue="all" className="w-full md:w-auto">
-            <TabsList>
-              <TabsTrigger value="all" onClick={() => setCurrentNiche(null)}>
-                All Offers
-              </TabsTrigger>
-              <TabsTrigger value="filter">
-                <Filter className="h-4 w-4 mr-1" />
-                Filter by Niche
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="filter" className="absolute z-10 mt-2 bg-background shadow rounded-md p-2 border w-48">
-              <div className="space-y-1">
-                {niches.map(niche => (
+      </div>
+      
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[...Array(ITEMS_PER_PAGE)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <CardTitle><Skeleton className="h-5 w-4/5" /></CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-4 w-full mb-2" />
+                <Skeleton className="h-4 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-1/2" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : error ? (
+        <p className="text-red-500">Error: {error.message}</p>
+      ) : offers && offers.length > 0 ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {offers.map((offer) => {
+              // When using formatGeoTargets, pass the full offer object, not just geo_targets
+              const geoList = formatGeoTargets(offer);
+              
+              return (
+                <Card key={offer.id}>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">{offer.offer_name}</CardTitle>
+                    {offer.is_featured && <Badge variant="secondary">Featured</Badge>}
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center space-x-4 py-2">
+                      <Avatar>
+                        <AvatarImage src={offer.offer_image || `https://avatar.vercel.sh/${offer.advertiser_name}.png`} />
+                        <AvatarFallback>{offer.advertiser_name?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <h4 className="text-sm font-semibold">{offer.advertiser_name}</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{offer.description?.substring(0, 100)}...</p>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {geoList.map((geo) => (
+                        <Badge key={geo.code} variant="outline">{geo.flag} {geo.code}</Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex justify-between items-center">
+                    <Button variant="secondary" size="sm" onClick={() => navigate(`/offers/${offer.o_id}`)}>
+                      View Offer
+                    </Button>
+                    {offer.application_status === 'approved' ? (
+                      <Badge variant="success">Approved</Badge>
+                    ) : offer.application_status === 'pending' ? (
+                      <Badge variant="warning">Pending</Badge>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={() => handleApplyForOffer(offer.o_id as string)}>
+                        Apply Now
+                      </Button>
+                    )}
+                  </CardFooter>
+                </Card>
+              );
+            })}
+          </div>
+          {totalPages > 1 && (
+            <div className="flex justify-center mt-6">
+              <div className="join">
+                <Button
+                  className="join-item"
+                  disabled={page === 1}
+                  onClick={() => handlePageChange(page - 1)}
+                >
+                  «
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
                   <Button
-                    key={niche}
-                    variant={currentNiche === niche ? "default" : "ghost"}
-                    className="w-full justify-start text-left"
-                    onClick={() => setCurrentNiche(niche)}
+                    key={pageNumber}
+                    className="join-item"
+                    variant={pageNumber === page ? 'default' : 'outline'}
+                    onClick={() => handlePageChange(pageNumber)}
                   >
-                    {niche}
+                    {pageNumber}
                   </Button>
                 ))}
+                <Button
+                  className="join-item"
+                  disabled={page === totalPages}
+                  onClick={() => handlePageChange(page + 1)}
+                >
+                  »
+                </Button>
               </div>
-            </TabsContent>
-          </Tabs>
-          <div className="border rounded-md flex">
-            <Button
-              variant={displayMode === 'grid' ? 'default' : 'ghost'}
-              size="icon"
-              className="rounded-r-none"
-              onClick={() => setDisplayMode('grid')}
-            >
-              <Grid className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={displayMode === 'list' ? 'default' : 'ghost'}
-              size="icon"
-              className="rounded-l-none"
-              onClick={() => setDisplayMode('list')}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {filteredOffers?.length === 0 && (
-        <div className="text-center p-12 border rounded-md">
-          <p className="text-muted-foreground">No offers match your search criteria.</p>
-        </div>
-      )}
-
-      {displayMode === 'grid' ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredOffers?.map(offer => {
-            const application = getApplicationStatus(offer.id);
-            const geoData = formatGeoTargets(offer);
-            const restrictedGeos = formatRestrictedGeos(offer);
-            
-            return (
-              <Card key={offer.id} className="overflow-hidden">
-                <CardHeader className="p-4">
-                  <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">{offer.name}</CardTitle>
-                    {offer.is_featured && (
-                      <Badge variant="secondary" className="flex items-center">
-                        <Award className="h-3 w-3 mr-1" />
-                        Featured
-                      </Badge>
-                    )}
-                  </div>
-                  <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
-                </CardHeader>
-                
-                <CardContent className="p-4 pt-0 space-y-3">
-                  <div className="text-sm flex items-center">
-                    <DollarSign className="h-4 w-4 mr-1 text-green-500" />
-                    <span className="font-medium mr-1">Commission:</span>
-                    {offer.commission_type === 'RevShare' 
-                      ? `${offer.commission_percent}% Revenue Share` 
-                      : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
-                  </div>
-                  
-                  {offer.niche && (
-                    <div className="text-sm flex items-center">
-                      <Tag className="h-4 w-4 mr-1 text-blue-500" />
-                      <span className="font-medium mr-1">Niche:</span>
-                      {offer.niche}
-                    </div>
-                  )}
-                  
-                  {/* Targeted Geos Section - Updated with fixed hover */}
-                  <div className="text-sm">
-                    <div className="flex items-center mb-1">
-                      <Globe className="h-4 w-4 mr-1 text-indigo-500" />
-                      <span className="font-medium">Targeted Geos:</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1 ml-5 mt-1">
-                      {geoData.length <= 3 ? (
-                        // If 3 or fewer countries, show them all
-                        geoData.map((geo, i) => (
-                          <Badge key={i} variant="outline" className="flex items-center">
-                            {geo.flag} {geo.code}
-                          </Badge>
-                        ))
-                      ) : (
-                        // If more than 3 countries, show globe icon with hover - fixed implementation
-                        <HoverCard openDelay={0} closeDelay={0}>
-                          <HoverCardTrigger asChild>
-                            <Badge variant="outline" className="text-xs cursor-pointer">
-                              <Globe className="h-3 w-3 mr-1" />
-                              {geoData.length} GEO's
-                            </Badge>
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white z-[9999]">
-                            <div className="font-medium mb-2">Targeted GEO's:</div>
-                            <div className="flex flex-wrap gap-1 max-w-[300px]">
-                              {geoData.map((geo, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  {geo.flag} {geo.code}
-                                </Badge>
-                              ))}
-                            </div>
-                          </HoverCardContent>
-                        </HoverCard>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Restricted Geos Section - Keep existing code */}
-                  {restrictedGeos && restrictedGeos.length > 0 && (
-                    <div className="text-sm">
-                      <div className="flex items-center mb-1">
-                        <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />
-                        <span className="font-medium">Restricted Geos:</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1 ml-5 mt-1">
-                        {restrictedGeos.map((geo, index) => (
-                          <Badge key={`${geo}-${index}`} variant="outline" className="flex items-center bg-red-50 text-red-700 border-red-200">
-                            <MapPin className="h-3 w-3 mr-1" />
-                            {geo}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Traffic Sources - Keep existing code */}
-                  {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
-                    <div className="text-sm">
-                      <div className="flex items-center">
-                        <Target className="h-4 w-4 mr-1 text-purple-500" />
-                        <span className="font-medium">Allowed Traffic:</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1 ml-5 mt-1">
-                        {offer.allowed_traffic_sources.map(source => (
-                          <Badge key={source} variant="outline">{source}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-                
-                <CardFooter className="p-4 pt-0 flex flex-col gap-2">
-                  {application?.status === 'approved' ? (
-                    <div className="w-full space-y-2">
-                      <Button 
-                        className="w-full" 
-                        onClick={() => navigate(`/offers/${offer.id}`)}
-                      >
-                        View Offer
-                      </Button>
-                    </div>
-                  ) : application?.status === 'pending' ? (
-                    <div className="w-full space-y-2">
-                      <div className="flex justify-between items-center w-full">
-                        <Badge variant="outline" className="flex items-center">
-                          <Clock className="h-3 w-3 mr-1" />
-                          Application Pending
-                        </Badge>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="text-destructive">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Cancel Application</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to cancel your application for "{offer.name}"? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>No, keep it</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleCancelApplication(application.id)}>
-                                Yes, cancel application
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                      <Button 
-                        variant="outline" 
-                        className="w-full" 
-                        onClick={() => handleViewOffer(offer)}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Details
-                      </Button>
-                    </div>
-                  ) : application?.status === 'rejected' ? (
-                    <div className="w-full space-y-2">
-                      <Button variant="outline" className="w-full" disabled>
-                        Application Rejected
-                      </Button>
-                      <Button 
-                        variant="secondary" 
-                        className="w-full" 
-                        onClick={() => handleViewOffer(offer)}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Details
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="w-full flex flex-col gap-2">
-                      <Button 
-                        variant="secondary" 
-                        className="w-full" 
-                        onClick={() => handleViewOffer(offer)}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Details
-                      </Button>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button className="w-full">Apply to Promote</Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Apply to Promote: {offer.name}</DialogTitle>
-                            <DialogDescription>
-                              Tell the advertiser how you plan to promote their offer
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="grid gap-4 py-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="traffic-source">Traffic Source</Label>
-                              <Input
-                                id="traffic-source"
-                                placeholder="e.g., Email, Social Media, Blog"
-                                value={trafficSource}
-                                onChange={(e) => setTrafficSource(e.target.value)}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="notes">Additional Notes (Optional)</Label>
-                              <Input
-                                id="notes"
-                                placeholder="Tell the advertiser more about your promotion plan"
-                                value={applicationNotes}
-                                onChange={(e) => setApplicationNotes(e.target.value)}
-                              />
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            <Button 
-                              onClick={() => {
-                                setSelectedOffer(offer);
-                                handleApply();
-                              }}
-                              disabled={!trafficSource || applyToOffer.isPending}
-                            >
-                              {applyToOffer.isPending ? 'Submitting...' : 'Submit Application'}
-                            </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  )}
-                </CardFooter>
-              </Card>
-            );
-          })}
-        </div>
+            </div>
+          )}
+        </>
       ) : (
-        <div className="border rounded-md overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-muted/50">
-                <th className="text-left p-3 font-medium">Offer</th>
-                <th className="text-left p-3 font-medium">Niche</th>
-                <th className="text-left p-3 font-medium">Commission</th>
-                <th className="text-left p-3 font-medium hide-on-mobile">Geo Targeting</th>
-                <th className="text-left p-3 font-medium">Status</th>
-                <th className="text-left p-3 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filteredOffers?.map(offer => renderOfferListItem(offer))}
-            </tbody>
-          </table>
-        </div>
+        <p>No offers found.</p>
       )}
-
-      {/* Fixed the style tag here - removing the jsx property */}
-      <style>
-        {`
-        @media (max-width: 768px) {
-          .hide-on-mobile {
-            display: none;
-          }
-        }
-        `}
-      </style>
     </div>
   );
 }

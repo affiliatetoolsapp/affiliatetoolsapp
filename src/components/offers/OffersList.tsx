@@ -1,398 +1,328 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { formatGeoTargets, formatRestrictedGeos } from '@/components/affiliate/utils/offerUtils';
 import { Offer } from '@/types';
+import { format, parseISO } from 'date-fns';
+
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { PlusCircle, Search, Filter, DollarSign, Globe, AlertTriangle, Tag, Target } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from '@/components/ui/badge';
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
-import AffiliateApprovals from './AffiliateApprovals';
+import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { useToast } from '@/hooks/use-toast';
+import { formatGeoTargets } from '@/components/affiliate/utils/offerUtils';
+import { cn } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 export default function OffersList() {
   const { user } = useAuth();
-  const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
-  
-  const isAdvertiser = user?.role === 'advertiser';
-  
-  // Get all offers query
-  const { data: offers, isLoading } = useQuery({
-    queryKey: ['offers', user?.id, user?.role],
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [offers, setOffers] = useState<Offer[]>([]);
+  const [selectedOfferIds, setSelectedOfferIds] = useState<string[]>([]);
+  const [selectAll, setSelectAll] = useState(false);
+
+  const { data: offersData, isLoading, error } = useQuery({
+    queryKey: ['offers'],
     queryFn: async () => {
       if (!user) return [];
-      
-      let query = supabase.from('offers').select('*');
-      
-      // If user is an advertiser, only show their offers
-      if (isAdvertiser) {
+
+      let query = supabase
+        .from('offers')
+        .select(`*, advertiser:advertiser_id(company_name)`)
+        .order('created_at', { ascending: false });
+
+      if (user.role === 'advertiser') {
         query = query.eq('advertiser_id', user.id);
       }
-      
+
       const { data, error } = await query;
+
       if (error) {
         console.error("Error fetching offers:", error);
         throw error;
       }
-      
-      console.log("Fetched offers:", data?.length);
-      return data as Offer[];
+
+      return data.map(offer => ({
+        ...offer,
+        advertiser_name: offer.advertiser?.company_name || 'Unknown'
+      }));
     },
-    enabled: !!user,
   });
-  
-  // Get pending applications count - now used more consistently across components
-  const { data: pendingApplicationsCount } = useQuery({
-    queryKey: ['pending-applications-count', user?.id],
-    queryFn: async () => {
-      if (!user || !isAdvertiser) return 0;
-      
-      // Get all pending applications first
-      const { data, error } = await supabase
-        .from('affiliate_offers')
-        .select(`
-          id, 
-          offers!inner(advertiser_id)
-        `)
-        .eq('status', 'pending');
-      
+
+  useEffect(() => {
+    if (offersData) {
+      setOffers(offersData);
+    }
+  }, [offersData]);
+
+  useEffect(() => {
+    if (offers) {
+      setSelectAll(selectedOfferIds.length === offers.length && offers.length > 0);
+    } else {
+      setSelectAll(false);
+    }
+  }, [selectedOfferIds, offers]);
+
+  const mutation = useMutation({
+    mutationFn: async (offerId: string) => {
+      const { error } = await supabase
+        .from('offers')
+        .delete()
+        .eq('id', offerId);
+
       if (error) {
-        console.error("Error fetching pending applications count:", error);
+        console.error("Error deleting offer:", error);
         throw error;
       }
-      
-      // Filter for this advertiser's offers
-      const filteredApplications = data.filter(app => 
-        app.offers?.advertiser_id === user.id
-      );
-      
-      console.log("Pending applications count:", filteredApplications.length);
-      return filteredApplications.length;
     },
-    enabled: !!user && isAdvertiser,
-    refetchInterval: 30000,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['offers'] });
+      toast({
+        title: "Offer Deleted",
+        description: "The offer has been successfully deleted.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete offer. Please try again.",
+      });
+    },
   });
-  
-  // Filter offers based on search query
-  const filteredOffers = offers?.filter(offer => 
-    offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    offer.niche?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
-  const handleOfferClick = (offerId: string) => {
-    console.log("Navigating to offer:", offerId);
-    navigate(`/offers/${offerId}`);
+  const handleOfferDeletion = (offerId: string) => {
+    mutation.mutate(offerId);
   };
-  
+
+  const handleCheckboxChange = (offerId: string) => {
+    setSelectedOfferIds((prevSelected) =>
+      prevSelected.includes(offerId)
+        ? prevSelected.filter((id) => id !== offerId)
+        : [...prevSelected, offerId]
+    );
+  };
+
+  const handleSelectAllChange = () => {
+    if (selectAll) {
+      setSelectedOfferIds([]);
+    } else if (offers) {
+      setSelectedOfferIds(offers.map((offer) => offer.id));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedOfferIds.length === 0) {
+      toast({
+        title: "No Offers Selected",
+        description: "Please select offers to delete.",
+      });
+      return;
+    }
+
+    try {
+      await Promise.all(selectedOfferIds.map(async (offerId) => {
+        const { error } = await supabase
+          .from('offers')
+          .delete()
+          .eq('id', offerId);
+
+        if (error) {
+          console.error("Error deleting offer:", error);
+          throw error;
+        }
+      }));
+
+      queryClient.invalidateQueries({ queryKey: ['offers'] });
+      toast({
+        title: "Offers Deleted",
+        description: "The selected offers have been successfully deleted.",
+      });
+      setSelectedOfferIds([]);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete selected offers. Please try again.",
+      });
+    }
+  };
+
+  if (isLoading) return <p>Loading offers...</p>;
+  if (error) return <p>Error: {error.message}</p>;
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {isAdvertiser ? 'My Offers' : 'Available Offers'}
-          </h1>
-          <p className="text-muted-foreground">
-            {isAdvertiser 
-              ? 'Manage your offers and affiliate applications' 
-              : 'Browse and apply to available offers'}
-          </p>
-        </div>
-        
-        {isAdvertiser && (
-          <Button asChild>
-            <a href="/offers/create">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Create Offer
-            </a>
-          </Button>
+    <div className="container mx-auto py-6">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Offers</h1>
+        {user?.role === 'admin' && (
+          <Button onClick={() => navigate('/offers/create')}>Create New Offer</Button>
         )}
       </div>
-      
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search" 
-            placeholder="Search offers..." 
-            className="pl-8"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <Button variant="outline" size="icon">
-          <Filter className="h-4 w-4" />
-        </Button>
-      </div>
-      
-      {isAdvertiser ? (
-        <Tabs defaultValue="active">
-          <TabsList>
-            <TabsTrigger value="active">Active Offers</TabsTrigger>
-            <TabsTrigger value="applications">
-              Affiliate Applications
-              {pendingApplicationsCount ? (
-                <span className="ml-2 px-2 py-0.5 text-xs bg-primary text-primary-foreground rounded-full">
-                  {pendingApplicationsCount}
-                </span>
-              ) : null}
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="active">
-            {isLoading ? (
-              <div className="flex justify-center p-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : filteredOffers?.length ? (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {filteredOffers.map((offer) => (
-                  <Card key={offer.id} className="overflow-hidden">
-                    <CardHeader className="p-4">
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">
-                          <button 
-                            onClick={() => handleOfferClick(offer.id)} 
-                            className="hover:underline text-left"
-                          >
-                            {offer.name}
-                          </button>
-                        </CardTitle>
-                        <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                          <DollarSign className="h-3 w-3 mr-1" />
-                          {offer.commission_amount}
-                          <Badge variant="outline" className="ml-1 py-0 px-1 text-xs">
-                            {offer.commission_type}
-                          </Badge>
-                        </Badge>
-                      </div>
-                      <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-0 grid gap-2">
-                      {offer.offer_image && (
-                        <div className="mb-3 rounded-md overflow-hidden h-32 bg-gray-100">
-                          <img 
-                            src={offer.offer_image} 
-                            alt={offer.name} 
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
-                    
-                      <div className="flex flex-wrap gap-x-4 gap-y-2 items-center">
-                        {offer.niche && (
-                          <div className="text-sm flex items-center">
-                            <Tag className="h-4 w-4 mr-1 text-blue-500" />
-                            <span className="font-medium mr-1">Niche:</span>
-                            <Badge variant="outline" className="text-xs ml-1">
-                              {offer.niche}
-                            </Badge>
-                          </div>
-                        )}
-                        
-                        {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
-                          <div className="text-sm flex items-center">
-                            <Target className="h-4 w-4 mr-1 text-purple-500" />
-                            <span className="font-medium mr-1">Traffic:</span>
-                            <div className="flex flex-wrap gap-1">
-                              {offer.allowed_traffic_sources.length <= 2 ? (
-                                offer.allowed_traffic_sources.map(source => (
-                                  <Badge key={source} variant="outline" className="text-xs">
-                                    {source}
-                                  </Badge>
-                                ))
-                              ) : (
-                                <HoverCard openDelay={0} closeDelay={0}>
-                                  <HoverCardTrigger asChild>
-                                    <Badge variant="outline" className="text-xs cursor-pointer">
-                                      {offer.allowed_traffic_sources.length} sources
-                                    </Badge>
-                                  </HoverCardTrigger>
-                                  <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
-                                    <div className="font-medium mb-2">Allowed Traffic Sources:</div>
-                                    <div className="flex flex-wrap gap-1 max-w-[300px]">
-                                      {offer.allowed_traffic_sources.map((source, i) => (
-                                        <Badge key={i} variant="outline" className="text-xs">
-                                          {source}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  </HoverCardContent>
-                                </HoverCard>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Geo targets display */}
-                        <div className="text-sm flex items-center">
-                          <Globe className="h-4 w-4 mr-1 text-indigo-500" />
-                          <span className="font-medium mr-1">Geo:</span>
-                          {formatGeoTargets(offer).length > 0 ? (
-                            <HoverCard openDelay={0} closeDelay={0}>
-                              <HoverCardTrigger asChild>
-                                <Badge variant="outline" className="text-xs cursor-pointer ml-1">
-                                  {formatGeoTargets(offer).length} {formatGeoTargets(offer).length === 1 ? 'country' : 'countries'}
-                                </Badge>
-                              </HoverCardTrigger>
-                              <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
-                                <div className="font-medium mb-2">Targeted GEO's:</div>
-                                <div className="flex flex-wrap gap-1 max-w-[300px]">
-                                  {formatGeoTargets(offer).map((geo, i) => (
-                                    <Badge key={i} variant="outline" className="text-xs flex items-center gap-1">
-                                      <span>{geo.flag}</span> <span>{geo.code}</span>
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </HoverCardContent>
-                            </HoverCard>
-                          ) : (
-                            <span className="text-muted-foreground ml-1">Global</span>
-                          )}
-                        </div>
-                        
-                        {/* Restricted geos display */}
-                        {offer.restricted_geos && offer.restricted_geos.length > 0 && (
-                          <div className="text-sm flex items-center">
-                            <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />
-                            <span className="font-medium mr-1">Restricted:</span>
-                            <HoverCard openDelay={0} closeDelay={0}>
-                              <HoverCardTrigger asChild>
-                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs cursor-pointer ml-1">
-                                  {offer.restricted_geos.length} {offer.restricted_geos.length === 1 ? 'country' : 'countries'}
-                                </Badge>
-                              </HoverCardTrigger>
-                              <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
-                                <div className="font-medium mb-2">Restricted GEO's:</div>
-                                <div className="flex flex-wrap gap-1 max-w-[300px]">
-                                  {offer.restricted_geos.map((geo, i) => {
-                                    const countryFlag = formatGeoTargets({ geo_targets: [geo] })[0]?.flag || '';
-                                    return (
-                                      <Badge key={i} variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs flex items-center gap-1">
-                                        <span>{countryFlag}</span> <span>{geo}</span>
-                                      </Badge>
-                                    );
-                                  })}
-                                </div>
-                              </HoverCardContent>
-                            </HoverCard>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="mt-2 flex justify-end">
-                        <Button variant="outline" size="sm" onClick={() => handleOfferClick(offer.id)}>
-                          Manage
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card className="p-8 text-center">
-                <p className="text-muted-foreground mb-4">You don't have any offers yet</p>
-                <Button asChild>
-                  <a href="/offers/create">
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Create Your First Offer
-                  </a>
-                </Button>
-              </Card>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="applications">
-            <AffiliateApprovals />
-          </TabsContent>
-        </Tabs>
-      ) : (
-        <div>
-          {isLoading ? (
-            <div className="flex justify-center p-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          ) : filteredOffers?.length ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {filteredOffers.map((offer) => (
-                <Card key={offer.id} className="overflow-hidden">
-                  <CardHeader className="p-4">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{offer.name}</CardTitle>
-                      <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                        <DollarSign className="h-3 w-3 mr-1" />
-                        {offer.commission_amount}
-                        <Badge variant="outline" className="ml-1 py-0 px-1 text-xs">
-                          {offer.commission_type}
-                        </Badge>
-                      </Badge>
-                    </div>
-                    <CardDescription className="line-clamp-2">{offer.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0 grid gap-2">
-                    {offer.offer_image && (
-                      <div className="mb-3 rounded-md overflow-hidden h-32 bg-gray-100">
-                        <img 
-                          src={offer.offer_image} 
-                          alt={offer.name} 
-                          className="w-full h-full object-cover"
+
+      {offers && offers.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Current Offers</CardTitle>
+            <CardDescription>
+              Manage and view your current offers.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableCaption>A list of your current offers.</TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <th>
+                    <Checkbox
+                      checked={selectAll}
+                      onCheckedChange={handleSelectAllChange}
+                    />
+                  </th>
+                  <TableHead>Offer</TableHead>
+                  <TableHead>Advertiser</TableHead>
+                  <TableHead>Commission</TableHead>
+                  <TableHead>Geo</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created At</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {offers.map((offer) => {
+                  // When using formatGeoTargets, pass the full offer object, not just geo_targets
+                  const geoList = formatGeoTargets(offer);
+
+                  return (
+                    <TableRow key={offer.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedOfferIds.includes(offer.id)}
+                          onCheckedChange={() => handleCheckboxChange(offer.id)}
                         />
-                      </div>
-                    )}
-                  
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2">
-                      {offer.niche && (
-                        <div className="text-sm flex items-center">
-                          <Tag className="h-4 w-4 mr-1 text-blue-500" />
-                          <span className="font-medium mr-1">Niche:</span>
-                          <Badge variant="outline" className="text-xs ml-1">
-                            {offer.niche}
-                          </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center space-x-2">
+                          <Avatar>
+                            <AvatarImage src={offer.offer_image} />
+                            <AvatarFallback>{offer.name.substring(0, 2)}</AvatarFallback>
+                          </Avatar>
+                          <span>{offer.name}</span>
                         </div>
-                      )}
-                      
-                      {/* Geo targets display */}
-                      <div className="text-sm flex items-center">
-                        <Globe className="h-4 w-4 mr-1 text-indigo-500" />
-                        <span className="font-medium mr-1">Geo:</span>
-                        {formatGeoTargets(offer).length > 0 ? (
-                          <HoverCard openDelay={0} closeDelay={0}>
-                            <HoverCardTrigger asChild>
-                              <Badge variant="outline" className="text-xs cursor-pointer ml-1">
-                                {formatGeoTargets(offer).length} {formatGeoTargets(offer).length === 1 ? 'country' : 'countries'}
-                              </Badge>
-                            </HoverCardTrigger>
-                            <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
-                              <div className="font-medium mb-2">Targeted GEO's:</div>
-                              <div className="flex flex-wrap gap-1 max-w-[300px]">
-                                {formatGeoTargets(offer).map((geo, i) => (
-                                  <Badge key={i} variant="outline" className="text-xs">
-                                    {geo.flag} {geo.code}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </HoverCardContent>
-                          </HoverCard>
-                        ) : (
-                          <span className="text-muted-foreground ml-1">Global</span>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      </TableCell>
+                      <TableCell>{offer.advertiser_name}</TableCell>
+                      <TableCell>
+                        {offer.commission_type} - {offer.commission_amount || offer.commission_percent}%
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          {geoList.map((geo) => (
+                            <div key={geo.code} className="inline-flex items-center rounded-md border px-2 py-1 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 dark:border-muted/50 dark:text-muted-foreground/80">
+                              {geo.flag}
+                            </div>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={offer.status === 'active' ? 'default' : 'secondary'}>
+                          {offer.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{format(parseISO(offer.created_at), 'MMM d, yyyy')}</TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => navigate(`/offers/${offer.id}`)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleOfferDeletion(offer.id)} className="text-red-500 focus:bg-red-50">
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent>
+            <p>No offers found.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {user?.role === 'admin' && (
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="destructive" disabled={selectedOfferIds.length === 0}>
+              Bulk Delete
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Are you absolutely sure?</DialogTitle>
+              <DialogDescription>
+                This action cannot be undone. This will permanently delete the selected offers
+                and remove their data from our servers.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">
+                  Selected Offers
+                </Label>
+                <div className="col-span-3 space-y-1">
+                  {selectedOfferIds.length > 0 ? (
+                    selectedOfferIds.map((offerId) => (
+                      <Badge key={offerId}>{offerId}</Badge>
+                    ))
+                  ) : (
+                    <p>No offers selected.</p>
+                  )}
+                </div>
+              </div>
             </div>
-          ) : (
-            <Card className="p-8 text-center">
-              <p className="text-muted-foreground">No matching offers found</p>
-            </Card>
-          )}
-        </div>
+            <DialogFooter>
+              <Button variant="secondary">
+                Cancel
+              </Button>
+              <Button type="submit" variant="destructive" onClick={handleBulkDelete}>
+                Continue
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

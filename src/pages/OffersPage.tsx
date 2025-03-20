@@ -95,7 +95,12 @@ export default function OffersPage() {
   
   // If we're in edit mode and have offer data, show the creation form with the offer data
   if (isEditMode && offerData && (user.role === 'advertiser' || user.role === 'admin')) {
-    return <CreateOffer initialData={offerData as Offer} />;
+    // Fix any data mapping inconsistencies
+    const offerForEdit: Offer = {
+      ...offerData,
+      offer_url: offerData.url // Map url to offer_url for the form
+    };
+    return <CreateOffer initialData={offerForEdit} />;
   }
   
   // If we have an ID with "create", we show the creation form (only for advertisers and admins)

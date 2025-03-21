@@ -1,8 +1,7 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, deleteOfferCompletely } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Offer } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -71,13 +70,13 @@ export default function OfferManagement() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  // Changed default viewMode from 'grid' to 'table'
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [filterOption, setFilterOption] = useState<FilterOption>('all');
   const filterMenuRef = useRef<HTMLButtonElement>(null);
   const [offerToDelete, setOfferToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const isAdvertiser = user?.role === 'advertiser';
   
@@ -177,38 +176,13 @@ export default function OfferManagement() {
     if (!offerToDelete) return;
     
     try {
+      setIsDeleting(true);
       console.log("Attempting to delete offer ID:", offerToDelete);
       
-      // First, check for any affiliate applications for this offer
-      const { data: affiliateOffers, error: affilateOffersError } = await supabase
-        .from('affiliate_offers')
-        .select('id')
-        .eq('offer_id', offerToDelete);
+      // Use the new helper function that handles all dependencies
+      const { success, error } = await deleteOfferCompletely(offerToDelete);
       
-      if (affilateOffersError) {
-        console.error("Error checking affiliate offers:", affilateOffersError);
-      } else if (affiliateOffers && affiliateOffers.length > 0) {
-        // Delete all affiliate applications for this offer first
-        console.log(`Removing ${affiliateOffers.length} affiliate applications for this offer`);
-        const { error: deleteAffiliateOffersError } = await supabase
-          .from('affiliate_offers')
-          .delete()
-          .eq('offer_id', offerToDelete);
-        
-        if (deleteAffiliateOffersError) {
-          console.error("Error deleting affiliate offers:", deleteAffiliateOffersError);
-          throw deleteAffiliateOffersError;
-        }
-      }
-      
-      // Now delete the offer itself
-      const { error } = await supabase
-        .from('offers')
-        .delete()
-        .eq('id', offerToDelete);
-      
-      if (error) {
-        console.error("Error deleting offer:", error);
+      if (!success) {
         throw error;
       }
       
@@ -229,7 +203,8 @@ export default function OfferManagement() {
         variant: "destructive"
       });
     } finally {
-      setOfferToDelete(null); // Clear the offer to delete
+      setOfferToDelete(null);
+      setIsDeleting(false);
     }
   };
   
@@ -300,12 +275,20 @@ export default function OfferManagement() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={confirmDeleteOffer}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isDeleting}
             >
-              Delete
+              {isDeleting ? (
+                <>
+                  <span className="animate-spin mr-2">&#9696;</span>
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

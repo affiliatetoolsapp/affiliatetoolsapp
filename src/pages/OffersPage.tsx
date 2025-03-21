@@ -156,7 +156,22 @@ export default function OffersPage() {
     console.log("[OffersPage] Loading advertiser offer management");
     return (
       <ProtectedRoute allowedRoles={['advertiser']}>
-        <OfferManagement />
+        <OfferManagement 
+          onDeleteSuccess={(offerName) => {
+            toast({
+              title: "Offer Deleted",
+              description: `${offerName} has been successfully deleted.`,
+              variant: "default"
+            });
+          }}
+          onDeleteError={(message) => {
+            toast({
+              title: "Error Deleting Offer",
+              description: message || "There was a problem deleting the offer. Please try again.",
+              variant: "destructive"
+            });
+          }}
+        />
       </ProtectedRoute>
     );
   }

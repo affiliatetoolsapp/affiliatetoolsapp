@@ -591,6 +591,12 @@ export type Database = {
       }
     }
     Functions: {
+      force_delete_affiliate_offers: {
+        Args: {
+          p_offer_id: string
+        }
+        Returns: undefined
+      }
       get_advertiser_pending_applications: {
         Args: {
           advertiser_id: string

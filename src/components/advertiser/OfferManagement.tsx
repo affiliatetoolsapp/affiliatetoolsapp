@@ -64,7 +64,13 @@ type SortOrder = 'asc' | 'desc';
 type FilterOption = 'all' | 'active' | 'inactive' | 'paused';
 type ViewMode = 'grid' | 'table';
 
-export default function OfferManagement() {
+// Define the props interface
+interface OfferManagementProps {
+  onDeleteSuccess?: (offerName: string) => void;
+  onDeleteError?: (message: string) => void;
+}
+
+export default function OfferManagement({ onDeleteSuccess, onDeleteError }: OfferManagementProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -179,6 +185,9 @@ export default function OfferManagement() {
       setIsDeleting(true);
       console.log("Attempting to delete offer ID:", offerToDelete);
       
+      // Find the offer name before deleting
+      const offerToDeleteDetails = offers?.find(offer => offer.id === offerToDelete);
+      
       // Use the new helper function that handles all dependencies
       const { success, error } = await deleteOfferCompletely(offerToDelete);
       
@@ -190,25 +199,35 @@ export default function OfferManagement() {
       await queryClient.invalidateQueries({ queryKey: ['offers', user?.id, user?.role] });
       await refetch();
       
-      toast({
-        title: "Offer deleted",
-        description: "The offer has been successfully deleted.",
-        variant: "default"
-      });
+      // Use the callback prop if provided, otherwise use the toast directly
+      if (onDeleteSuccess && offerToDeleteDetails) {
+        onDeleteSuccess(offerToDeleteDetails.name);
+      } else {
+        toast({
+          title: "Offer deleted",
+          description: "The offer has been successfully deleted.",
+          variant: "default"
+        });
+      }
     } catch (error) {
       console.error("Error deleting offer:", error);
-      toast({
-        title: "Failed to delete offer",
-        description: "There was an error deleting the offer. Please try again.",
-        variant: "destructive"
-      });
+      
+      // Use the callback prop if provided, otherwise use the toast directly
+      if (onDeleteError) {
+        onDeleteError(error instanceof Error ? error.message : "Unknown error");
+      } else {
+        toast({
+          title: "Failed to delete offer",
+          description: "There was an error deleting the offer. Please try again.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setOfferToDelete(null);
       setIsDeleting(false);
     }
   };
   
-  // Filter offers based on search query and filter option
   const filteredOffers = offers?.filter(offer => 
     offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||

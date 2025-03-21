@@ -2,8 +2,10 @@ import { Database } from '@/integrations/supabase/types';
 
 export interface Offer {
   id: string;
+  advertiser_id: string;
   name: string;
   description?: string;
+  url: string;
   niche?: string;
   status: string;
   commission_type: string;
@@ -21,6 +23,18 @@ export interface Offer {
     geo: string;
     amount: string | number;
   }>;
+  target_audience?: string;
+  conversion_requirements?: string;
+  restrictions?: string;
+  marketing_materials?: Array<{
+    url: string;
+    name: string;
+    path: string;
+    size: number;
+    type: string;
+  }>;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export type AffiliateOffer = Database['public']['Tables']['affiliate_offers']['Row'];

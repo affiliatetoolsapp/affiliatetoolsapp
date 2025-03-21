@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { Offer } from '@/types';
+import { Offer, GeoCommission } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -53,24 +53,33 @@ export default function OfferBrowser() {
       if (error) throw error;
       
       // Transform data to match Offer type
-      return (data || []).map(offer => ({
-        ...offer,
-        commission_amount: offer.commission_amount?.toString() || '0',
-        commission_percent: offer.commission_percent?.toString(),
-        payout_amount: offer.commission_amount?.toString() || '0', // Use commission_amount as payout_amount
-        geo_commissions: Array.isArray(offer.geo_commissions) 
-          ? offer.geo_commissions.map(gc => ({
-              geo: (gc as any).geo || '',
-              amount: ((gc as any).amount || 0).toString()
-            }))
-          : []
-      })) as Offer[];
+      const transformedData = data.map(offer => {
+        const geoCommissions = Array.isArray(offer.geo_commissions)
+          ? offer.geo_commissions.map(gc => {
+              const geoCommission = gc as { country: string; commission_amount: number; commission_percent: number };
+              return {
+                country: geoCommission.country || '',
+                commission_amount: Number(geoCommission.commission_amount || 0),
+                commission_percent: Number(geoCommission.commission_percent || 0)
+              };
+            })
+          : [];
+
+        return {
+          ...offer,
+          commission_amount: Number(offer.commission_amount || 0),
+          commission_percent: Number(offer.commission_percent || 0),
+          geo_commissions: geoCommissions
+        } as unknown as Offer;
+      });
+      
+      return transformedData;
     },
   });
 
   useEffect(() => {
     if (allOffers) {
-      setOffers(allOffers);
+      setOffers(allOffers as Offer[]);
     }
   }, [allOffers]);
 
@@ -90,14 +99,13 @@ export default function OfferBrowser() {
       return null;
     }
 
-    // Fix: Safely extract amount values from each geo_commission object
+    // Extract commission values based on commission type
     const amounts = offer.geo_commissions.map(gc => {
-      // Handle different possible types of geo_commission
-      if (typeof gc === 'object' && gc !== null) {
-        const amount = (gc as any).amount;
-        return typeof amount === 'string' ? parseFloat(amount) : typeof amount === 'number' ? amount : 0;
+      const geoCommission = gc as unknown as { commission_amount: number; commission_percent: number };
+      if (offer.commission_type === 'RevShare') {
+        return geoCommission.commission_percent || 0;
       }
-      return 0;
+      return geoCommission.commission_amount || 0;
     }).filter(amount => !isNaN(amount));
     
     if (amounts.length === 0) return null;

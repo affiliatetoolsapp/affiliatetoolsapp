@@ -78,7 +78,7 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Commission:</span>
                     <span className="font-medium">
-                      {offer.commission_type === 'percentage' 
+                      {offer.commission_type === 'RevShare' 
                         ? `${offer.commission_percent}%`
                         : `$${offer.commission_amount}`
                       }
@@ -136,7 +136,7 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
               <td className="font-medium">{offer.name}</td>
               <td><Badge variant="outline">{offer.status}</Badge></td>
               <td>
-                {offer.commission_type === 'percentage'
+                {offer.commission_type === 'RevShare'
                   ? `${offer.commission_percent}%`
                   : `$${offer.commission_amount}`
                 }

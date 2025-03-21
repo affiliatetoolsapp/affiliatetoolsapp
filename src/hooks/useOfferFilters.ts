@@ -15,11 +15,13 @@ export function useOfferFilters(offers: Offer[], filters: FilterOptions): Offer[
       }
 
       // Filter by payout range
-      const payout = parseFloat(offer.payout_amount || '0');
-      if (filters.payoutMin !== null && payout < filters.payoutMin) {
+      const commission = offer.commission_type === 'RevShare'
+        ? offer.commission_percent || 0
+        : offer.commission_amount || 0;
+      if (filters.payoutMin !== null && commission < filters.payoutMin) {
         return false;
       }
-      if (filters.payoutMax !== null && payout > filters.payoutMax) {
+      if (filters.payoutMax !== null && commission > filters.payoutMax) {
         return false;
       }
 

@@ -49,6 +49,7 @@ const offerSchema = z.object({
   commission_type: z.string().min(1, 'Please select a commission type'),
   commission_amount: z.string().optional(),
   commission_percent: z.string().optional(),
+  payout_frequency: z.string().min(1, 'Please select a payout frequency'),
   allowed_traffic_sources: z.array(z.string()).optional(),
   geo_targets: z.array(z.string()).optional(),
   restricted_geos: z.array(z.string()).optional(),
@@ -89,6 +90,7 @@ const CreateOffer = () => {
       commission_type: 'CPA',
       commission_amount: '',
       commission_percent: '',
+      payout_frequency: 'Monthly',
       allowed_traffic_sources: [],
       geo_targets: [],
       restricted_geos: [],
@@ -302,6 +304,7 @@ const CreateOffer = () => {
         // Commission fields based on type and geo settings
         commission_amount: !geoCommissionsEnabled && data.commission_amount ? parseFloat(data.commission_amount) : null,
         commission_percent: !geoCommissionsEnabled && data.commission_percent ? parseFloat(data.commission_percent) : null,
+        payout_frequency: data.payout_frequency,
       };
 
       console.log("Prepared offer data:", offerData);
@@ -640,6 +643,29 @@ const CreateOffer = () => {
                         />
                       </div>
                     ) : null}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="payout_frequency">Payout Frequency</Label>
+                      <Select
+                        onValueChange={(value) => setValue('payout_frequency', value)}
+                        defaultValue={getValues('payout_frequency')}
+                      >
+                        <SelectTrigger id="payout_frequency">
+                          <SelectValue placeholder="Select payout frequency" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Weekly">Weekly</SelectItem>
+                          <SelectItem value="Biweekly">Bi-weekly</SelectItem>
+                          <SelectItem value="Monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {errors.payout_frequency && (
+                        <p className="text-red-500 text-sm">{errors.payout_frequency.message}</p>
+                      )}
+                      <p className="text-sm text-muted-foreground">
+                        How often affiliates will receive payouts for this offer
+                      </p>
+                    </div>
                   </div>
                   
                   <div className="space-y-4">

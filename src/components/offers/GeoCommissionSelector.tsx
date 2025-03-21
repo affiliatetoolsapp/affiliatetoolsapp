@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -11,14 +10,10 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { Trash2, DollarSign, Plus } from 'lucide-react';
+import { Trash2, DollarSign, Percent, Plus } from 'lucide-react';
 import countryCodes from './countryCodes';
 import { Checkbox } from '@/components/ui/checkbox';
-
-interface GeoCommission {
-  country: string;
-  amount: string;
-}
+import { GeoCommission } from '@/types';
 
 interface GeoCommissionSelectorProps {
   geoCommissions: GeoCommission[];
@@ -26,6 +21,7 @@ interface GeoCommissionSelectorProps {
   onGeoTargetsUpdate: (geoTargets: string[]) => void;
   enabled: boolean;
   onEnabledChange: (enabled: boolean) => void;
+  commissionType: string;
 }
 
 const GeoCommissionSelector: React.FC<GeoCommissionSelectorProps> = ({
@@ -33,10 +29,12 @@ const GeoCommissionSelector: React.FC<GeoCommissionSelectorProps> = ({
   onChange,
   onGeoTargetsUpdate,
   enabled,
-  onEnabledChange
+  onEnabledChange,
+  commissionType
 }) => {
   const [selectedCountry, setSelectedCountry] = useState<string>('');
-  const [amount, setAmount] = useState<string>('');
+  const [commissionAmount, setCommissionAmount] = useState<string>('');
+  const [commissionPercent, setCommissionPercent] = useState<string>('');
   
   // This effect syncs the geo_targets with the selected countries in geoCommissions
   useEffect(() => {
@@ -47,24 +45,37 @@ const GeoCommissionSelector: React.FC<GeoCommissionSelectorProps> = ({
   }, [geoCommissions, onGeoTargetsUpdate, enabled]);
   
   const handleAddCountry = () => {
-    if (!selectedCountry || !amount) return;
+    if (!selectedCountry) return;
+    
+    const newCommission: GeoCommission = {
+      country: selectedCountry,
+    };
+
+    if (commissionType === 'RevShare') {
+      if (!commissionPercent) return;
+      newCommission.commission_percent = Number(commissionPercent);
+    } else {
+      if (!commissionAmount) return;
+      newCommission.commission_amount = Number(commissionAmount);
+    }
     
     // Check if country already exists
     const exists = geoCommissions.some(gc => gc.country === selectedCountry);
     if (exists) {
-      // Update existing country amount
+      // Update existing country commission
       const updated = geoCommissions.map(gc => 
-        gc.country === selectedCountry ? { ...gc, amount } : gc
+        gc.country === selectedCountry ? newCommission : gc
       );
       onChange(updated);
     } else {
       // Add new country
-      onChange([...geoCommissions, { country: selectedCountry, amount }]);
+      onChange([...geoCommissions, newCommission]);
     }
     
     // Reset form
     setSelectedCountry('');
-    setAmount('');
+    setCommissionAmount('');
+    setCommissionPercent('');
   };
   
   const handleRemoveCountry = (country: string) => {
@@ -128,19 +139,31 @@ const GeoCommissionSelector: React.FC<GeoCommissionSelectorProps> = ({
             </div>
             
             <div className="w-full md:w-1/3">
-              <Label htmlFor="amount">Commission Amount</Label>
+              <Label htmlFor="commission">
+                {commissionType === 'RevShare' ? 'Commission Percentage' : 'Commission Amount'}
+              </Label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  {commissionType === 'RevShare' ? (
+                    <Percent className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  )}
                 </div>
                 <Input
-                  id="amount"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  id="commission"
+                  value={commissionType === 'RevShare' ? commissionPercent : commissionAmount}
+                  onChange={(e) => {
+                    if (commissionType === 'RevShare') {
+                      setCommissionPercent(e.target.value);
+                    } else {
+                      setCommissionAmount(e.target.value);
+                    }
+                  }}
                   type="number"
-                  placeholder="0.00"
+                  placeholder={commissionType === 'RevShare' ? "0" : "0.00"}
                   min="0"
-                  step="0.01"
+                  step={commissionType === 'RevShare' ? "1" : "0.01"}
                   className="pl-8"
                 />
               </div>
@@ -150,7 +173,7 @@ const GeoCommissionSelector: React.FC<GeoCommissionSelectorProps> = ({
               <Button 
                 type="button" 
                 onClick={handleAddCountry}
-                disabled={!selectedCountry || !amount}
+                disabled={!selectedCountry || (commissionType === 'RevShare' ? !commissionPercent : !commissionAmount)}
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Add
@@ -169,7 +192,12 @@ const GeoCommissionSelector: React.FC<GeoCommissionSelectorProps> = ({
                       <span>{getCountryName(gc.country)} ({gc.country})</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Badge variant="outline">${gc.amount}</Badge>
+                      <Badge variant="outline">
+                        {commissionType === 'RevShare' 
+                          ? `${gc.commission_percent}%`
+                          : `$${gc.commission_amount}`
+                        }
+                      </Badge>
                       <button
                         type="button"
                         onClick={() => handleRemoveCountry(gc.country)}

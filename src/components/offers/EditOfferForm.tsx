@@ -13,11 +13,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
-import { Offer } from '@/types';
+import { Offer, GeoCommission, MarketingMaterial, Json } from '@/types';
 import { COUNTRY_CODES } from '@/components/offers/countryCodes';
 import { X, Upload, Trash2, Image } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import GeoCommissionSelector from './GeoCommissionSelector';
 
 const TRAFFIC_SOURCES = [
   "Search",
@@ -76,8 +77,8 @@ const formSchema = z.object({
   description: z.string().optional(),
   url: z.string().url({ message: "Must be a valid URL" }),
   commission_type: z.string(),
-  commission_amount: z.string().optional(),
-  commission_percent: z.string().optional(),
+  commission_amount: z.number().optional(),
+  commission_percent: z.number().optional(),
   niche: z.string().optional(),
   status: z.string(),
   target_audience: z.string().optional(),
@@ -98,16 +99,24 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
   const [restrictedGeos, setRestrictedGeos] = useState<string[]>(offer.restricted_geos || []);
   const [geoTargets, setGeoTargets] = useState<string[]>(
     typeof offer.geo_targets === 'string' 
-      ? JSON.parse(offer.geo_targets) 
+      ? JSON.parse(offer.geo_targets as string) 
       : Array.isArray(offer.geo_targets) 
         ? offer.geo_targets 
         : offer.geo_targets 
-          ? Object.keys(offer.geo_targets) 
+          ? Object.keys(offer.geo_targets as Json) 
           : []
+  );
+  const [geoCommissions, setGeoCommissions] = useState<GeoCommission[]>(
+    Array.isArray(offer.geo_commissions) ? offer.geo_commissions : []
+  );
+  const [geoCommissionsEnabled, setGeoCommissionsEnabled] = useState(
+    Array.isArray(offer.geo_commissions) && offer.geo_commissions.length > 0
   );
   const [offerImage, setOfferImage] = useState<string | null>(offer.offer_image || null);
   const [offerImageFile, setOfferImageFile] = useState<File | null>(null);
-  const [creatives, setCreatives] = useState<any[]>(offer.marketing_materials || []);
+  const [creatives, setCreatives] = useState<MarketingMaterial[]>(
+    Array.isArray(offer.marketing_materials) ? offer.marketing_materials : []
+  );
   const [newCreativeFiles, setNewCreativeFiles] = useState<File[]>([]);
   const [creativesToDelete, setCreativesToDelete] = useState<string[]>([]);
   const [showCreativesDialog, setShowCreativesDialog] = useState(false);
@@ -119,8 +128,8 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
       description: offer.description || '',
       url: offer.url,
       commission_type: offer.commission_type,
-      commission_amount: offer.commission_amount,
-      commission_percent: offer.commission_percent,
+      commission_amount: offer.commission_amount || undefined,
+      commission_percent: offer.commission_percent || undefined,
       niche: offer.niche || '',
       status: offer.status,
       target_audience: offer.target_audience || '',
@@ -201,15 +210,19 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
         allowed_traffic_sources: trafficSources.length > 0 ? trafficSources : null,
         restricted_geos: restrictedGeos.length > 0 ? restrictedGeos : null,
         geo_targets: geoTargets.length > 0 ? geoTargets : null,
+        geo_commissions: geoCommissionsEnabled ? geoCommissions : null,
         offer_image: updatedOfferImage,
         marketing_materials: updatedCreatives.length > 0 ? updatedCreatives : null,
         updated_at: new Date().toISOString(),
+        // Convert commission values to numbers
+        commission_amount: values.commission_amount ? Number(values.commission_amount) : null,
+        commission_percent: values.commission_percent ? Number(values.commission_percent) : null,
       };
       
-      // Remove optional fields that are empty strings to avoid database constraints
+      // Remove optional fields that are empty strings or undefined to avoid database constraints
       Object.keys(offerUpdate).forEach(key => {
         // @ts-ignore
-        if (offerUpdate[key] === '') {
+        if (offerUpdate[key] === '' || offerUpdate[key] === undefined) {
           // @ts-ignore
           offerUpdate[key] = null;
         }
@@ -642,19 +655,37 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
                 )}
               />
             ) : (
-              <FormField
-                control={form.control}
-                name="commission_amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Commission Amount ($)</FormLabel>
-                    <FormControl>
-                      <Input {...field} type="number" min="0" step="0.01" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <>
+                <FormField
+                  control={form.control}
+                  name="commission_amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Commission Amount ($)</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="number" min="0" step="0.01" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Add GeoCommissionSelector */}
+                <div className="col-span-2">
+                  <Card>
+                    <CardContent className="pt-6">
+                      <GeoCommissionSelector
+                        geoCommissions={geoCommissions}
+                        onChange={setGeoCommissions}
+                        onGeoTargetsUpdate={setGeoTargets}
+                        enabled={geoCommissionsEnabled}
+                        onEnabledChange={setGeoCommissionsEnabled}
+                        commissionType={form.watch('commission_type')}
+                      />
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
             )}
           </div>
         
@@ -675,11 +706,9 @@ export default function EditOfferForm({ offer, onComplete }: EditOfferFormProps)
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="Daily">Daily</SelectItem>
                     <SelectItem value="Weekly">Weekly</SelectItem>
-                    <SelectItem value="Biweekly">Biweekly</SelectItem>
+                    <SelectItem value="Biweekly">Bi-weekly</SelectItem>
                     <SelectItem value="Monthly">Monthly</SelectItem>
-                    <SelectItem value="Quarterly">Quarterly</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormDescription>

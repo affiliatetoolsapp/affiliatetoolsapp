@@ -229,6 +229,7 @@ export type Database = {
           name: string
           niche: string | null
           offer_image: string | null
+          payout_frequency: string | null
           restricted_geos: string[] | null
           restrictions: string | null
           status: string | null
@@ -254,6 +255,7 @@ export type Database = {
           name: string
           niche?: string | null
           offer_image?: string | null
+          payout_frequency?: string | null
           restricted_geos?: string[] | null
           restrictions?: string | null
           status?: string | null
@@ -279,6 +281,7 @@ export type Database = {
           name?: string
           niche?: string | null
           offer_image?: string | null
+          payout_frequency?: string | null
           restricted_geos?: string[] | null
           restrictions?: string | null
           status?: string | null

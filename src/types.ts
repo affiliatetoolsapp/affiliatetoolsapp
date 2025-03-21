@@ -8,6 +8,7 @@ export interface Offer {
   commission_amount: string;
   commission_percent?: string;
   payout_amount: string;
+  payout_frequency?: string;
   geo_targets?: string[];
   geo_commissions?: GeoCommission[];
   allowed_traffic_sources?: string[];

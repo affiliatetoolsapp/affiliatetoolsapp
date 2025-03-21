@@ -129,13 +129,13 @@ export default function OfferManagement({ onDeleteSuccess, onDeleteError }: Offe
       // Transform the data to match Offer type
       return (data || []).map(offer => ({
         ...offer,
-        commission_amount: offer.commission_amount?.toString() || '0',
-        commission_percent: offer.commission_percent?.toString(),
-        payout_amount: offer.commission_amount?.toString() || '0', // Use commission_amount as payout_amount
+        commission_amount: offer.commission_amount || 0,
+        commission_percent: offer.commission_percent || 0,
         geo_commissions: Array.isArray(offer.geo_commissions) 
           ? offer.geo_commissions.map(gc => ({
-              geo: (gc as any).geo || '',
-              amount: ((gc as any).amount || 0).toString()
+              country: (gc as any).country || '',
+              commission_amount: (gc as any).commission_amount || 0,
+              commission_percent: (gc as any).commission_percent || 0
             }))
           : []
       })) as Offer[];

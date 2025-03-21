@@ -62,13 +62,13 @@ export default function MarketplaceOverview() {
       // Transform data to match Offer type
       return (data || []).map(offer => ({
         ...offer,
-        commission_amount: offer.commission_amount?.toString() || '0',
-        commission_percent: offer.commission_percent?.toString(),
-        payout_amount: offer.commission_amount?.toString() || '0', // Use commission_amount as payout_amount
+        commission_amount: Number(offer.commission_amount) || 0,
+        commission_percent: Number(offer.commission_percent) || 0,
         geo_commissions: Array.isArray(offer.geo_commissions) 
           ? offer.geo_commissions.map(gc => ({
-              geo: (gc as any).geo || '',
-              amount: ((gc as any).amount || 0).toString()
+              country: (gc as any).country || '',
+              commission_amount: Number((gc as any).commission_amount) || 0,
+              commission_percent: Number((gc as any).commission_percent) || 0
             }))
           : []
       })) as Offer[];
@@ -93,13 +93,13 @@ export default function MarketplaceOverview() {
       // Transform data to match Offer type
       return (data || []).map(offer => ({
         ...offer,
-        commission_amount: offer.commission_amount?.toString() || '0',
-        commission_percent: offer.commission_percent?.toString(),
-        payout_amount: offer.commission_amount?.toString() || '0', // Use commission_amount as payout_amount
+        commission_amount: Number(offer.commission_amount) || 0,
+        commission_percent: Number(offer.commission_percent) || 0,
         geo_commissions: Array.isArray(offer.geo_commissions) 
           ? offer.geo_commissions.map(gc => ({
-              geo: (gc as any).geo || '',
-              amount: ((gc as any).amount || 0).toString()
+              country: (gc as any).country || '',
+              commission_amount: Number((gc as any).commission_amount) || 0,
+              commission_percent: Number((gc as any).commission_percent) || 0
             }))
           : []
       })) as Offer[];
@@ -162,14 +162,12 @@ export default function MarketplaceOverview() {
       return null;
     }
 
-    // Fix: Safely extract amount values from each geo_commission object
+    // Extract commission values based on commission type
     const amounts = offer.geo_commissions.map(gc => {
-      // Handle different possible types of geo_commission
-      if (typeof gc === 'object' && gc !== null) {
-        const amount = (gc as any).amount;
-        return typeof amount === 'string' ? parseFloat(amount) : typeof amount === 'number' ? amount : 0;
+      if (offer.commission_type === 'RevShare') {
+        return gc.commission_percent || 0;
       }
-      return 0;
+      return gc.commission_amount || 0;
     }).filter(amount => !isNaN(amount));
     
     if (amounts.length === 0) return null;
@@ -217,9 +215,11 @@ export default function MarketplaceOverview() {
             <span className="font-medium mr-1">Commission:</span>
             <div className="flex items-center gap-1">
               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                ${commissionRange
-                    ? `${commissionRange.min}-${commissionRange.max}`
-                    : offer.commission_amount}
+                {commissionRange
+                  ? `${commissionRange.min}-${commissionRange.max}`
+                  : offer.commission_type === 'RevShare'
+                    ? `${offer.commission_percent}%`
+                    : `$${offer.commission_amount}`}
                 {offer.commission_type !== 'RevShare' && (
                   <span className="ml-1">{getFullCommissionType(offer.commission_type)}</span>
                 )}

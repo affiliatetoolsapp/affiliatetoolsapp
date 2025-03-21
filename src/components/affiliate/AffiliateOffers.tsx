@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Offer } from '@/types';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,25 +60,37 @@ export default function AffiliateOffers() {
         return null;
       }
       
+      const offer = ao.offer;
       return {
-        id: ao.offer.id || '',
-        name: ao.offer.name || '',
-        status: ao.offer.status || '',
-        description: ao.offer.description || '',
-        niche: ao.offer.niche || '',
-        commission_type: ao.offer.commission_type || '',
-        commission_amount: String(ao.offer.commission_amount || 0),
-        commission_percent: String(ao.offer.commission_percent || 0),
-        payout_amount: String(ao.offer.commission_amount || 0),
-        geo_targets: Array.isArray(ao.offer.geo_targets) ? ao.offer.geo_targets : [],
-        geo_commissions: Array.isArray(ao.offer.geo_commissions) ? ao.offer.geo_commissions : [],
-        allowed_traffic_sources: Array.isArray(ao.offer.allowed_traffic_sources) ? ao.offer.allowed_traffic_sources : [],
-        restricted_geos: Array.isArray(ao.offer.restricted_geos) ? ao.offer.restricted_geos : [],
-        offer_image: ao.offer.offer_image || '',
-        created_at: ao.offer.created_at || '',
-        advertiser_id: ao.offer.advertiser_id || '',
-        is_featured: Boolean(ao.offer.is_featured)
-      };
+        id: offer.id || '',
+        name: offer.name || '',
+        status: offer.status || '',
+        description: offer.description || '',
+        niche: offer.niche || '',
+        commission_type: offer.commission_type || '',
+        commission_amount: Number(offer.commission_amount || 0),
+        commission_percent: Number(offer.commission_percent || 0),
+        geo_targets: Array.isArray(offer.geo_targets) ? offer.geo_targets : [],
+        geo_commissions: Array.isArray(offer.geo_commissions) ? offer.geo_commissions.map(gc => ({
+          country: (gc as any).country || '',
+          commission_amount: Number((gc as any).commission_amount || 0),
+          commission_percent: Number((gc as any).commission_percent || 0)
+        })) : [],
+        allowed_traffic_sources: Array.isArray(offer.allowed_traffic_sources) ? offer.allowed_traffic_sources : [],
+        restricted_geos: Array.isArray(offer.restricted_geos) ? offer.restricted_geos : [],
+        offer_image: offer.offer_image || '',
+        created_at: offer.created_at || '',
+        advertiser_id: offer.advertiser_id || '',
+        is_featured: Boolean(offer.is_featured),
+        featured_until: offer.featured_until || null,
+        target_audience: offer.target_audience || null,
+        conversion_requirements: offer.conversion_requirements || null,
+        restrictions: offer.restrictions || null,
+        payout_frequency: offer.payout_frequency || null,
+        marketing_materials: offer.marketing_materials || null,
+        updated_at: offer.updated_at || null,
+        url: offer.url || ''
+      } as Offer;
     }).filter(Boolean);
   }, [approvedOffers]);
 

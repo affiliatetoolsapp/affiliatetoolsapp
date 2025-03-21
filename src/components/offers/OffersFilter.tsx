@@ -140,7 +140,12 @@ export function OffersFilter({ offers, onFilterChange, className, align = 'end' 
   const statuses = getUniqueValues(offers, 'status');
 
   // Get min/max payout values
-  const payouts = offers.map(offer => Number(offer.payout_amount)).filter(amount => !isNaN(amount));
+  const payouts = offers.map(offer => {
+    const amount = offer.commission_type === 'RevShare'
+      ? Number(offer.commission_percent)
+      : Number(offer.commission_amount);
+    return isNaN(amount) ? 0 : amount;
+  });
   const minPayout = Math.min(...payouts);
   const maxPayout = Math.max(...payouts);
 
@@ -210,9 +215,9 @@ export function OffersFilter({ offers, onFilterChange, className, align = 'end' 
           </SheetHeader>
           <ScrollArea className="h-[calc(100vh-8rem)]">
             <div className="space-y-6 py-6">
-              {/* Payout Range */}
+              {/* Commission Range */}
               {payouts.length > 0 && (
-                <FilterSection title="Payout Range" icon={<DollarSign className="h-4 w-4" />}>
+                <FilterSection title="Commission Range" icon={<DollarSign className="h-4 w-4" />}>
                   <div className="flex items-center gap-2">
                     <Input
                       type="number"

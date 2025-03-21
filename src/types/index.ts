@@ -1,40 +1,48 @@
 import { Database } from '@/integrations/supabase/types';
 
+export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
+
+export interface GeoCommission {
+  country: string;
+  commission_amount: number;
+  commission_percent: number;
+}
+
+export interface MarketingMaterial {
+  id: string;
+  url: string;
+  type: string;
+  name?: string;
+  path?: string;
+  size?: number;
+  description: string | null;
+}
+
 export interface Offer {
   id: string;
   advertiser_id: string;
   name: string;
-  description?: string;
+  description: string | null;
   url: string;
-  niche?: string;
-  status: string;
   commission_type: string;
-  commission_amount: string;
-  commission_percent?: string;
-  payout_amount: string;
-  payout_frequency?: string;
-  offer_image?: string;
-  is_featured?: boolean;
-  geo_targets?: string[];
-  restricted_geos?: string[];
-  allowed_traffic_sources?: string[];
-  allowed_traffic_types?: string[];
-  geo_commissions?: Array<{
-    geo: string;
-    amount: string | number;
-  }>;
-  target_audience?: string;
-  conversion_requirements?: string;
-  restrictions?: string;
-  marketing_materials?: Array<{
-    url: string;
-    name: string;
-    path: string;
-    size: number;
-    type: string;
-  }>;
-  created_at?: string;
-  updated_at?: string;
+  commission_amount: number;
+  commission_percent: number;
+  niche: string | null;
+  status: string | null;
+  target_audience: string | null;
+  conversion_requirements: string | null;
+  restrictions: string | null;
+  payout_frequency: string | null;
+  geo_commissions: GeoCommission[] | null;
+  geo_targets: string[] | null;
+  restricted_geos: string[] | null;
+  allowed_traffic_sources: string[] | null;
+  marketing_materials: MarketingMaterial[] | null;
+  offer_image: string | null;
+  is_featured: boolean;
+  featured_until: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 export type AffiliateOffer = Database['public']['Tables']['affiliate_offers']['Row'];

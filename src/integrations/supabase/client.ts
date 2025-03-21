@@ -232,11 +232,11 @@ export async function deleteOfferCompletely(offerId: string) {
       console.log(`Successfully deleted clicks`);
     }
     
-    // 5. Delete affiliate offers (applications) - make a direct delete query instead
-    // This is critical to fix the foreign key constraint issue
+    // 5. Force delete ALL affiliate offers with this offer_id using a special RPC call
+    // First, get all affiliate offers for logging purposes
     const { data: affiliateOffers, error: affiliateOffersError } = await supabase
       .from('affiliate_offers')
-      .select('id')
+      .select('*')
       .eq('offer_id', offerId);
     
     if (affiliateOffersError) {
@@ -244,16 +244,29 @@ export async function deleteOfferCompletely(offerId: string) {
     } else if (affiliateOffers && affiliateOffers.length > 0) {
       console.log(`Found ${affiliateOffers.length} affiliate applications to delete`);
       
-      // Delete each affiliate offer one by one to ensure they're all removed
-      for (const affiliateOffer of affiliateOffers) {
-        const { error: deleteAffiliateOfferError } = await supabase
+      // Log each affiliate offer for debugging
+      affiliateOffers.forEach(ao => {
+        console.log(`Affiliate offer to delete: ${ao.id}, affiliate_id: ${ao.affiliate_id}, status: ${ao.status}`);
+      });
+      
+      // Direct SQL using RPC to force delete all affiliate offers for this offer
+      // This is more reliable than individual deletes through the API
+      const { error: deleteViaRpcError } = await supabase.rpc('force_delete_affiliate_offers', {
+        p_offer_id: offerId
+      });
+      
+      if (deleteViaRpcError) {
+        console.error("Error using RPC to delete affiliate offers:", deleteViaRpcError);
+        
+        // Fallback: try traditional delete if RPC fails
+        const { error: fallbackDeleteError } = await supabase
           .from('affiliate_offers')
           .delete()
-          .eq('id', affiliateOffer.id);
+          .eq('offer_id', offerId);
         
-        if (deleteAffiliateOfferError) {
-          console.error(`Error deleting affiliate offer ${affiliateOffer.id}:`, deleteAffiliateOfferError);
-          throw deleteAffiliateOfferError;
+        if (fallbackDeleteError) {
+          console.error("Fallback delete failed:", fallbackDeleteError);
+          throw fallbackDeleteError;
         }
       }
       
@@ -263,14 +276,47 @@ export async function deleteOfferCompletely(offerId: string) {
     // Double-check no more affiliate_offers exist for this offer
     const { data: remainingAffiliateOffers, error: checkError } = await supabase
       .from('affiliate_offers')
-      .select('id')
+      .select('*')
       .eq('offer_id', offerId);
       
     if (checkError) {
       console.error("Error checking remaining affiliate offers:", checkError);
     } else if (remainingAffiliateOffers && remainingAffiliateOffers.length > 0) {
       console.error(`Still found ${remainingAffiliateOffers.length} affiliate offers that couldn't be deleted!`);
-      return { success: false, error: "Could not delete all affiliate offers" };
+      
+      // Log remaining offers for debugging
+      remainingAffiliateOffers.forEach(ao => {
+        console.error(`Remaining affiliate offer: ${ao.id}, affiliate_id: ${ao.affiliate_id}, status: ${ao.status}`);
+      });
+      
+      // Try one more approach - delete by affiliate_id and offer_id combination
+      for (const ao of remainingAffiliateOffers) {
+        const { error: finalDeleteError } = await supabase
+          .from('affiliate_offers')
+          .delete()
+          .eq('id', ao.id)
+          .eq('affiliate_id', ao.affiliate_id)
+          .eq('offer_id', offerId);
+        
+        if (finalDeleteError) {
+          console.error(`Final delete attempt failed for affiliate offer ${ao.id}:`, finalDeleteError);
+        } else {
+          console.log(`Successfully deleted affiliate offer ${ao.id} in final attempt`);
+        }
+      }
+      
+      // Check one last time
+      const { data: finalCheck, error: finalCheckError } = await supabase
+        .from('affiliate_offers')
+        .select('id')
+        .eq('offer_id', offerId);
+      
+      if (finalCheckError) {
+        console.error("Error in final check:", finalCheckError);
+      } else if (finalCheck && finalCheck.length > 0) {
+        console.error(`FINAL CHECK: Still have ${finalCheck.length} affiliate offers. Cannot delete offer.`);
+        return { success: false, error: "Could not delete all affiliate offers after multiple attempts" };
+      }
     } else {
       console.log("Verified all affiliate offers were deleted successfully");
     }

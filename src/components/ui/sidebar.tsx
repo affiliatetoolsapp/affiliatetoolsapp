@@ -83,7 +83,7 @@ export function Sidebar({ className, isCollapsed = false, onToggle, ...props }: 
   return (
     <div className={cn(
       "bg-background flex flex-col h-full transition-all duration-300",
-      isCollapsed ? "w-[80px]" : "w-64",
+      isCollapsed ? "w-[70px]" : "w-56",
       className
     )} {...props}>
       <div className={cn(
@@ -110,8 +110,8 @@ export function Sidebar({ className, isCollapsed = false, onToggle, ...props }: 
           </Button>
         </div>
       </div>
-      <div className="flex-1 py-2">
-        <nav className="flex flex-col gap-1 px-2 sticky top-[4.5rem]">
+      <div className="flex-1 py-4">
+        <nav className="flex flex-col gap-1.5 px-3 sticky top-[4.5rem]">
           <TooltipProvider delayDuration={0}>
             {allLinks.map((link) => (
               <Tooltip key={link.href}>
@@ -123,7 +123,7 @@ export function Sidebar({ className, isCollapsed = false, onToggle, ...props }: 
                       isActive(link.href)
                         ? "bg-primary/10 text-primary font-medium"
                         : "text-muted-foreground hover:bg-muted",
-                      isCollapsed && "justify-center"
+                      isCollapsed && "justify-center px-2"
                     )}
                   >
                     <link.icon className="h-4 w-4 flex-shrink-0" />

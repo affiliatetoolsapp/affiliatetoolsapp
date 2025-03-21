@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -27,11 +26,11 @@ export default function MainLayout() {
     : user?.email?.slice(0, 2).toUpperCase();
   
   return (
-    <div className="min-h-screen h-screen flex overflow-hidden bg-background">
+    <div className="fixed inset-0 w-screen h-screen flex bg-background">
       {/* Desktop Sidebar */}
-      <div className="hidden md:block h-screen">
+      <div className="hidden md:block h-full">
         <Sidebar 
-          className="h-screen border-r" 
+          className="h-full border-r" 
           isCollapsed={isSidebarCollapsed}
           onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         />
@@ -50,9 +49,9 @@ export default function MainLayout() {
       </Sheet>
       
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden w-full">
+      <div className="flex-1 flex flex-col h-full">
         {/* Fixed Header */}
-        <header className="h-16 border-b flex items-center justify-end px-6 bg-background z-40">
+        <header className="flex-none h-16 border-b flex items-center justify-end px-8 bg-background z-40">
           <div className="flex items-center space-x-4">
             <ThemeToggle />
             <Button variant="ghost" size="icon">
@@ -90,11 +89,11 @@ export default function MainLayout() {
           </div>
         </header>
         
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto w-full max-w-full">
+        <main className="flex-1 overflow-y-auto p-8">
           <Outlet />
         </main>
         
-        <footer className="border-t py-3 px-6 text-center text-sm text-gray-500">
+        <footer className="flex-none border-t py-4 px-8 text-center text-sm text-gray-500 bg-background">
           &copy; {new Date().getFullYear()} Streamlined Affiliate Network
         </footer>
       </div>

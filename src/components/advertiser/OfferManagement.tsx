@@ -177,15 +177,42 @@ export default function OfferManagement() {
     if (!offerToDelete) return;
     
     try {
+      console.log("Attempting to delete offer ID:", offerToDelete);
+      
+      // First, check for any affiliate applications for this offer
+      const { data: affiliateOffers, error: affilateOffersError } = await supabase
+        .from('affiliate_offers')
+        .select('id')
+        .eq('offer_id', offerToDelete);
+      
+      if (affilateOffersError) {
+        console.error("Error checking affiliate offers:", affilateOffersError);
+      } else if (affiliateOffers && affiliateOffers.length > 0) {
+        // Delete all affiliate applications for this offer first
+        console.log(`Removing ${affiliateOffers.length} affiliate applications for this offer`);
+        const { error: deleteAffiliateOffersError } = await supabase
+          .from('affiliate_offers')
+          .delete()
+          .eq('offer_id', offerToDelete);
+        
+        if (deleteAffiliateOffersError) {
+          console.error("Error deleting affiliate offers:", deleteAffiliateOffersError);
+          throw deleteAffiliateOffersError;
+        }
+      }
+      
+      // Now delete the offer itself
       const { error } = await supabase
         .from('offers')
         .delete()
         .eq('id', offerToDelete);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error deleting offer:", error);
+        throw error;
+      }
       
       // Invalidate and refetch offers to update the UI
-      // Fix: Use proper React Query v5 invalidateQueries syntax
       await queryClient.invalidateQueries({ queryKey: ['offers', user?.id, user?.role] });
       await refetch();
       

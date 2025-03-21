@@ -93,7 +93,7 @@ export function Sidebar({ className, isCollapsed = false, onToggle, ...props }: 
         <div className="flex items-center h-16">
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-bold truncate">Affiliate Network</h2>
+              <h2 className="text-lg font-bold truncate">AffiliateTools</h2>
               <p className="text-sm text-muted-foreground capitalize truncate">{user.role} Portal</p>
             </div>
           )}

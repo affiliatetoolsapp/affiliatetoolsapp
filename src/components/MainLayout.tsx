@@ -94,7 +94,7 @@ export default function MainLayout() {
         </main>
         
         <footer className="flex-none border-t py-4 px-8 text-center text-sm text-gray-500 bg-background">
-          &copy; {new Date().getFullYear()} Streamlined Affiliate Network
+          &copy; {new Date().getFullYear()} AffiliateTools
         </footer>
       </div>
     </div>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -24,14 +23,24 @@ import {
 } from 'lucide-react';
 import { formatGeoTargets } from '../affiliate/utils/offerUtils';
 import OfferTable from '@/components/offers/OfferTable';
+import { OffersFilter, FilterOptions } from '@/components/offers/OffersFilter';
+import { useOfferFilters } from '@/hooks/useOfferFilters';
 
 export default function OfferBrowser() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [offers, setOffers] = useState<Offer[]>([]);
-  // Updated to use table as default view
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
+  const [filters, setFilters] = useState<FilterOptions>({
+    niche: [],
+    payoutMin: null,
+    payoutMax: null,
+    offerTypes: [],
+    geos: [],
+    trafficTypes: [],
+    status: []
+  });
 
   // Get all offers
   const { data: allOffers, isLoading: offersLoading } = useQuery({
@@ -42,8 +51,20 @@ export default function OfferBrowser() {
         .select('*');
 
       if (error) throw error;
-      console.log("All offers:", data);
-      return data as Offer[];
+      
+      // Transform data to match Offer type
+      return (data || []).map(offer => ({
+        ...offer,
+        commission_amount: offer.commission_amount?.toString() || '0',
+        commission_percent: offer.commission_percent?.toString(),
+        payout_amount: offer.commission_amount?.toString() || '0', // Use commission_amount as payout_amount
+        geo_commissions: Array.isArray(offer.geo_commissions) 
+          ? offer.geo_commissions.map(gc => ({
+              geo: (gc as any).geo || '',
+              amount: ((gc as any).amount || 0).toString()
+            }))
+          : []
+      })) as Offer[];
     },
   });
 
@@ -53,11 +74,14 @@ export default function OfferBrowser() {
     }
   }, [allOffers]);
 
-  // Filter offers based on search term
-  const filteredOffers = offers?.filter(offer =>
-    offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    offer.niche?.toLowerCase().includes(searchQuery.toLowerCase())
+  // Apply both search and filters to offers
+  const filteredOffers = useOfferFilters(
+    offers?.filter(offer =>
+      offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      offer.niche?.toLowerCase().includes(searchQuery.toLowerCase())
+    ) || [],
+    filters
   );
 
   // Get commission range if there are geo-specific commissions
@@ -336,8 +360,8 @@ export default function OfferBrowser() {
         </p>
       </div>
 
-      <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="relative flex-1 sm:w-[300px]">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
@@ -348,23 +372,29 @@ export default function OfferBrowser() {
           />
         </div>
         
-        <div className="flex items-center border rounded-md">
-          <Button 
-            variant={viewMode === 'grid' ? 'default' : 'ghost'} 
-            size="sm" 
-            className="rounded-r-none" 
-            onClick={() => setViewMode('grid')}
-          >
-            <Grid className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant={viewMode === 'table' ? 'default' : 'ghost'} 
-            size="sm" 
-            className="rounded-l-none" 
-            onClick={() => setViewMode('table')}
-          >
-            <TableIcon className="h-4 w-4" />
-          </Button>
+        <div className="flex items-center gap-2">
+          <OffersFilter
+            offers={offers || []}
+            onFilterChange={setFilters}
+          />
+          <div className="flex items-center border rounded-md">
+            <Button 
+              variant={viewMode === 'grid' ? 'default' : 'ghost'} 
+              size="sm" 
+              className="rounded-r-none" 
+              onClick={() => setViewMode('grid')}
+            >
+              <Grid className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant={viewMode === 'table' ? 'default' : 'ghost'} 
+              size="sm" 
+              className="rounded-l-none" 
+              onClick={() => setViewMode('table')}
+            >
+              <TableIcon className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
 

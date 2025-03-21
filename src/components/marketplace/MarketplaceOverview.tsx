@@ -28,13 +28,23 @@ import { Input } from '@/components/ui/input';
 import { Offer } from '@/types';
 import { useNavigate } from 'react-router-dom';
 import OfferTable from '@/components/offers/OfferTable';
+import { OffersFilter, FilterOptions } from '@/components/offers/OffersFilter';
+import { useOfferFilters } from '@/hooks/useOfferFilters';
 
 export default function MarketplaceOverview() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
-  // Changed default viewMode from 'grid' to 'table'
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
+  const [filters, setFilters] = useState<FilterOptions>({
+    niche: [],
+    payoutMin: null,
+    payoutMax: null,
+    offerTypes: [],
+    geos: [],
+    trafficTypes: [],
+    status: []
+  });
   
   // Fetch both featured offers and advertiser's own offers
   const { data: topOffers, isLoading: featuredLoading } = useQuery({
@@ -49,8 +59,19 @@ export default function MarketplaceOverview() {
       
       if (error) throw error;
       
-      // Ensure data is properly typed as Offer array
-      return data as Offer[];
+      // Transform data to match Offer type
+      return (data || []).map(offer => ({
+        ...offer,
+        commission_amount: offer.commission_amount?.toString() || '0',
+        commission_percent: offer.commission_percent?.toString(),
+        payout_amount: offer.commission_amount?.toString() || '0', // Use commission_amount as payout_amount
+        geo_commissions: Array.isArray(offer.geo_commissions) 
+          ? offer.geo_commissions.map(gc => ({
+              geo: (gc as any).geo || '',
+              amount: ((gc as any).amount || 0).toString()
+            }))
+          : []
+      })) as Offer[];
     },
     enabled: !!user,
   });
@@ -69,28 +90,50 @@ export default function MarketplaceOverview() {
       
       if (error) throw error;
       
-      return data as Offer[];
+      // Transform data to match Offer type
+      return (data || []).map(offer => ({
+        ...offer,
+        commission_amount: offer.commission_amount?.toString() || '0',
+        commission_percent: offer.commission_percent?.toString(),
+        payout_amount: offer.commission_amount?.toString() || '0', // Use commission_amount as payout_amount
+        geo_commissions: Array.isArray(offer.geo_commissions) 
+          ? offer.geo_commissions.map(gc => ({
+              geo: (gc as any).geo || '',
+              amount: ((gc as any).amount || 0).toString()
+            }))
+          : []
+      })) as Offer[];
     },
     enabled: !!user && user.role === 'advertiser',
   });
-  
-  // Filter offers based on search query
-  const filteredFeaturedOffers = topOffers?.filter(offer => 
-    offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    offer.niche?.toLowerCase().includes(searchQuery.toLowerCase())
+
+  // Apply both search and filters to offers
+  const filteredFeaturedOffers = useOfferFilters(
+    topOffers?.filter(offer => 
+      offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      offer.niche?.toLowerCase().includes(searchQuery.toLowerCase())
+    ) || [],
+    filters
   );
   
-  const filteredAdvertiserOffers = advertiserOffers?.filter(offer => 
-    offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    offer.niche?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredAdvertiserOffers = useOfferFilters(
+    advertiserOffers?.filter(offer => 
+      offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      offer.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      offer.niche?.toLowerCase().includes(searchQuery.toLowerCase())
+    ) || [],
+    filters
   );
   
   const isLoading = featuredLoading || advertiserOffersLoading;
   
   const handleViewOfferDetails = (offerId: string) => {
     navigate(`/offers/${offerId}`);
+  };
+  
+  const handleFilterChange = (newFilters: FilterOptions) => {
+    setFilters(newFilters);
   };
   
   // Get full commission type name
@@ -258,66 +301,16 @@ export default function MarketplaceOverview() {
           )}
           
           {/* Updated Traffic Sources section with hover card */}
-          {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
-            <div className="flex items-start text-sm">
-              <Target className="h-4 w-4 mr-1 text-purple-500 mt-0.5" />
-              <div>
-                <span className="font-medium mr-1">Traffic:</span>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {offer.allowed_traffic_sources.length <= 2 ? (
-                    offer.allowed_traffic_sources.map((source, i) => (
-                      <Badge key={i} variant="outline" className="text-xs">
-                        {source}
-                      </Badge>
-                    ))
-                  ) : (
-                    <HoverCard>
-                      <HoverCardTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          className="h-auto p-0 hover:bg-transparent"
-                          onClick={(e) => {
-                            // Prevent the click from propagating to parent elements
-                            e.stopPropagation();
-                          }}
-                        >
-                          <Badge 
-                            variant="outline" 
-                            className="text-xs ml-1 hover:bg-gray-100 dark:hover:bg-gray-700"
-                          >
-                            {offer.allowed_traffic_sources.length} sources
-                          </Badge>
-                        </Button>
-                      </HoverCardTrigger>
-                      <HoverCardContent 
-                        side="right" 
-                        align="start" 
-                        className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]"
-                        sideOffset={10}
-                      >
-                        <div className="font-medium mb-2">Allowed Traffic Sources:</div>
-                        <div className="flex flex-wrap gap-2 max-w-[300px] max-h-[200px] overflow-y-auto">
-                          {offer.allowed_traffic_sources.map((source, i) => (
-                            <Badge key={i} variant="outline" className="text-xs">
-                              {source}
-                            </Badge>
-                          ))}
-                        </div>
-                      </HoverCardContent>
-                    </HoverCard>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Additional offer details */}
-          {offer.target_audience && (
-            <div className="flex items-start text-sm mt-2">
-              <Users className="h-4 w-4 mr-1 text-orange-500 mt-0.5" />
-              <div>
-                <span className="font-medium">Target Audience:</span>
-                <p className="text-xs text-muted-foreground mt-0.5">{offer.target_audience}</p>
+          {offer.allowed_traffic_sources && offer.allowed_traffic_sources.length > 0 && (
+            <div className="flex items-center text-sm">
+              <Target className="h-4 w-4 mr-1 text-purple-500" />
+              <span className="font-medium mr-1">Traffic Sources:</span>
+              <div className="flex flex-wrap gap-1">
+                {offer.allowed_traffic_sources.map((source, i) => (
+                  <Badge key={i} variant="outline" className="text-xs">
+                    {source}
+                  </Badge>
+                ))}
               </div>
             </div>
           )}
@@ -396,35 +389,36 @@ export default function MarketplaceOverview() {
             <h2 className="text-xl font-semibold">Marketplace Offers</h2>
             
             <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
-              <div className="relative w-full sm:w-auto">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search" 
-                  placeholder="Search offers..." 
-                  className="pl-8 w-full sm:w-[240px]"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1 sm:w-[300px]">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search offers..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                <OffersFilter
+                  offers={[...(topOffers || []), ...(advertiserOffers || [])]}
+                  onFilterChange={handleFilterChange}
+                  className="hidden sm:flex"
                 />
               </div>
-              
-              <div className="flex items-center border rounded-md w-full sm:w-auto justify-center sm:justify-start">
-                <Button 
-                  variant={viewMode === 'grid' ? 'default' : 'ghost'} 
-                  size="sm" 
-                  className="flex-1 sm:flex-none rounded-r-none" 
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'outline'}
+                  size="icon"
                   onClick={() => setViewMode('grid')}
                 >
-                  <Grid className="h-4 w-4 mr-1" />
-                  <span className="sm:hidden">Grid</span>
+                  <Grid className="h-4 w-4" />
                 </Button>
-                <Button 
-                  variant={viewMode === 'table' ? 'default' : 'ghost'} 
-                  size="sm" 
-                  className="flex-1 sm:flex-none rounded-l-none" 
+                <Button
+                  variant={viewMode === 'table' ? 'default' : 'outline'}
+                  size="icon"
                   onClick={() => setViewMode('table')}
                 >
-                  <TableIcon className="h-4 w-4 mr-1" />
-                  <span className="sm:hidden">Table</span>
+                  <TableIcon className="h-4 w-4" />
                 </Button>
               </div>
             </div>

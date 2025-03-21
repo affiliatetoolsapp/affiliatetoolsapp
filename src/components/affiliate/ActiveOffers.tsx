@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AffiliateOfferWithOffer } from '@/types';
+import { Offer } from '@/types';
 import { formatGeoTargets } from './utils/offerUtils';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -9,11 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
-import { DollarSign, Calendar, Tag, MapPin, Globe, Eye, Link as LinkIcon, Award } from 'lucide-react';
+import { DollarSign, Calendar, Tag, MapPin, Globe, Eye, Link as LinkIcon, Award, ExternalLink } from 'lucide-react';
 import OfferTable from '@/components/offers/OfferTable';
+import { Table } from '@/components/ui/table';
 
 interface ActiveOffersProps {
-  offers: AffiliateOfferWithOffer[];
+  offers: Offer[];
   viewMode: 'grid' | 'table';
   isLoading: boolean;
   onViewOfferDetails: (offerId: string) => void;
@@ -58,136 +58,57 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
   if (viewMode === 'grid') {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {offers.map((affiliateOffer) => {
+        {offers.map((offer) => {
+          if (!offer) return null;
           
           return (
-            <Card key={affiliateOffer.id} className="overflow-hidden">
-              <CardHeader className="p-3 pb-0">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle 
-                      className="text-md flex items-center gap-2 cursor-pointer hover:text-primary"
-                      onClick={() => handleOfferClick(affiliateOffer.offer_id)}
-                    >
-                      {affiliateOffer.offer.is_featured && (
-                        <Badge variant="outline" className="mr-1 bg-yellow-100 dark:bg-yellow-900">
-                          <Award className="h-3 w-3 mr-1" />
-                          Featured
-                        </Badge>
-                      )}
-                      {affiliateOffer.offer.name}
-                    </CardTitle>
+            <Card key={offer.id} className="relative">
+              {offer.is_featured && (
+                <Badge variant="secondary" className="absolute top-2 right-2">
+                  Featured
+                </Badge>
+              )}
+              <div className="p-6">
+                <h3 className="text-lg font-semibold">{offer.name}</h3>
+                <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                  {offer.description}
+                </p>
+                
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Commission:</span>
+                    <span className="font-medium">
+                      {offer.commission_type === 'percentage' 
+                        ? `${offer.commission_percent}%`
+                        : `$${offer.commission_amount}`
+                      }
+                    </span>
                   </div>
-                  <Badge variant="default" className="capitalize">
-                    Approved
-                  </Badge>
+                  
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Status:</span>
+                    <Badge variant="outline">{offer.status}</Badge>
+                  </div>
                 </div>
-                <CardDescription className="line-clamp-2 mt-1 text-xs">
-                  {affiliateOffer.offer.description}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-3 pt-2 grid gap-1">
-                {affiliateOffer.offer.offer_image && (
-                  <div 
-                    className="mb-2 rounded-md overflow-hidden h-24 bg-gray-100 cursor-pointer"
-                    onClick={() => handleOfferClick(affiliateOffer.offer_id)}
+                
+                <div className="mt-6 flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => onViewOfferDetails(offer.id)}
                   >
-                    <img
-                      src={affiliateOffer.offer.offer_image}
-                      alt={affiliateOffer.offer.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
-                
-                <div className="text-xs flex items-center">
-                  <DollarSign className="h-3.5 w-3.5 mr-1 text-green-500" />
-                  <span className="font-medium">Commission: </span> 
-                  <span className="ml-1">
-                    {affiliateOffer.offer.commission_type === 'RevShare' 
-                      ? `${affiliateOffer.offer.commission_percent}% Revenue Share` 
-                      : `$${affiliateOffer.offer.commission_amount} per ${affiliateOffer.offer.commission_type.slice(2)}`}
-                  </span>
+                    View Details
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => onGenerateLinks(offer.id)}
+                  >
+                    Generate Links
+                  </Button>
                 </div>
-                
-                {affiliateOffer.offer.niche && (
-                  <div className="text-xs flex items-center">
-                    <Tag className="h-3.5 w-3.5 mr-1 text-blue-500" />
-                    <span className="font-medium">Niche: </span>
-                    <span className="ml-1">{affiliateOffer.offer.niche}</span>
-                  </div>
-                )}
-                
-                <div className="text-xs flex items-center">
-                  <Calendar className="h-3.5 w-3.5 mr-1 text-purple-500" />
-                  <span className="font-medium">Joined: </span>
-                  <span className="ml-1">{affiliateOffer.reviewed_at ? new Date(affiliateOffer.reviewed_at).toLocaleDateString() : 'Recently'}</span>
-                </div>
-                
-                <div className="text-xs flex items-start">
-                  <Globe className="h-3.5 w-3.5 mr-1 text-indigo-500 mt-0.5" />
-                  <span className="font-medium mr-1">Geo: </span>
-                  <div className="flex flex-wrap gap-1">
-                    {formatGeoTargets(affiliateOffer.offer).length <= 3 ? (
-                      // If 3 or fewer GEO's, show them all
-                      formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">
-                          {geo.flag} {geo.code}
-                        </Badge>
-                      ))
-                    ) : (
-                      // Updated HoverCard implementation with proper z-index
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge variant="outline" className="text-xs cursor-pointer">
-                              <Globe className="h-3 w-3 mr-1" />
-                              {formatGeoTargets(affiliateOffer.offer).length} countries
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom" className="w-auto p-3 z-50" sideOffset={5}>
-                            <div className="font-medium mb-2">Targeted countries:</div>
-                            <div className="flex flex-wrap gap-1 max-w-[300px]">
-                              {formatGeoTargets(affiliateOffer.offer).map((geo, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  {geo.flag} {geo.code}
-                                </Badge>
-                              ))}
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    )}
-                  </div>
-                </div>
-                
-                {affiliateOffer.traffic_source && (
-                  <div className="text-xs flex items-center">
-                    <MapPin className="h-3.5 w-3.5 mr-1 text-red-500" />
-                    <span className="font-medium">Traffic Source: </span> 
-                    <span className="ml-1">{affiliateOffer.traffic_source}</span>
-                  </div>
-                )}
-              </CardContent>
-              
-              <CardFooter className="p-3 pt-0 flex justify-between gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => onViewOfferDetails(affiliateOffer.offer_id)}
-                >
-                  <Eye className="h-3.5 w-3.5 mr-1" />
-                  View
-                </Button>
-                
-                <Button
-                  size="sm"
-                  onClick={() => onGenerateLinks(affiliateOffer.offer_id)}
-                >
-                  <LinkIcon className="h-3.5 w-3.5 mr-1" />
-                  Links
-                </Button>
-              </CardFooter>
+              </div>
             </Card>
           );
         })}
@@ -197,17 +118,52 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
 
   // Table view - Updated to use the reusable OfferTable with improved styling
   return (
-    <OfferTable 
-      offers={offers.map(affiliateOffer => ({
-        ...affiliateOffer.offer,
-        // Ensure payout_frequency is properly passed
-        payout_frequency: affiliateOffer.offer.payout_frequency || 'Monthly'
-      }))}
-      userRole="affiliate"
-      onViewDetails={onViewOfferDetails}
-      onGenerateLinks={onGenerateLinks}
-      onRowClick={onViewOfferDetails}
-    />
+    <Table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Status</th>
+          <th>Commission</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {offers.map((offer) => {
+          if (!offer) return null;
+          
+          return (
+            <tr key={offer.id}>
+              <td className="font-medium">{offer.name}</td>
+              <td><Badge variant="outline">{offer.status}</Badge></td>
+              <td>
+                {offer.commission_type === 'percentage'
+                  ? `${offer.commission_percent}%`
+                  : `$${offer.commission_amount}`
+                }
+              </td>
+              <td>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onViewOfferDetails(offer.id)}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onGenerateLinks(offer.id)}
+                  >
+                    <LinkIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </Table>
   );
 };
 

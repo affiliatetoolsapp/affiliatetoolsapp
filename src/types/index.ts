@@ -1,19 +1,28 @@
-
 import { Database } from '@/integrations/supabase/types';
 
-export type Offer = Database['public']['Tables']['offers']['Row'] & {
-  is_featured?: boolean;
-  advertiser_name?: string;
-  allowed_traffic_sources?: string[];
-  restricted_geos?: string[];
-  target_audience?: string;
-  restrictions?: string;
-  marketing_materials?: any;
-  conversion_requirements?: string;
-  geo_targets?: string[] | string | Record<string, any> | null;
-  offer_image?: string;
+export interface Offer {
+  id: string;
+  name: string;
+  description?: string;
+  niche?: string;
+  status: string;
+  commission_type: string;
+  commission_amount: string;
+  commission_percent?: string;
+  payout_amount: string;
   payout_frequency?: string;
-};
+  offer_image?: string;
+  is_featured?: boolean;
+  geo_targets?: string[];
+  restricted_geos?: string[];
+  allowed_traffic_sources?: string[];
+  allowed_traffic_types?: string[];
+  geo_commissions?: Array<{
+    geo: string;
+    amount: string | number;
+  }>;
+}
+
 export type AffiliateOffer = Database['public']['Tables']['affiliate_offers']['Row'];
 export type Click = Database['public']['Tables']['clicks']['Row'];
 export type Conversion = Database['public']['Tables']['conversions']['Row'];

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Offer } from '@/types';
@@ -19,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   ArrowLeft, Star, ExternalLink, Calendar, Tag, Landmark, Users, Info, Globe, AlertTriangle, 
   Target, DollarSign, MapPin, ChevronRight, BarChart3, Link as LinkIcon, Clock, 
-  FileText, CheckCircle, HelpCircle, ShieldAlert
+  FileText, CheckCircle, HelpCircle, ShieldAlert, ClipboardList, AlertCircle
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -408,16 +407,20 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
         </TabsContent>
         
         <TabsContent value="requirements" className="space-y-4">
-          
           <Card>
             <CardHeader>
-              <CardTitle>Requirements & Expectations</CardTitle>
-              <CardDescription>What's expected from affiliates</CardDescription>
+              <div className="flex items-center gap-2">
+                <ClipboardList className="h-6 w-6 text-blue-500" />
+                <div>
+                  <CardTitle>Requirements & Expectations</CardTitle>
+                  <CardDescription>What's expected from affiliates</CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <h3 className="font-medium flex items-center">
-                  <Target className="h-4 w-4 mr-2 text-purple-500" />
+                <h3 className="font-medium flex items-center gap-2">
+                  <Globe className="h-5 w-5 text-emerald-500" />
                   Allowed Traffic Sources
                 </h3>
                 <div className="flex flex-wrap gap-1 ml-6">
@@ -430,7 +433,10 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
               <Separator />
               
               <div className="space-y-2">
-                <h3 className="font-medium">Target Audience</h3>
+                <h3 className="font-medium flex items-center gap-2">
+                  <Users className="h-5 w-5 text-violet-500" />
+                  Target Audience
+                </h3>
                 <p className="text-sm text-muted-foreground">
                   {offer.target_audience || 'This offer is targeted at a general audience.'}
                 </p>
@@ -439,7 +445,10 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
               <Separator />
               
               <div className="space-y-2">
-                <h3 className="font-medium">Restrictions</h3>
+                <h3 className="font-medium flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-amber-500" />
+                  Restrictions
+                </h3>
                 <p className="text-sm text-muted-foreground">
                   {offer.restrictions || 'No specific restrictions for this offer.'}
                 </p>
@@ -449,7 +458,10 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
                 <>
                   <Separator />
                   <div className="space-y-2">
-                    <h3 className="font-medium">Conversion Requirements</h3>
+                    <h3 className="font-medium flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      Conversion Requirements
+                    </h3>
                     <p className="text-sm text-muted-foreground">
                       {offer.conversion_requirements}
                     </p>

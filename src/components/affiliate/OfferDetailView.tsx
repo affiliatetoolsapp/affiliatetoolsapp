@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Offer } from '@/types';
 import { useAuth } from '@/context/AuthContext';
@@ -19,14 +19,29 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   ArrowLeft, Star, ExternalLink, Calendar, Tag, Landmark, Users, Info, Globe, AlertTriangle, 
   Target, DollarSign, MapPin, ChevronRight, BarChart3, Link as LinkIcon, Clock, 
-  FileText, CheckCircle, HelpCircle, ShieldAlert, ClipboardList, AlertCircle
+  FileText, CheckCircle, HelpCircle, ShieldAlert, ClipboardList, AlertCircle, Plus, X, Copy, LineChart, FileCode
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface OfferDetailViewProps {
   offer: Offer;
   applicationStatus: string | null;
   onBack: () => void;
+}
+
+interface TrackingParameter {
+  id: string;
+  name: string;
+  value: string;
+}
+
+interface TrackingLinkItem {
+  id: string;
+  baseUrl: string;
+  parameters: TrackingParameter[];
+  createdAt: Date;
 }
 
 const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewProps) => {
@@ -37,6 +52,9 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
   const [open, setOpen] = useState(false);
   const [trafficSource, setTrafficSource] = useState('');
   const [notes, setNotes] = useState('');
+  const [trackingLinks, setTrackingLinks] = useState<TrackingLinkItem[]>([]);
+  const [showCopied, setShowCopied] = useState<{ [key: string]: boolean }>({});
+  const [showAllLinks, setShowAllLinks] = useState(false);
 
   // Improved mutation with better error handling and debugging
   const applyForOfferMutation = useMutation({
@@ -280,6 +298,182 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
   const targetedGeos = formatGeoTargets();
   const restrictedGeos = getRestrictedGeos();
   const allowedTrafficSources = getAllowedTrafficSources();
+
+  // Function to generate a tracking link
+  const generateTrackingLink = async () => {
+    try {
+      // Generate an 8-character tracking code (similar to d822e0e3)
+      const trackingCode = Math.random().toString(36).substring(2, 10);
+      
+      // Create a new tracking link record
+      const { data, error } = await supabase
+        .from('tracking_links')
+        .insert({
+          offer_id: offer.id,
+          affiliate_id: user.id,
+          link_type: 'direct',
+          tracking_code: trackingCode,
+          created_at: new Date().toISOString()
+        })
+        .select('tracking_code')
+        .single();
+
+      if (error) throw error;
+
+      if (!data?.tracking_code) {
+        throw new Error('Failed to generate tracking code');
+      }
+
+      const newLink: TrackingLinkItem = {
+        id: Math.random().toString(36).substring(7),
+        baseUrl: `http://135.181.238.230:8080/r/${data.tracking_code}`,
+        parameters: [
+          // Add default parameters
+          {
+            id: Math.random().toString(36).substring(7),
+            name: 'source',
+            value: ''
+          },
+          {
+            id: Math.random().toString(36).substring(7),
+            name: 'campaign',
+            value: ''
+          }
+        ],
+        createdAt: new Date()
+      };
+      setTrackingLinks([...trackingLinks, newLink]);
+    } catch (err) {
+      console.error('Error generating tracking link:', err);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to generate tracking link"
+      });
+    }
+  };
+
+  // Function to add a parameter to a tracking link
+  const addParameter = (linkId: string) => {
+    setTrackingLinks(trackingLinks.map(link => {
+      if (link.id === linkId) {
+        return {
+          ...link,
+          parameters: [...link.parameters, {
+            id: Math.random().toString(36).substring(7),
+            name: '',
+            value: ''
+          }]
+        };
+      }
+      return link;
+    }));
+  };
+
+  // Function to update a parameter
+  const updateParameter = (linkId: string, paramId: string, field: 'name' | 'value', value: string) => {
+    setTrackingLinks(trackingLinks.map(link => {
+      if (link.id === linkId) {
+        return {
+          ...link,
+          parameters: link.parameters.map(param => {
+            if (param.id === paramId) {
+              return { ...param, [field]: value };
+            }
+            return param;
+          })
+        };
+      }
+      return link;
+    }));
+  };
+
+  // Function to remove a parameter
+  const removeParameter = (linkId: string, paramId: string) => {
+    setTrackingLinks(trackingLinks.map(link => {
+      if (link.id === linkId) {
+        return {
+          ...link,
+          parameters: link.parameters.filter(param => param.id !== paramId)
+        };
+      }
+      return link;
+    }));
+  };
+
+  // Function to get the full tracking URL including parameters
+  const getFullTrackingUrl = (link: TrackingLinkItem) => {
+    // Add custom parameters if they exist
+    const customParams = link.parameters
+      .filter(p => p.name && p.value)
+      .map(p => `${encodeURIComponent(p.name)}=${encodeURIComponent(p.value)}`)
+      .join('&');
+    
+    return customParams ? `${link.baseUrl}?${customParams}` : link.baseUrl;
+  };
+
+  // Function to copy tracking link to clipboard
+  const copyToClipboard = async (linkId: string, url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setShowCopied({ ...showCopied, [linkId]: true });
+      setTimeout(() => {
+        setShowCopied({ ...showCopied, [linkId]: false });
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  // Add this function to fetch existing tracking links
+  const fetchTrackingLinks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tracking_links')
+        .select('tracking_code, created_at')
+        .eq('offer_id', offer.id)
+        .eq('affiliate_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const links = data.map(link => ({
+        id: Math.random().toString(36).substring(7),
+        baseUrl: `http://135.181.238.230:8080/r/${link.tracking_code}`,
+        parameters: [
+          {
+            id: Math.random().toString(36).substring(7),
+            name: 'source',
+            value: ''
+          },
+          {
+            id: Math.random().toString(36).substring(7),
+            name: 'campaign',
+            value: ''
+          }
+        ],
+        createdAt: new Date(link.created_at)
+      }));
+
+      setTrackingLinks(links);
+    } catch (err) {
+      console.error('Error fetching tracking links:', err);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch tracking links"
+      });
+    }
+  };
+
+  // Add useEffect to fetch links when toggle is switched on
+  useEffect(() => {
+    if (showAllLinks) {
+      fetchTrackingLinks();
+    } else {
+      setTrackingLinks([]); // Clear tracking links when toggle is off
+    }
+  }, [showAllLinks]);
 
   return (
     <div className="space-y-6">
@@ -567,71 +761,148 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
                 <CardTitle>Tracking Information</CardTitle>
                 <CardDescription>Important details for implementing this offer</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <h3 className="font-medium flex items-center">
-                    <BarChart3 className="h-4 w-4 mr-2 text-indigo-500" />
+              <CardContent className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-medium flex items-center mb-3">
+                    <LineChart className="h-5 w-5 mr-2 text-blue-500" />
                     Performance Metrics
                   </h3>
-                  <p className="text-sm text-muted-foreground ml-6">
-                    This offer is tracked based on {offer.commission_type === 'RevShare' ? 'revenue share' : 
-                      offer.commission_type === 'CPA' ? 'actions' : 
-                      offer.commission_type === 'CPC' ? 'clicks' : 
-                      offer.commission_type === 'CPL' ? 'leads' : 
-                      offer.commission_type === 'CPS' ? 'sales' : 'conversions'}.
+                  <p className="text-muted-foreground">
+                    This offer is tracked based on actions.
                   </p>
                 </div>
-                
-                <Separator />
-                
-                <div className="space-y-2">
-                  <h3 className="font-medium flex items-center">
-                    <Clock className="h-4 w-4 mr-2 text-orange-500" />
+
+                <div>
+                  <h3 className="text-lg font-medium flex items-center mb-3">
+                    <Clock className="h-5 w-5 mr-2 text-amber-500" />
                     Cookie Duration
                   </h3>
-                  <p className="text-sm text-muted-foreground ml-6">
+                  <p className="text-muted-foreground">
                     Tracking cookies for this offer last for 30 days by default.
                   </p>
                 </div>
-                
-                <Separator />
-                
-                <div className="space-y-2">
-                  <h3 className="font-medium flex items-center">
-                    <FileText className="h-4 w-4 mr-2 text-green-500" />
+
+                <div>
+                  <h3 className="text-lg font-medium flex items-center mb-3">
+                    <FileCode className="h-5 w-5 mr-2 text-emerald-500" />
                     Tracking Implementation
                   </h3>
-                  <div className="ml-6">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      To promote this offer, create tracking links from the "Generate Links" button. These links will automatically:
-                    </p>
-                    <ul className="text-sm text-muted-foreground space-y-1 list-disc pl-4">
-                      <li>Track visitor clicks</li>
-                      <li>Attribute conversions to your account</li> 
-                      <li>Pass additional parameters to the advertiser</li>
-                    </ul>
-                  </div>
+                  <p className="text-muted-foreground mb-3">
+                    To promote this offer, create tracking links from the "Generate Links" button. These links will automatically:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-muted-foreground ml-4">
+                    <li>Track visitor clicks</li>
+                    <li>Attribute conversions to your account</li>
+                    <li>Pass additional parameters to the advertiser</li>
+                  </ul>
                 </div>
-                
-                <Separator />
-                
-                <div className="bg-muted p-4 rounded-md">
-                  <div className="flex items-start">
-                    <CheckCircle className="h-5 w-5 mr-2 text-green-500 mt-0.5" />
+
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="font-medium">Ready to Promote</h3>
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <h3 className="text-lg font-medium flex items-center">
+                        <CheckCircle className="h-5 w-5 mr-2 text-green-500" />
+                        Ready to Promote
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
                         This offer is ready for promotion. Generate your tracking links and start driving traffic!
                       </p>
-                      <Button 
-                        className="mt-2" 
-                        size="sm"
-                        onClick={() => navigate(`/links?offer=${offer.id}`)}
-                      >
-                        Generate Tracking Links
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center space-x-2">
+                        <Label htmlFor="show-all-links">View All Links</Label>
+                        <Switch
+                          id="show-all-links"
+                          checked={showAllLinks}
+                          onCheckedChange={setShowAllLinks}
+                        />
+                      </div>
+                      <Button onClick={generateTrackingLink}>
+                        Generate Tracking Link
                       </Button>
                     </div>
                   </div>
+
+                  {trackingLinks.length > 0 ? (
+                    <ScrollArea className="h-[400px] rounded-md border">
+                      <div className="space-y-4 p-4">
+                        {trackingLinks.map((link) => (
+                          <div key={link.id} className="space-y-3 pb-4 border-b last:border-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-sm text-muted-foreground">
+                                Created: {link.createdAt.toLocaleString()}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => copyToClipboard(link.id, getFullTrackingUrl(link))}
+                                >
+                                  {showCopied[link.id] ? (
+                                    <Check className="h-4 w-4" />
+                                  ) : (
+                                    <Copy className="h-4 w-4" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => window.open(getFullTrackingUrl(link), '_blank')}
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            <div className="flex-1 break-all">
+                              <code className="text-sm bg-muted p-2 rounded-md block">
+                                {getFullTrackingUrl(link)}
+                              </code>
+                            </div>
+
+                            <div className="space-y-2">
+                              {link.parameters.map((param) => (
+                                <div key={param.id} className="flex items-center gap-2">
+                                  <Input
+                                    placeholder="Parameter name"
+                                    value={param.name}
+                                    onChange={(e) => updateParameter(link.id, param.id, 'name', e.target.value)}
+                                    className="flex-1"
+                                  />
+                                  <Input
+                                    placeholder="Parameter value"
+                                    value={param.value}
+                                    onChange={(e) => updateParameter(link.id, param.id, 'value', e.target.value)}
+                                    className="flex-1"
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeParameter(link.id, param.id)}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ))}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => addParameter(link.id)}
+                                className="w-full"
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Parameter
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No tracking links generated yet. Click the button above to create one.
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

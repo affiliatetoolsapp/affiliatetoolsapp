@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +12,9 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 import { 
   LineChart, 
   Line, 
@@ -31,75 +33,131 @@ import {
   ChevronDown,
   Calendar as CalendarIcon
 } from 'lucide-react';
-import { format, subDays, startOfDay, endOfDay, eachDayOfInterval, parseISO } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay, eachDayOfInterval, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, subWeeks } from 'date-fns';
 import { DataTable } from '@/components/ui/data-table';
 import type { ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 
 export default function ReportsPage() {
   const { user } = useAuth();
-  const [dateRange, setDateRange] = useState('7');
+  const [selectedOffer, setSelectedOffer] = useState<string>('all');
+  const [timeRange, setTimeRange] = useState<string>('today');
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+    from: startOfDay(new Date()),
+    to: endOfDay(new Date())
+  });
   const [groupBy, setGroupBy] = useState('daily');
   const [selectedType, setSelectedType] = useState('all');
   
   const isAdvertiser = user?.role === 'advertiser';
+
+  // Query to get approved offers
+  const { data: approvedOffers } = useQuery({
+    queryKey: ['approved-offers', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from('affiliate_offers')
+        .select(`
+          offer_id,
+          offers (
+            id,
+            name
+          )
+        `)
+        .eq('affiliate_id', user.id)
+        .eq('status', 'approved');
+        
+      if (error) {
+        console.error('Error fetching approved offers:', error);
+        return [];
+      }
+      
+      return data || [];
+    },
+    enabled: !!user && !isAdvertiser,
+  });
+
+  // Calculate date range based on selected time period
+  const getDateRange = () => {
+    const now = new Date();
+    switch (timeRange) {
+      case 'today':
+        return {
+          from: startOfDay(now),
+          to: endOfDay(now)
+        };
+      case 'yesterday':
+        const yesterday = subDays(now, 1);
+        return {
+          from: startOfDay(yesterday),
+          to: endOfDay(yesterday)
+        };
+      case 'this_week':
+        return {
+          from: startOfWeek(now),
+          to: endOfWeek(now)
+        };
+      case 'last_week':
+        const lastWeek = subWeeks(now, 1);
+        return {
+          from: startOfWeek(lastWeek),
+          to: endOfWeek(lastWeek)
+        };
+      case 'this_month':
+        return {
+          from: startOfMonth(now),
+          to: endOfMonth(now)
+        };
+      case 'last_month':
+        const lastMonth = subMonths(now, 1);
+        return {
+          from: startOfMonth(lastMonth),
+          to: endOfMonth(lastMonth)
+        };
+      case 'custom':
+        return dateRange;
+      default:
+        return {
+          from: startOfDay(now),
+          to: endOfDay(now)
+        };
+    }
+  };
+
+  const currentDateRange = getDateRange();
   
-  // Calculate date range
-  const endDate = new Date();
-  const startDate = subDays(endDate, parseInt(dateRange));
-  
-  // Get clicks - Modified to ensure we get all data
+  // Get clicks with offer filtering
   const { data: clicks, isLoading: isLoadingClicks } = useQuery({
-    queryKey: ['report-clicks', user?.id, user?.role, dateRange],
+    queryKey: ['report-clicks', user?.id, selectedOffer, timeRange, dateRange],
     queryFn: async () => {
       if (!user) return [];
       
       try {
-        if (isAdvertiser) {
-          // For advertisers - get clicks for offers they created
-          console.log('Fetching clicks for advertiser:', user.id);
-          
-          const { data, error } = await supabase
-            .from('clicks')
-            .select(`
-              *,
-              offers!inner(*)
-            `)
-            .gte('created_at', startOfDay(startDate).toISOString())
-            .lte('created_at', endOfDay(endDate).toISOString())
-            .eq('offers.advertiser_id', user.id);
-          
-          if (error) {
-            console.error('Error fetching clicks for advertiser:', error);
-            toast.error(`Error fetching clicks: ${error.message}`);
-            return [];
-          }
-          
-          console.log(`Found ${data?.length || 0} clicks for advertiser`);
-          return data || [];
-        } else {
-          // For affiliates - get clicks for their tracking links
-          console.log('Fetching clicks for affiliate:', user.id);
-          
-          const { data, error } = await supabase
-            .from('clicks')
-            .select(`
-              *,
-              offers(*)
-            `)
-            .gte('created_at', startOfDay(startDate).toISOString())
-            .lte('created_at', endOfDay(endDate).toISOString())
-            .eq('affiliate_id', user.id);
-          
-          if (error) {
-            console.error('Error fetching clicks for affiliate:', error);
-            toast.error(`Error fetching clicks: ${error.message}`);
-            return [];
-          }
-          
-          console.log(`Found ${data?.length || 0} clicks for affiliate`);
-          return data || [];
+        let query = supabase
+          .from('clicks')
+          .select(`
+            *,
+            offers(*)
+          `)
+          .gte('created_at', currentDateRange.from.toISOString())
+          .lte('created_at', currentDateRange.to.toISOString())
+          .eq('affiliate_id', user.id);
+
+        if (selectedOffer !== 'all') {
+          query = query.eq('offer_id', selectedOffer);
         }
+
+        const { data, error } = await query;
+        
+        if (error) {
+          console.error('Error fetching clicks:', error);
+          toast.error(`Error fetching clicks: ${error.message}`);
+          return [];
+        }
+        
+        return data || [];
       } catch (error) {
         console.error('Error processing clicks:', error);
         toast.error('Error loading click data');
@@ -108,60 +166,32 @@ export default function ReportsPage() {
     },
     enabled: !!user,
   });
-  
-  // Get conversions
+
+  // Get conversions with offer filtering
   const { data: conversions, isLoading: isLoadingConversions } = useQuery({
-    queryKey: ['report-conversions', user?.id, user?.role, dateRange, selectedType],
+    queryKey: ['report-conversions', user?.id, selectedOffer, timeRange, dateRange],
     queryFn: async () => {
       if (!user) return [];
       
       try {
-        // We need different approaches for advertisers vs affiliates
-        console.log('Fetching conversions with filters:', {
-          startDate: startOfDay(startDate).toISOString(),
-          endDate: endOfDay(endDate).toISOString(),
-          selectedType,
-          isAdvertiser
-        });
-        
-        let query;
-        
-        if (isAdvertiser) {
-          // For advertisers - get conversions for their offers via click's offer_id
-          query = supabase
-            .from('conversions')
-            .select(`
-              *,
-              click:clicks!inner(
-                id, click_id, affiliate_id, offer_id, 
-                tracking_code, created_at, ip_address, device, geo,
-                offers!inner(id, name, advertiser_id, commission_type)
-              )
-            `)
-            .gte('created_at', startOfDay(startDate).toISOString())
-            .lte('created_at', endOfDay(endDate).toISOString())
-            .eq('click.offers.advertiser_id', user.id);
-        } else {
-          // For affiliates - get conversions for their clicks
-          query = supabase
-            .from('conversions')
-            .select(`
-              *,
-              click:clicks!inner(
-                id, click_id, affiliate_id, offer_id, 
-                tracking_code, created_at, ip_address, device, geo,
-                offers(id, name, advertiser_id, commission_type)
-              )
-            `)
-            .gte('created_at', startOfDay(startDate).toISOString())
-            .lte('created_at', endOfDay(endDate).toISOString())
-            .eq('click.affiliate_id', user.id);
+        let query = supabase
+          .from('conversions')
+          .select(`
+            *,
+            click:clicks!inner(
+              id, click_id, affiliate_id, offer_id, 
+              tracking_code, created_at, ip_address, device, geo,
+              offers(id, name, advertiser_id, commission_type)
+            )
+          `)
+          .gte('created_at', currentDateRange.from.toISOString())
+          .lte('created_at', currentDateRange.to.toISOString())
+          .eq('click.affiliate_id', user.id);
+
+        if (selectedOffer !== 'all') {
+          query = query.eq('click.offer_id', selectedOffer);
         }
-        
-        if (selectedType !== 'all') {
-          query = query.eq('event_type', selectedType);
-        }
-        
+
         const { data, error } = await query;
         
         if (error) {
@@ -169,7 +199,6 @@ export default function ReportsPage() {
           throw error;
         }
         
-        console.log(`Found ${data?.length || 0} conversions`);
         return data || [];
       } catch (error) {
         console.error('Error processing conversions:', error);
@@ -178,71 +207,20 @@ export default function ReportsPage() {
     },
     enabled: !!user,
   });
-  
-  // Prepare data for charts
-  const prepareChartData = () => {
-    if (!clicks) return [];
-    
-    // Create an array of all days in the date range
-    const days = eachDayOfInterval({ start: startDate, end: endDate });
-    
-    // Initialize the data array with counts of 0
-    const data = days.map(day => {
-      const dateStr = format(day, 'yyyy-MM-dd');
-      return {
-        date: dateStr,
-        clicks: 0,
-        conversions: 0,
-        revenue: 0,
-        commissions: 0,
-      };
-    });
-    
-    // Count clicks by day
-    clicks.forEach(click => {
-      const clickDate = format(parseISO(click.created_at), 'yyyy-MM-dd');
-      const dataPoint = data.find(d => d.date === clickDate);
-      if (dataPoint) {
-        dataPoint.clicks += 1;
-      }
-    });
-    
-    // Count conversions and sum revenue/commissions by day
-    if (conversions) {
-      conversions.forEach(conv => {
-        // Find associated click to get date
-        const clickData = conv.click as any;
-        if (clickData) {
-          const clickDate = format(parseISO(clickData.created_at), 'yyyy-MM-dd');
-          const dataPoint = data.find(d => d.date === clickDate);
-          if (dataPoint) {
-            dataPoint.conversions += 1;
-            dataPoint.revenue += conv.revenue || 0;
-            dataPoint.commissions += conv.commission || 0;
-          }
-        }
-      });
-    }
-    
-    // Format dates for display
-    return data.map(item => ({
-      ...item,
-      date: format(new Date(item.date), 'MMM dd'),
-      revenue: parseFloat(item.revenue.toFixed(2)),
-      commissions: parseFloat(item.commissions.toFixed(2)),
-    }));
-  };
-  
-  const chartData = prepareChartData();
-  
-  // Calculate totals
+
+  // Calculate metrics
   const totalClicks = clicks?.length || 0;
   const totalConversions = conversions?.length || 0;
   const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0;
   const totalRevenue = conversions?.reduce((sum, conv) => sum + (conv.revenue || 0), 0) || 0;
   const totalCommissions = conversions?.reduce((sum, conv) => sum + (conv.commission || 0), 0) || 0;
-  
-  const isLoading = isLoadingClicks || isLoadingConversions;
+
+  // Calculate per day averages
+  const daysDiff = Math.max(1, Math.ceil((currentDateRange.to.getTime() - currentDateRange.from.getTime()) / (1000 * 60 * 60 * 24)));
+  const clicksPerDay = totalClicks / daysDiff;
+  const conversionsPerDay = totalConversions / daysDiff;
+  const revenuePerDay = totalRevenue / daysDiff;
+  const commissionsPerDay = totalCommissions / daysDiff;
 
   // Define columns for clicks table
   const clickColumns: ColumnDef<any>[] = [
@@ -621,6 +599,57 @@ export default function ReportsPage() {
     }
   };
   
+  // Prepare data for charts
+  const prepareChartData = () => {
+    if (!clicks || !conversions) return [];
+    
+    // Create an array of all days in the date range
+    const days = eachDayOfInterval({ start: currentDateRange.from, end: currentDateRange.to });
+    
+    // Initialize the data array with counts of 0
+    const data = days.map(day => {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      return {
+        date: dateStr,
+        clicks: 0,
+        conversions: 0,
+        revenue: 0,
+        commissions: 0,
+      };
+    });
+    
+    // Count clicks by day
+    clicks.forEach(click => {
+      const clickDate = format(parseISO(click.created_at), 'yyyy-MM-dd');
+      const dataPoint = data.find(d => d.date === clickDate);
+      if (dataPoint) {
+        dataPoint.clicks += 1;
+      }
+    });
+    
+    // Count conversions and sum revenue/commissions by day
+    conversions.forEach(conv => {
+      const convDate = format(parseISO(conv.created_at), 'yyyy-MM-dd');
+      const dataPoint = data.find(d => d.date === convDate);
+      if (dataPoint) {
+        dataPoint.conversions += 1;
+        dataPoint.revenue += conv.revenue || 0;
+        dataPoint.commissions += conv.commission || 0;
+      }
+    });
+    
+    // Format dates for display
+    return data.map(item => ({
+      ...item,
+      date: format(new Date(item.date), 'MMM dd'),
+      revenue: parseFloat(item.revenue.toFixed(2)),
+      commissions: parseFloat(item.commissions.toFixed(2)),
+    }));
+  };
+
+  const chartData = prepareChartData();
+  const isLoading = isLoadingClicks || isLoadingConversions;
+
   if (!user) return null;
   
   return (
@@ -628,41 +657,91 @@ export default function ReportsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Performance Reports</h1>
         <p className="text-muted-foreground">
-          Track your {isAdvertiser ? 'offer' : 'affiliate'} performance and earnings
+          Track your performance and earnings
         </p>
       </div>
       
       <div className="flex flex-wrap gap-4 items-center justify-between">
         <div className="flex flex-wrap gap-2">
           <Select
-            value={dateRange}
-            onValueChange={setDateRange}
+            value={selectedOffer}
+            onValueChange={setSelectedOffer}
           >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Date Range" />
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Select offer" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="7">Last 7 days</SelectItem>
-              <SelectItem value="30">Last 30 days</SelectItem>
-              <SelectItem value="90">Last 90 days</SelectItem>
+              <SelectItem value="all">All Offers</SelectItem>
+              {approvedOffers?.map((offer: any) => (
+                <SelectItem key={offer.offer_id} value={offer.offer_id}>
+                  {offer.offers.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           
           <Select
-            value={selectedType}
-            onValueChange={setSelectedType}
+            value={timeRange}
+            onValueChange={setTimeRange}
           >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Event Type" />
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Select time period" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Events</SelectItem>
-              <SelectItem value="lead">Leads</SelectItem>
-              <SelectItem value="sale">Sales</SelectItem>
-              <SelectItem value="action">Actions</SelectItem>
-              <SelectItem value="deposit">Deposits</SelectItem>
+              <SelectItem value="today">Today</SelectItem>
+              <SelectItem value="yesterday">Yesterday</SelectItem>
+              <SelectItem value="this_week">This Week</SelectItem>
+              <SelectItem value="last_week">Last Week</SelectItem>
+              <SelectItem value="this_month">This Month</SelectItem>
+              <SelectItem value="last_month">Last Month</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
             </SelectContent>
           </Select>
+
+          {timeRange === 'custom' && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[280px] justify-start text-left font-normal",
+                    !dateRange && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateRange?.from ? (
+                    dateRange.to ? (
+                      <>
+                        {format(dateRange.from, "LLL dd, y")} -{" "}
+                        {format(dateRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(dateRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Pick a date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={{ from: dateRange.from, to: dateRange.to }}
+                  onSelect={(range) => {
+                    if (range?.from && range?.to) {
+                      setDateRange({
+                        from: startOfDay(range.from),
+                        to: endOfDay(range.to)
+                      });
+                    }
+                  }}
+                  numberOfMonths={2}
+                />
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       </div>
       
@@ -674,7 +753,7 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {isLoading ? '...' : totalClicks.toLocaleString()}
+              {isLoadingClicks ? '...' : totalClicks.toLocaleString()}
             </div>
           </CardContent>
         </Card>
@@ -684,10 +763,10 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {isLoading ? '...' : totalConversions.toLocaleString()}
+              {isLoadingConversions ? '...' : totalConversions.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
-              CR: {isLoading ? '...' : conversionRate.toFixed(2)}%
+              CR: {(isLoadingClicks || isLoadingConversions) ? '...' : conversionRate.toFixed(2)}%
             </p>
           </CardContent>
         </Card>
@@ -697,7 +776,7 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${isLoading ? '...' : totalRevenue.toFixed(2)}
+              ${isLoadingConversions ? '...' : totalRevenue.toFixed(2)}
             </div>
           </CardContent>
         </Card>
@@ -707,7 +786,7 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${isLoading ? '...' : totalCommissions.toFixed(2)}
+              ${isLoadingConversions ? '...' : totalCommissions.toFixed(2)}
             </div>
           </CardContent>
         </Card>
@@ -725,7 +804,7 @@ export default function ReportsPage() {
             <CardHeader>
               <CardTitle>Performance Trend</CardTitle>
               <CardDescription>
-                {`${format(startDate, 'MMM dd, yyyy')} - ${format(endDate, 'MMM dd, yyyy')}`}
+                {`${format(currentDateRange.from, 'MMM dd, yyyy')} - ${format(currentDateRange.to, 'MMM dd, yyyy')}`}
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-2">
@@ -780,7 +859,7 @@ export default function ReportsPage() {
               </CardHeader>
               <CardContent>
                 <div className="h-[300px]">
-                  {isLoading ? (
+                  {isLoadingConversions ? (
                     <div className="h-full flex items-center justify-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                     </div>
@@ -853,26 +932,26 @@ export default function ReportsPage() {
                       <div className="grid grid-cols-3 p-3">
                         <div>Clicks</div>
                         <div>{totalClicks}</div>
-                        <div>{(totalClicks / parseInt(dateRange)).toFixed(1)}</div>
+                        <div>{clicksPerDay.toFixed(1)}</div>
                       </div>
                       <div className="grid grid-cols-3 p-3">
                         <div>Conversions</div>
                         <div>{totalConversions}</div>
-                        <div>{(totalConversions / parseInt(dateRange)).toFixed(1)}</div>
+                        <div>{conversionsPerDay.toFixed(1)}</div>
                       </div>
                       <div className="grid grid-cols-3 p-3">
-                        <div>Conv. Rate</div>
+                        <div>Revenue</div>
+                        <div>${totalRevenue.toFixed(2)}</div>
+                        <div>${revenuePerDay.toFixed(2)}</div>
+                      </div>
+                      <div className="grid grid-cols-3 p-3">
+                        <div>Commissions</div>
+                        <div>${totalCommissions.toFixed(2)}</div>
+                        <div>${commissionsPerDay.toFixed(2)}</div>
+                      </div>
+                      <div className="grid grid-cols-3 p-3">
+                        <div>Conversion Rate</div>
                         <div>{conversionRate.toFixed(2)}%</div>
-                        <div>-</div>
-                      </div>
-                      <div className="grid grid-cols-3 p-3">
-                        <div>{isAdvertiser ? 'Revenue' : 'Earnings'}</div>
-                        <div>${isAdvertiser ? totalRevenue.toFixed(2) : totalCommissions.toFixed(2)}</div>
-                        <div>${((isAdvertiser ? totalRevenue : totalCommissions) / parseInt(dateRange)).toFixed(2)}</div>
-                      </div>
-                      <div className="grid grid-cols-3 p-3">
-                        <div>EPC</div>
-                        <div>${totalClicks ? (totalCommissions / totalClicks).toFixed(2) : '0.00'}</div>
                         <div>-</div>
                       </div>
                     </div>

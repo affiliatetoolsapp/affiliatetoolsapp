@@ -1,4 +1,3 @@
-
 // List of country codes with flags and names
 const countryCodes = [
   { code: "US", name: "United States", flag: "🇺🇸" },
@@ -50,7 +49,10 @@ const countryCodes = [
   { code: "NG", name: "Nigeria", flag: "🇳🇬" },
   { code: "KE", name: "Kenya", flag: "🇰🇪" },
   { code: "MA", name: "Morocco", flag: "🇲🇦" },
-  { code: "QA", name: "Qatar", flag: "🇶🇦" }
+  { code: "QA", name: "Qatar", flag: "🇶🇦" },
+  { code: "CU", name: "Cuba", flag: "🇨🇺" },
+  { code: "KP", name: "North Korea", flag: "🇰🇵" },
+  { code: "VE", name: "Venezuela", flag: "🇻🇪" }
 ];
 
 // Convert the array to a dictionary format for easy lookup

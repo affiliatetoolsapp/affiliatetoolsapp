@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import countryCodes from '@/components/offers/countryCodes';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -202,35 +203,69 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
     }
   };
   
-  // Format geo targets for display
+  // Format geo targets for display with country names and codes
   const formatGeoTargets = () => {
-    if (!offer.geo_targets) return ["Worldwide"];
+    if (!offer.geo_targets) return [{ code: "WW", name: "Worldwide", flag: "🌐" }];
     
     try {
-      // If geo_targets is a string, try to parse it
-      const geoObj = typeof offer.geo_targets === 'string' 
-        ? JSON.parse(offer.geo_targets) 
-        : offer.geo_targets;
+      let geoCodes: string[] = [];
       
-      // If it's an empty object or not actually containing country data
-      if (!geoObj || Object.keys(geoObj).length === 0) {
-        return ["Worldwide"];
+      // Handle different types of geo_targets
+      if (Array.isArray(offer.geo_targets)) {
+        geoCodes = offer.geo_targets;
+      } else if (typeof offer.geo_targets === 'string') {
+        try {
+          // Try to parse as JSON first
+          const parsed = JSON.parse(offer.geo_targets);
+          if (Array.isArray(parsed)) {
+            geoCodes = parsed;
+          } else if (typeof parsed === 'object' && parsed !== null) {
+            geoCodes = Object.keys(parsed);
+          } else {
+            geoCodes = [parsed];
+          }
+        } catch {
+          // If not JSON, treat as single country code
+          geoCodes = [offer.geo_targets];
+        }
+      } else if (typeof offer.geo_targets === 'object' && offer.geo_targets !== null) {
+        geoCodes = Object.keys(offer.geo_targets);
       }
       
-      return Object.keys(geoObj);
+      // If no valid country codes found, return worldwide
+      if (geoCodes.length === 0) {
+        return [{ code: "WW", name: "Worldwide", flag: "🌐" }];
+      }
+      
+      // Map country codes to full country info
+      return geoCodes.map(country => {
+        const countryInfo = countryCodes.find(c => c.code === country.toUpperCase());
+        return {
+          code: country.toUpperCase(),
+          name: countryInfo?.name || country,
+          flag: countryInfo?.flag || "🌐"
+        };
+      });
     } catch (e) {
       console.error("Error parsing geo targets:", e);
-      return ["Worldwide"];
+      return [{ code: "WW", name: "Worldwide", flag: "🌐" }];
     }
   };
   
-  // Format restricted geos for display
+  // Format restricted geos for display with country names and codes
   const getRestrictedGeos = () => {
     if (!offer.restricted_geos || !Array.isArray(offer.restricted_geos) || offer.restricted_geos.length === 0) {
       return [];
     }
     
-    return offer.restricted_geos;
+    return offer.restricted_geos.map(country => {
+      const countryInfo = countryCodes.find(c => c.code === country.toUpperCase());
+      return {
+        code: country.toUpperCase(),
+        name: countryInfo?.name || country,
+        flag: countryInfo?.flag || "🌐"
+      };
+    });
   };
 
   // Get allowed traffic sources
@@ -473,7 +508,6 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
         </TabsContent>
         
         <TabsContent value="geo" className="space-y-4">
-          
           <Card>
             <CardHeader>
               <CardTitle>Geo Targeting Information</CardTitle>
@@ -485,16 +519,18 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
                   <Globe className="h-5 w-5 mr-2 text-blue-500" />
                   Targeted Countries
                 </h3>
-                {targetedGeos.length === 1 && targetedGeos[0] === "Worldwide" ? (
+                {targetedGeos.length === 1 && targetedGeos[0].code === "WW" ? (
                   <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-md">
-                    <p className="text-blue-700 dark:text-blue-300">This offer is available worldwide with no country restrictions.</p>
+                    <p className="text-blue-700 dark:text-blue-300">
+                      This offer is available worldwide with no country restrictions.
+                    </p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                     {targetedGeos.map((geo, index) => (
                       <Badge key={index} className="justify-start px-3 py-1.5" variant="outline">
-                        <MapPin className="h-3.5 w-3.5 mr-1.5 text-blue-500" />
-                        {geo}
+                        <span className="mr-1.5">{geo.flag}</span>
+                        {geo.code}
                       </Badge>
                     ))}
                   </div>
@@ -509,9 +545,12 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                     {restrictedGeos.map((geo, index) => (
-                      <Badge key={index} className="justify-start px-3 py-1.5 bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800">
-                        <MapPin className="h-3.5 w-3.5 mr-1.5 text-red-500" />
-                        {geo}
+                      <Badge 
+                        key={index} 
+                        className="justify-start px-3 py-1.5 bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800"
+                      >
+                        <span className="mr-1.5">{geo.flag}</span>
+                        {geo.code}
                       </Badge>
                     ))}
                   </div>

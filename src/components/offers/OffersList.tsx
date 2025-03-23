@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -185,22 +184,20 @@ export default function OffersList() {
                         <CardTitle className="text-md">
                           <button 
                             onClick={() => handleOfferClick(offer.id)} 
-                            className="hover:underline text-left"
+                            className="hover:text-primary text-left"
                           >
                             {offer.name}
                           </button>
                         </CardTitle>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                            <DollarSign className="h-3 w-3 mr-1" />
-                            {commissionRange
-                              ? `${commissionRange.min}-${commissionRange.max}`
-                              : offer.commission_amount}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                          <DollarSign className="h-3 w-3 mr-1" />
+                          {commissionRange
+                            ? `${commissionRange.min}-${commissionRange.max}`
+                            : offer.commission_amount}
+                          <Badge variant="outline" className="ml-1 py-0 px-1 text-xs">
                             {offer.commission_type}
                           </Badge>
-                        </div>
+                        </Badge>
                       </div>
                       <CardDescription className="line-clamp-2 text-xs">{offer.description}</CardDescription>
                     </CardHeader>
@@ -236,11 +233,19 @@ export default function OffersList() {
                           {formatGeoTargets(offer).length > 0 ? (
                             <HoverCard openDelay={0} closeDelay={0}>
                               <HoverCardTrigger asChild>
-                                <Badge variant="outline" className="text-xs cursor-pointer ml-1">
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-xs cursor-pointer ml-1"
+                                >
                                   {formatGeoTargets(offer).length} {formatGeoTargets(offer).length === 1 ? 'country' : 'countries'}
                                 </Badge>
                               </HoverCardTrigger>
-                              <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                              <HoverCardContent 
+                                className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]" 
+                                sideOffset={5}
+                                align="start"
+                                side="right"
+                              >
                                 <div className="font-medium mb-2">Targeted GEO's:</div>
                                 <div className="flex flex-wrap gap-1 max-w-[300px]">
                                   {formatGeoTargets(offer).map((geo, i) => (
@@ -256,17 +261,26 @@ export default function OffersList() {
                           )}
                         </div>
                         
+                        {/* Traffic sources */}
                         {offer.allowed_traffic_sources && Array.isArray(offer.allowed_traffic_sources) && offer.allowed_traffic_sources.length > 0 && (
                           <div className="text-xs flex items-center">
                             <Target className="h-3.5 w-3.5 mr-1 text-purple-500" />
                             <span className="font-medium mr-1">Traffic:</span>
                             <HoverCard openDelay={0} closeDelay={0}>
                               <HoverCardTrigger asChild>
-                                <Badge variant="outline" className="text-xs cursor-pointer ml-1">
+                                <Badge 
+                                  variant="outline" 
+                                  className="text-xs cursor-pointer ml-1"
+                                >
                                   {offer.allowed_traffic_sources.length} {offer.allowed_traffic_sources.length === 1 ? 'source' : 'sources'}
                                 </Badge>
                               </HoverCardTrigger>
-                              <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                              <HoverCardContent 
+                                className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]" 
+                                sideOffset={5}
+                                align="start"
+                                side="right"
+                              >
                                 <div className="font-medium mb-2">Traffic Sources:</div>
                                 <div className="flex flex-wrap gap-1 max-w-[300px]">
                                   {offer.allowed_traffic_sources.map((source, i) => (
@@ -287,11 +301,19 @@ export default function OffersList() {
                             <span className="font-medium mr-1">Restricted:</span>
                             <HoverCard openDelay={0} closeDelay={0}>
                               <HoverCardTrigger asChild>
-                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs cursor-pointer ml-1">
+                                <Badge 
+                                  variant="outline" 
+                                  className="bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 text-xs cursor-pointer ml-1"
+                                >
                                   {offer.restricted_geos.length} {offer.restricted_geos.length === 1 ? 'country' : 'countries'}
                                 </Badge>
                               </HoverCardTrigger>
-                              <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                              <HoverCardContent 
+                                className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]" 
+                                sideOffset={5}
+                                align="start"
+                                side="right"
+                              >
                                 <div className="font-medium mb-2">Restricted GEO's:</div>
                                 <div className="flex flex-wrap gap-1 max-w-[300px]">
                                   {offer.restricted_geos.map((geo, i) => (
@@ -344,10 +366,17 @@ export default function OffersList() {
               {filteredOffers.map((offer) => {
                 const commissionRange = getCommissionRange(offer);
                 return (
-                <Card key={offer.id} className="overflow-hidden cursor-pointer" onClick={() => handleOfferClick(offer.id)}>
+                <Card key={offer.id} className="overflow-hidden">
                   <CardHeader className="p-3">
                     <div className="flex justify-between items-start">
-                      <CardTitle className="text-md hover:text-primary">{offer.name}</CardTitle>
+                      <CardTitle className="text-md">
+                        <button 
+                          onClick={() => handleOfferClick(offer.id)} 
+                          className="hover:text-primary text-left"
+                        >
+                          {offer.name}
+                        </button>
+                      </CardTitle>
                       <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                         <DollarSign className="h-3 w-3 mr-1" />
                         {commissionRange
@@ -362,7 +391,10 @@ export default function OffersList() {
                   </CardHeader>
                   <CardContent className="p-3 pt-0 grid gap-1">
                     {offer.offer_image && (
-                      <div className="mb-2 rounded-md overflow-hidden h-24 bg-gray-100">
+                      <div 
+                        className="mb-2 rounded-md overflow-hidden h-24 bg-gray-100 cursor-pointer"
+                        onClick={() => handleOfferClick(offer.id)}
+                      >
                         <img 
                           src={offer.offer_image} 
                           alt={offer.name} 
@@ -389,11 +421,19 @@ export default function OffersList() {
                         {formatGeoTargets(offer).length > 0 ? (
                           <HoverCard openDelay={0} closeDelay={0}>
                             <HoverCardTrigger asChild>
-                              <Badge variant="outline" className="text-xs cursor-pointer ml-1">
+                              <Badge 
+                                variant="outline" 
+                                className="text-xs cursor-pointer ml-1"
+                              >
                                 {formatGeoTargets(offer).length} {formatGeoTargets(offer).length === 1 ? 'country' : 'countries'}
                               </Badge>
                             </HoverCardTrigger>
-                            <HoverCardContent className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]">
+                            <HoverCardContent 
+                              className="w-auto p-3 shadow-lg border border-gray-200 bg-white dark:bg-gray-800 z-[9999]" 
+                              sideOffset={5}
+                              align="start"
+                              side="right"
+                            >
                               <div className="font-medium mb-2">Targeted GEO's:</div>
                               <div className="flex flex-wrap gap-1 max-w-[300px]">
                                 {formatGeoTargets(offer).map((geo, i) => (
@@ -424,3 +464,4 @@ export default function OffersList() {
     </div>
   );
 }
+

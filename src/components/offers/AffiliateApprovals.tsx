@@ -201,22 +201,11 @@ export default function AffiliateApprovals() {
                       <span className="sr-only">View affiliate details</span>
                     </Button>
                     <span>
-                      {app.users?.contact_name || app.users?.company_name || 'Unknown Affiliate'}
+                      Affiliate ID: {app.affiliate_id}
                     </span>
-                    {app.users?.website && (
-                      <a 
-                        href={app.users.website.startsWith('http') ? app.users.website : `https://${app.users.website}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center text-xs text-muted-foreground hover:text-primary"
-                      >
-                        <ExternalLink className="h-3 w-3 mr-1" />
-                        Website
-                      </a>
-                    )}
                   </div>
                 </TableCell>
-                <TableCell>{app.users?.email || 'No email provided'}</TableCell>
+                <TableCell>Hidden for Privacy</TableCell>
                 <TableCell>
                   <HoverCard>
                     <HoverCardTrigger asChild>
@@ -266,87 +255,65 @@ export default function AffiliateApprovals() {
         </Table>
       </div>
 
-      {/* Affiliate Details Dialog */}
-      <Dialog open={!!selectedApplication} onOpenChange={(open) => !open && setSelectedApplication(null)}>
-        <DialogContent className="max-w-2xl">
+      {/* Application Details Dialog */}
+      <Dialog open={!!selectedApplication} onOpenChange={() => setSelectedApplication(null)}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Affiliate Profile
-            </DialogTitle>
+            <DialogTitle>Application Details</DialogTitle>
             <DialogDescription>
-              Review the affiliate's information before making a decision
+              Review the affiliate's application details
             </DialogDescription>
           </DialogHeader>
           
           {selectedApplication && (
-            <div className="grid gap-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Contact Information</h3>
-                  <div className="space-y-2">
-                    <p><span className="font-medium">Name:</span> {selectedApplication.users?.contact_name || 'Not provided'}</p>
-                    <p><span className="font-medium">Company:</span> {selectedApplication.users?.company_name || 'Not provided'}</p>
-                    <p><span className="font-medium">Email:</span> {selectedApplication.users?.email || 'Not provided'}</p>
-                    <p><span className="font-medium">Phone:</span> {selectedApplication.users?.phone || 'Not provided'}</p>
-                    {selectedApplication.users?.website && (
-                      <p>
-                        <span className="font-medium">Website:</span>{' '}
-                        <a 
-                          href={selectedApplication.users.website.startsWith('http') ? selectedApplication.users.website : `https://${selectedApplication.users.website}`}
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          {selectedApplication.users.website}
-                        </a>
-                      </p>
-                    )}
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Application Details</h3>
-                  <div className="space-y-2">
-                    <p><span className="font-medium">Offer:</span> {selectedApplication.offers?.name}</p>
-                    <p><span className="font-medium">Niche:</span> {selectedApplication.offers?.niche || 'Not specified'}</p>
-                    <p><span className="font-medium">Traffic Source:</span> {selectedApplication.traffic_source || 'Not specified'}</p>
-                    <p><span className="font-medium">Applied:</span> {new Date(selectedApplication.applied_at).toLocaleString()}</p>
-                  </div>
-                </div>
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-medium mb-1">Affiliate ID</h4>
+                <p>{selectedApplication.affiliate_id}</p>
               </div>
               
-              {selectedApplication.users?.bio && (
+              <div>
+                <h4 className="text-sm font-medium mb-1">Applied For</h4>
+                <p>{selectedApplication.offers?.name}</p>
+              </div>
+              
+              <div>
+                <h4 className="text-sm font-medium mb-1">Application Date</h4>
+                <p>{new Date(selectedApplication.applied_at).toLocaleDateString()}</p>
+              </div>
+              
+              {selectedApplication.traffic_source && (
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Bio</h3>
-                  <p className="text-sm whitespace-pre-line">{selectedApplication.users.bio}</p>
+                  <h4 className="text-sm font-medium mb-1">Traffic Source</h4>
+                  <p>{selectedApplication.traffic_source}</p>
                 </div>
               )}
               
               {selectedApplication.notes && (
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Application Notes</h3>
-                  <p className="text-sm whitespace-pre-line">{selectedApplication.notes}</p>
+                  <h4 className="text-sm font-medium mb-1">Notes</h4>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {selectedApplication.notes}
+                  </p>
                 </div>
               )}
               
-              <div className="flex justify-end gap-2 mt-4">
+              <div className="flex justify-end gap-3 pt-4">
                 <Button
                   variant="outline"
                   onClick={() => setSelectedApplication(null)}
-                  disabled={updateApplication.isPending}
                 >
-                  Cancel
+                  Close
                 </Button>
-                <Button 
-                  variant="destructive" 
+                <Button
+                  variant="destructive"
                   onClick={() => handleReject(selectedApplication.id)}
                   disabled={updateApplication.isPending}
                 >
                   <X className="h-4 w-4 mr-1" />
                   Reject
                 </Button>
-                <Button 
+                <Button
                   onClick={() => handleApprove(selectedApplication.id)}
                   disabled={updateApplication.isPending}
                 >

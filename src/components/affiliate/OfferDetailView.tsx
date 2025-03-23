@@ -475,6 +475,16 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
     }
   }, [showAllLinks]);
 
+  // Remove any personal information display and only show advertiser ID
+  const renderAdvertiserInfo = () => {
+    return (
+      <div className="flex items-center gap-2">
+        <Label>Advertiser ID:</Label>
+        <span className="text-sm text-muted-foreground">{offer.advertiser_id}</span>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -583,10 +593,7 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
               
               <div className="space-y-1">
                 <Label className="text-sm text-muted-foreground">Advertiser</Label>
-                <p className="font-medium flex items-center">
-                  <Landmark className="h-4 w-4 mr-1 text-slate-500" />
-                  {offer.advertiser_name || 'Company Name'}
-                </p>
+                {renderAdvertiserInfo()}
               </div>
               
               {applicationStatus === 'approved' && (

@@ -139,11 +139,18 @@ export default function ReportsPage() {
           .from('clicks')
           .select(`
             *,
-            offers(*)
+            offers!inner(*)
           `)
           .gte('created_at', currentDateRange.from.toISOString())
-          .lte('created_at', currentDateRange.to.toISOString())
-          .eq('affiliate_id', user.id);
+          .lte('created_at', currentDateRange.to.toISOString());
+
+        if (isAdvertiser) {
+          // For advertisers, filter by their offers
+          query = query.eq('offers.advertiser_id', user.id);
+        } else {
+          // For affiliates, filter by their ID
+          query = query.eq('affiliate_id', user.id);
+        }
 
         if (selectedOffer !== 'all') {
           query = query.eq('offer_id', selectedOffer);
@@ -181,12 +188,19 @@ export default function ReportsPage() {
             click:clicks!inner(
               id, click_id, affiliate_id, offer_id, 
               tracking_code, created_at, ip_address, device, geo,
-              offers(id, name, advertiser_id, commission_type)
+              offers!inner(id, name, advertiser_id, commission_type)
             )
           `)
           .gte('created_at', currentDateRange.from.toISOString())
-          .lte('created_at', currentDateRange.to.toISOString())
-          .eq('click.affiliate_id', user.id);
+          .lte('created_at', currentDateRange.to.toISOString());
+
+        if (isAdvertiser) {
+          // For advertisers, filter by their offers
+          query = query.eq('click.offers.advertiser_id', user.id);
+        } else {
+          // For affiliates, filter by their ID
+          query = query.eq('click.affiliate_id', user.id);
+        }
 
         if (selectedOffer !== 'all') {
           query = query.eq('click.offer_id', selectedOffer);
@@ -657,7 +671,7 @@ export default function ReportsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Performance Reports</h1>
         <p className="text-muted-foreground">
-          Track your performance and earnings
+          Track your {isAdvertiser ? 'offer' : 'affiliate'} performance and earnings
         </p>
       </div>
       

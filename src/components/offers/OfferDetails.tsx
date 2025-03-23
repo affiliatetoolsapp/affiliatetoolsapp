@@ -75,7 +75,8 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
   const { data: affiliates } = useQuery({
     queryKey: ['offer-affiliates', offerId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // First get the affiliate applications
+      const { data: applications, error: appError } = await supabase
         .from('affiliate_offers')
         .select(`
           id,
@@ -84,17 +85,59 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
           reviewed_at,
           traffic_source,
           notes,
+          affiliate_id,
           affiliate:affiliate_id(
-            id,
-            email,
-            contact_name,
-            company_name
+            id
           )
         `)
         .eq('offer_id', offerId);
       
-      if (error) throw error;
-      return data;
+      if (appError) throw appError;
+
+      // For each application, get their stats
+      const affiliatesWithStats = await Promise.all(applications.map(async (app) => {
+        // Get clicks
+        const { data: clicks, error: clicksError } = await supabase
+          .from('clicks')
+          .select('click_id, created_at')
+          .eq('affiliate_id', app.affiliate_id)
+          .eq('offer_id', offerId);
+          
+        if (clicksError) console.error('Error fetching clicks:', clicksError);
+        
+        const totalClicks = clicks?.length || 0;
+        
+        // Get conversions
+        let conversions = [];
+        let totalPayout = 0;
+        
+        if (totalClicks > 0) {
+          const clickIds = clicks.map(c => c.click_id);
+          
+          const { data: convData, error: convError } = await supabase
+            .from('conversions')
+            .select('*')
+            .in('click_id', clickIds);
+            
+          if (convError) console.error('Error fetching conversions:', convError);
+          
+          conversions = convData || [];
+          totalPayout = conversions.reduce((sum, conv) => sum + (conv.commission || 0), 0);
+        }
+        
+        const totalConversions = conversions.length;
+        
+        return {
+          ...app,
+          stats: [{
+            clicks: totalClicks,
+            conversions: totalConversions,
+            revenue: totalPayout
+          }]
+        };
+      }));
+
+      return affiliatesWithStats;
     },
   });
   
@@ -536,6 +579,8 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
                         <th className="px-4 py-3 text-left text-sm font-medium">Affiliate</th>
                         <th className="px-4 py-3 text-left text-sm font-medium">Applied</th>
                         <th className="px-4 py-3 text-left text-sm font-medium">Traffic Source</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Clicks</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Conv.</th>
                         <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
                         <th className="px-4 py-3 text-right text-sm font-medium">Actions</th>
                       </tr>
@@ -544,13 +589,19 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
                       {affiliates.map((affiliate) => (
                         <tr key={affiliate.id}>
                           <td className="px-4 py-3 text-sm">
-                            {affiliate.affiliate.contact_name || affiliate.affiliate.company_name || affiliate.affiliate.email}
+                            Affiliate ID: {affiliate.affiliate.id}
                           </td>
                           <td className="px-4 py-3 text-sm">
                             {new Date(affiliate.applied_at).toLocaleDateString()}
                           </td>
                           <td className="px-4 py-3 text-sm">
                             {affiliate.traffic_source || 'Not specified'}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {affiliate.stats?.[0]?.clicks?.toLocaleString() || '0'}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {affiliate.stats?.[0]?.conversions?.toLocaleString() || '0'}
                           </td>
                           <td className="px-4 py-3 text-sm capitalize">
                             {affiliate.status}

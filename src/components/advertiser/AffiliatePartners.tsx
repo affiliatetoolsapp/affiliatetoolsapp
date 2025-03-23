@@ -81,16 +81,7 @@ export default function AffiliatePartners() {
             affiliate_id,
             applied_at,
             reviewed_at,
-            offers(id, name),
-            users:affiliate_id(
-              id, 
-              email, 
-              contact_name, 
-              company_name, 
-              website,
-              bio,
-              phone
-            )
+            offers(id, name)
           `)
           .eq('status', 'approved')
           .in('offer_id', offerIds);
@@ -111,9 +102,8 @@ export default function AffiliatePartners() {
         
         for (const affOffer of approvedPartners) {
           const affiliateId = affOffer.affiliate_id;
-          const userData = affOffer.users;
           
-          console.log('Processing affiliate:', affiliateId, 'User data:', userData);
+          console.log('Processing affiliate:', affiliateId);
           
           if (!affiliateMap.has(affiliateId)) {
             // Get performance data for this affiliate
@@ -151,10 +141,10 @@ export default function AffiliatePartners() {
             // Create affiliate entry with properly accessed user data
             affiliateMap.set(affiliateId, {
               id: affiliateId,
-              email: userData?.email || 'Unknown',
-              contact_name: userData?.contact_name || 'Unknown Affiliate',
-              company_name: userData?.company_name || '',
-              website: userData?.website || '',
+              email: 'Hidden for Privacy',
+              contact_name: `Affiliate ID: ${affiliateId}`,
+              company_name: '',
+              website: '',
               approved_offers: 1,
               total_clicks: totalClicks,
               total_conversions: totalConversions,
@@ -349,7 +339,7 @@ export default function AffiliatePartners() {
                       <tr key={affiliate.id} className="border-b hover:bg-muted/50">
                         <td className="p-3">
                           <div className="font-medium">{affiliate.contact_name}</div>
-                          <div className="text-sm text-muted-foreground">{affiliate.email}</div>
+                          <div className="text-sm text-muted-foreground">ID: {affiliate.id}</div>
                         </td>
                         <td className="p-3">{affiliate.join_date}</td>
                         <td className="p-3">{affiliate.approved_offers}</td>
@@ -402,12 +392,7 @@ export default function AffiliatePartners() {
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <h3 className="text-lg font-medium mb-2">{selectedAffiliate.contact_name}</h3>
-                  <p className="text-muted-foreground">{selectedAffiliate.email}</p>
-                  <div className="mt-4">
-                    <div className="text-sm font-medium mb-1">ID:</div>
-                    <div className="text-sm font-mono">{selectedAffiliate.id}</div>
-                  </div>
+                  <h3 className="text-lg font-medium mb-2">Affiliate ID: {selectedAffiliate.id}</h3>
                   <div className="mt-2">
                     <div className="text-sm font-medium mb-1">Joined:</div>
                     <div>{selectedAffiliate.join_date}</div>
@@ -435,24 +420,6 @@ export default function AffiliatePartners() {
                     <div className="text-sm font-medium mb-1">Total Paid:</div>
                     <div>${selectedAffiliate.total_payout.toFixed(2)}</div>
                   </div>
-                </div>
-              </div>
-              
-              <div>
-                <div className="text-sm font-medium mb-2">Traffic Sources:</div>
-                <div className="flex flex-wrap gap-2">
-                  {selectedAffiliate.traffic_sources && selectedAffiliate.traffic_sources.length > 0 ? (
-                    selectedAffiliate.traffic_sources.map((source: string) => (
-                      <span 
-                        key={source} 
-                        className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium"
-                      >
-                        {source}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-sm text-muted-foreground">No traffic sources specified</span>
-                  )}
                 </div>
               </div>
               

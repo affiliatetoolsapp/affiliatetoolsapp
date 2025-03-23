@@ -17,6 +17,11 @@ export interface Offer {
   created_at?: string;
   advertiser_id?: string;
   is_featured?: boolean;
+  url?: string;
+  marketing_materials?: string[];
+  target_audience?: string;
+  restrictions?: string;
+  conversion_requirements?: string;
 }
 
 export interface GeoCommission {

@@ -273,7 +273,6 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
                     {offer.status}
                   </Badge>
                 </div>
-                <p className="mt-3 text-muted-foreground">{offer.description}</p>
               </div>
             </div>
           </div>
@@ -323,246 +322,307 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
             </CardHeader>
             <CardContent className="pt-6">
               <div className="grid gap-8">
-                {/* Commission */}
-                <div className="mt-4">
-                  <Label className="text-sm font-medium flex items-center mb-3">
-                    <DollarSign className="h-4 w-4 mr-2 text-green-500" />
-                    Commission
-                  </Label>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                      <DollarSign className="h-3 w-3 mr-1" />
-                      {(() => {
-                        // Default commission display
-                        const defaultCommission = offer.commission_type === 'RevShare' 
-                          ? (offer.commission_percent ? `${offer.commission_percent}%` : '0%')
-                          : (offer.commission_amount ? `$${offer.commission_amount}` : '$0');
+                {/* Key Details Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Commission Details */}
+                  <Card className="border bg-muted/40">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 mb-4">
+                        <DollarSign className="h-5 w-5 text-green-500" />
+                        <h3 className="font-semibold">Commission Details</h3>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                            <DollarSign className="h-3 w-3 mr-1" />
+                            {(() => {
+                              // Default commission display
+                              const defaultCommission = offer.commission_type === 'RevShare' 
+                                ? (offer.commission_percent ? `${offer.commission_percent}%` : '0%')
+                                : (offer.commission_amount ? `$${offer.commission_amount}` : '$0');
 
-                        // Check for geo commissions
-                        const geoCommissions = (offer.geo_commissions as unknown) as GeoCommission[];
-                        if (!Array.isArray(geoCommissions) || geoCommissions.length === 0) {
-                          return defaultCommission;
-                        }
+                              // Check for geo commissions
+                              const geoCommissions = (offer.geo_commissions as unknown) as GeoCommission[];
+                              if (!Array.isArray(geoCommissions) || geoCommissions.length === 0) {
+                                return defaultCommission;
+                              }
 
-                        // Filter valid amounts
-                        const amounts = geoCommissions
-                          .map(gc => {
-                            const amount = offer.commission_type === 'RevShare' 
-                              ? Number(gc.commission_percent)
-                              : Number(gc.commission_amount);
-                            return isNaN(amount) ? null : amount;
-                          })
-                          .filter((amount): amount is number => amount !== null);
+                              // Filter valid amounts
+                              const amounts = geoCommissions
+                                .map(gc => {
+                                  const amount = offer.commission_type === 'RevShare' 
+                                    ? Number(gc.commission_percent)
+                                    : Number(gc.commission_amount);
+                                  return isNaN(amount) ? null : amount;
+                                })
+                                .filter((amount): amount is number => amount !== null);
 
-                        if (amounts.length === 0) {
-                          return defaultCommission;
-                        }
+                              if (amounts.length === 0) {
+                                return defaultCommission;
+                              }
 
-                        const min = Math.min(...amounts);
-                        const max = Math.max(...amounts);
+                              const min = Math.min(...amounts);
+                              const max = Math.max(...amounts);
 
-                        if (min === max) {
-                          return offer.commission_type === 'RevShare'
-                            ? `${min}%`
-                            : `$${min}`;
-                        }
+                              if (min === max) {
+                                return offer.commission_type === 'RevShare'
+                                  ? `${min}%`
+                                  : `$${min}`;
+                              }
 
-                        return offer.commission_type === 'RevShare'
-                          ? `${min}-${max}%`
-                          : `$${min}-$${max}`;
-                      })()}
-                    </Badge>
-                    <Badge variant="secondary" className="text-xs">
-                      {(() => {
-                        const typeMap: Record<string, string> = {
-                          'C2A': 'CPA',
-                          'C2L': 'CPL',
-                          'C2S': 'CPS',
-                          'C2C': 'CPC',
-                          'RevShare': 'Revenue Share'
-                        };
-                        return typeMap[offer.commission_type] || offer.commission_type;
-                      })()}
-                    </Badge>
-                    <Badge variant="outline" className="text-xs">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {offer.payout_frequency || 'Monthly'}
-                    </Badge>
-                  </div>
-                </div>
+                              return offer.commission_type === 'RevShare'
+                                ? `${min}-${max}%`
+                                : `$${min}-$${max}`;
+                            })()}
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            {(() => {
+                              const typeMap: Record<string, string> = {
+                                'C2A': 'CPA',
+                                'C2L': 'CPL',
+                                'C2S': 'CPS',
+                                'C2C': 'CPC',
+                                'RevShare': 'Revenue Share'
+                              };
+                              return typeMap[offer.commission_type] || offer.commission_type;
+                            })()}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            <Clock className="h-3 w-3 mr-1" />
+                            {offer.payout_frequency || 'Monthly'}
+                          </Badge>
+                        </div>
 
-                {/* Geo-Specific Rates */}
-                {offer.geo_commissions && Array.isArray(offer.geo_commissions) && offer.geo_commissions.length > 0 && (
-                  <div className="mt-4">
-                    <Label className="text-sm font-medium flex items-center mb-3">
-                      <Globe className="h-4 w-4 mr-2 text-blue-500" />
-                      Geo-Specific Rates
-                    </Label>
-                    <div className="flex flex-wrap gap-2">
-                      {(offer.geo_commissions as any[])
-                        .sort((a, b) => (a?.country || '').localeCompare(b?.country || ''))
-                        .map((gc, idx) => {
-                          if (!gc?.country) return null;
-                          
-                          const flag = getCountryFlag(gc.country);
-                          const commissionValue = offer.commission_type === 'RevShare'
-                            ? Number(gc.commission_percent)
-                            : Number(gc.commission_amount);
-                          
-                          const amount = !isNaN(commissionValue)
-                            ? offer.commission_type === 'RevShare'
-                              ? `${commissionValue}%`
-                              : `$${commissionValue}`
-                            : offer.commission_type === 'RevShare' ? '0%' : '$0';
-                          
-                          return (
-                            <Badge key={idx} variant="outline" className="text-xs flex items-center gap-1.5">
-                              <span>{flag}</span>
-                              <span>{gc.country}</span>
-                              <span className="font-medium text-green-600 dark:text-green-400">{amount}</span>
-                            </Badge>
-                          );
-                        })}
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* Status & Created */}
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium flex items-center mb-3">
-                        <AlertCircle className="h-4 w-4 mr-2 text-orange-500" />
-                        Status
-                      </Label>
-                      <Badge variant={offer.status === 'active' ? 'default' : 'secondary'} className="capitalize">
-                        {offer.status}
-                      </Badge>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium flex items-center mb-3">
-                        <Calendar className="h-4 w-4 mr-2 text-purple-500" />
-                        Created
-                      </Label>
-                      <Badge variant="outline" className="flex w-fit items-center">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        {new Date(offer.created_at).toLocaleDateString()}
-                      </Badge>
-                    </div>
-                  </div>
+                        {/* Geo-Specific Rates */}
+                        {offer.geo_commissions && Array.isArray(offer.geo_commissions) && offer.geo_commissions.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium flex items-center">
+                              <Globe className="h-4 w-4 mr-2 text-blue-500" />
+                              Geo-Specific Rates
+                            </Label>
+                            <div className="flex flex-wrap gap-2">
+                              {(offer.geo_commissions as any[])
+                                .sort((a, b) => (a?.country || '').localeCompare(b?.country || ''))
+                                .map((gc, idx) => {
+                                  if (!gc?.country) return null;
+                                  
+                                  const flag = getCountryFlag(gc.country);
+                                  const commissionValue = offer.commission_type === 'RevShare'
+                                    ? Number(gc.commission_percent)
+                                    : Number(gc.commission_amount);
+                                  
+                                  const amount = !isNaN(commissionValue)
+                                    ? offer.commission_type === 'RevShare'
+                                      ? `${commissionValue}%`
+                                      : `$${commissionValue}`
+                                    : offer.commission_type === 'RevShare' ? '0%' : '$0';
+                                  
+                                  return (
+                                    <Badge key={idx} variant="outline" className="text-xs flex items-center gap-1.5">
+                                      <span>{flag}</span>
+                                      <span>{gc.country}</span>
+                                      <span className="font-medium text-green-600 dark:text-green-400">{amount}</span>
+                                    </Badge>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
 
                   {/* Niche & URL */}
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium flex items-center mb-3">
-                        <Tag className="h-4 w-4 mr-2 text-blue-500" />
-                        Niche
-                      </Label>
-                      <Badge variant="outline" className="flex w-fit items-center">
-                        <Tag className="h-3 w-3 mr-1 text-blue-500" />
-                        {offer.niche || 'General'}
-                      </Badge>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium flex items-center mb-3">
-                        <Link className="h-4 w-4 mr-2 text-indigo-500" />
-                        URL
-                      </Label>
-                      <div className="flex items-center gap-2">
-                        <code className="text-sm px-2 py-1 bg-muted/50 rounded-md font-mono">{offer.url}</code>
-                        <Button variant="ghost" size="icon" asChild className="h-6 w-6">
-                          <a href={offer.url} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        </Button>
+                  <Card className="border bg-muted/40">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Tag className="h-5 w-5 text-blue-500" />
+                        <h3 className="font-semibold">Niche & URL</h3>
                       </div>
-                    </div>
-                  </div>
+                      <div className="space-y-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline" className="flex items-center">
+                            <Tag className="h-3 w-3 mr-1 text-blue-500" />
+                            {offer.niche || 'General'}
+                          </Badge>
+                          <Button variant="ghost" size="icon" asChild className="h-6 w-6">
+                            <a href={offer.url} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        </div>
+                        <code className="text-xs px-2 py-1 bg-muted rounded-md font-mono block truncate">
+                          {offer.url}
+                        </code>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Status & Created */}
+                  <Card className="border bg-muted/40">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 mb-4">
+                        <AlertCircle className="h-5 w-5 text-orange-500" />
+                        <h3 className="font-semibold">Status & Info</h3>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={offer.status === 'active' ? 'default' : 'secondary'} className="capitalize">
+                            {offer.status}
+                          </Badge>
+                          <Badge variant="outline" className="flex items-center">
+                            <Calendar className="h-3 w-3 mr-1" />
+                            {new Date(offer.created_at).toLocaleDateString()}
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
 
-                {/* Geo Targeting & Restrictions */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t pt-8">
-                  <div className="space-y-6">
-                    {offer.geo_targets && isStringArray(offer.geo_targets) && offer.geo_targets.length > 0 && (
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium flex items-center mb-3">
-                          <Globe className="h-4 w-4 mr-2 text-blue-500" />
-                          Allowed Countries
-                        </Label>
-                        <div className="flex flex-wrap gap-1.5">
-                          {offer.geo_targets.map((code, idx) => {
-                            const flag = getCountryFlag(code);
-                            return (
-                              <Badge key={idx} variant="outline" className="text-xs">
-                                {flag} {code.toUpperCase()}
+                {/* Geographic Targeting and Traffic Sources - Side by Side */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Geographic Targeting */}
+                  <Card className="border bg-muted/40">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Globe className="h-5 w-5 text-violet-500" />
+                        <h3 className="font-semibold">Geographic Targeting</h3>
+                      </div>
+                      <div className="grid gap-6">
+                        {/* Targeted Countries */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium flex items-center">
+                            <Globe className="h-4 w-4 mr-2 text-blue-500" />
+                            Targeted Countries
+                          </Label>
+                          {(!offer.geo_targets || !isStringArray(offer.geo_targets) || offer.geo_targets.length === 0) ? (
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">
+                                🌐 Available Worldwide
                               </Badge>
-                            );
-                          })}
+                              <span className="text-sm text-muted-foreground">
+                                This offer can be promoted in any country
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-1.5">
+                              {offer.geo_targets.map((code, idx) => {
+                                const flag = getCountryFlag(code);
+                                return (
+                                  <Badge key={idx} variant="outline" className="text-xs">
+                                    {flag} {code.toUpperCase()}
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Restricted Countries */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium flex items-center">
+                            <Ban className="h-4 w-4 mr-2 text-red-500" />
+                            Restricted Countries
+                          </Label>
+                          {(!offer.restricted_geos || !isStringArray(offer.restricted_geos) || offer.restricted_geos.length === 0) ? (
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                                No Geographic Restrictions
+                              </Badge>
+                              <span className="text-sm text-muted-foreground">
+                                This offer has no country restrictions
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-1.5">
+                              {offer.restricted_geos.map((code, idx) => {
+                                const flag = getCountryFlag(code);
+                                return (
+                                  <Badge key={idx} variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
+                                    {flag} {code.toUpperCase()}
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    )}
+                    </CardContent>
+                  </Card>
 
-                    {offer.restricted_geos && isStringArray(offer.restricted_geos) && offer.restricted_geos.length > 0 && (
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium flex items-center mb-3">
-                          <Ban className="h-4 w-4 mr-2 text-red-500" />
-                          Restricted Countries
-                        </Label>
-                        <div className="flex flex-wrap gap-1.5">
-                          {offer.restricted_geos.map((code, idx) => {
-                            const flag = getCountryFlag(code);
-                            return (
-                              <Badge key={idx} variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
-                                {flag} {code.toUpperCase()}
+                  {/* Traffic Sources & Restrictions */}
+                  <Card className="border bg-muted/40">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Target className="h-5 w-5 text-indigo-500" />
+                        <h3 className="font-semibold">Traffic Sources & Restrictions</h3>
+                      </div>
+                      <div className="grid gap-6">
+                        {/* Traffic Sources - Always visible */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium flex items-center">
+                            <Target className="h-4 w-4 mr-2 text-violet-500" />
+                            Traffic Sources
+                          </Label>
+                          {(!offer.allowed_traffic_sources || !Array.isArray(offer.allowed_traffic_sources) || offer.allowed_traffic_sources.length === 0) ? (
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">
+                                🎯 All Traffic Sources
                               </Badge>
-                            );
-                          })}
+                              <span className="text-sm text-muted-foreground">
+                                This offer accepts all traffic sources
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-1.5">
+                              {offer.allowed_traffic_sources.map((source, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs">
+                                  {source}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    )}
-                  </div>
 
-                  <div className="space-y-6">
-                    {offer.restrictions && (
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium flex items-center mb-3">
-                          <AlertTriangle className="h-4 w-4 mr-2 text-red-500" />
-                          Restrictions
-                        </Label>
-                        <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          {offer.restrictions}
-                        </Badge>
-                      </div>
-                    )}
-
-                    {offer.allowed_traffic_sources && offer.allowed_traffic_sources.length > 0 && (
-                      <div className="space-y-2">
-                        <Label className="text-sm font-medium flex items-center mb-3">
-                          <Target className="h-4 w-4 mr-2 text-violet-500" />
-                          Traffic Sources
-                        </Label>
-                        <div className="flex flex-wrap gap-1.5">
-                          {offer.allowed_traffic_sources.map((source, idx) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
-                              {source}
+                        {/* Restrictions - Always visible */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium flex items-center">
+                            <AlertTriangle className="h-4 w-4 mr-2 text-red-500" />
+                            Restrictions
+                          </Label>
+                          {!offer.restrictions ? (
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                                No Traffic Restrictions
+                              </Badge>
+                              <span className="text-sm text-muted-foreground">
+                                This offer has no traffic restrictions
+                              </span>
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800">
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              {offer.restrictions}
                             </Badge>
-                          ))}
+                          )}
                         </div>
                       </div>
-                    )}
-                  </div>
+                    </CardContent>
+                  </Card>
                 </div>
 
                 {/* Description */}
                 {offer.description && (
-                  <div className="space-y-2 border-t pt-8">
-                    <Label className="text-sm font-medium flex items-center mb-3">
-                      <FileText className="h-4 w-4 mr-2 text-gray-500" />
-                      Description
-                    </Label>
-                    <p className="text-sm leading-relaxed text-muted-foreground">{offer.description}</p>
-                  </div>
+                  <Card className="border bg-muted/40">
+                    <CardContent className="pt-6">
+                      <div className="flex items-center gap-2 mb-4">
+                        <FileText className="h-5 w-5 text-gray-500" />
+                        <h3 className="font-semibold">Description</h3>
+                      </div>
+                      <p className="text-sm leading-relaxed text-muted-foreground">{offer.description}</p>
+                    </CardContent>
+                  </Card>
                 )}
               </div>
             </CardContent>

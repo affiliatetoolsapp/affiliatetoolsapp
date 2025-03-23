@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import countryCodes from '@/components/offers/countryCodes';
+import { getCountryFlag } from '@/components/affiliate/utils/offerUtils';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -555,12 +556,110 @@ const OfferDetailView = ({ offer, applicationStatus, onBack }: OfferDetailViewPr
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label className="text-sm text-muted-foreground">Commission Model</Label>
-                  <p className="font-medium flex items-center">
-                    <DollarSign className="h-4 w-4 mr-1 text-green-500" />
-                    {offer.commission_type === 'RevShare' 
-                      ? `${offer.commission_percent}% Revenue Share` 
-                      : `$${offer.commission_amount} per ${offer.commission_type.slice(2)}`}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className="w-fit bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                      <DollarSign className="h-4 w-4 mr-1" />
+                      {(() => {
+                        // Default commission display
+                        const defaultCommission = offer.commission_type === 'RevShare' 
+                          ? (offer.commission_percent ? `${offer.commission_percent}%` : '0%')
+                          : (offer.commission_amount ? `$${offer.commission_amount}` : '$0');
+
+                        // Check for geo commissions
+                        const geoCommissions = offer.geo_commissions;
+                        if (!Array.isArray(geoCommissions) || geoCommissions.length === 0) {
+                          return defaultCommission;
+                        }
+
+                        // Filter valid amounts
+                        const amounts = geoCommissions
+                          .map(gc => {
+                            const geoCommission = gc as unknown as { commission_amount: number; commission_percent: number };
+                            const amount = offer.commission_type === 'RevShare' 
+                              ? Number(geoCommission.commission_percent)
+                              : Number(geoCommission.commission_amount);
+                            return isNaN(amount) ? null : amount;
+                          })
+                          .filter((amount): amount is number => amount !== null);
+
+                        if (amounts.length === 0) {
+                          return defaultCommission;
+                        }
+
+                        const min = Math.min(...amounts);
+                        const max = Math.max(...amounts);
+
+                        if (min === max) {
+                          return offer.commission_type === 'RevShare'
+                            ? `${min}%`
+                            : `$${min}`;
+                        }
+
+                        return offer.commission_type === 'RevShare'
+                          ? `${min}-${max}%`
+                          : `$${min}-$${max}`;
+                      })()}
+                    </Badge>
+                    <Badge variant="secondary" className="w-fit">
+                      {(() => {
+                        const typeMap: Record<string, string> = {
+                          'C2A': 'CPA',
+                          'C2L': 'CPL',
+                          'C2S': 'CPS',
+                          'C2C': 'CPC',
+                          'RevShare': 'Revenue Share'
+                        };
+                        return typeMap[offer.commission_type] || offer.commission_type;
+                      })()}
+                    </Badge>
+                    <Badge variant="outline" className="w-fit">
+                      <Clock className="h-3 w-3 mr-1" />
+                      {offer.payout_frequency || 'Monthly'}
+                    </Badge>
+                  </div>
+                  
+                  {/* Geo-Specific Rates */}
+                  {offer.geo_commissions && Array.isArray(offer.geo_commissions) && offer.geo_commissions.length > 0 && (
+                    <div className="mt-4">
+                      <Label className="text-sm font-medium flex items-center mb-3">
+                        <Globe className="h-4 w-4 mr-2 text-blue-500" />
+                        Geo-Specific Rates
+                      </Label>
+                      <div className="grid grid-cols-2 gap-4">
+                        {(offer.geo_commissions as any[])
+                          .sort((a, b) => (a?.country || '').localeCompare(b?.country || ''))
+                          .map((gc, idx) => {
+                            if (!gc?.country) return null;
+                            
+                            const flag = getCountryFlag(gc.country);
+                            const commissionValue = offer.commission_type === 'RevShare'
+                              ? Number(gc.commission_percent)
+                              : Number(gc.commission_amount);
+                            
+                            const amount = !isNaN(commissionValue)
+                              ? offer.commission_type === 'RevShare'
+                                ? `${commissionValue}%`
+                                : `$${commissionValue}`
+                              : offer.commission_type === 'RevShare' ? '0%' : '$0';
+                            
+                            return (
+                              <div 
+                                key={idx} 
+                                className="flex items-center justify-between p-3 rounded-md bg-muted/40"
+                              >
+                                <span className="flex items-center gap-2">
+                                  <span className="text-base">{flag}</span>
+                                  <span className="text-sm font-medium">{gc.country.toUpperCase()}</span>
+                                </span>
+                                <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                                  {amount}
+                                </span>
+                              </div>
+                            );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="space-y-1">

@@ -35,8 +35,8 @@ import { Separator } from '@/components/ui/separator';
 function isGeoCommission(value: any): value is GeoCommission {
   return typeof value === 'object' && value !== null &&
     typeof value.country === 'string' &&
-    typeof value.commission_amount === 'number' &&
-    typeof value.commission_percent === 'number';
+    (typeof value.commission_amount === 'number' || typeof value.commission_amount === 'string') &&
+    (typeof value.commission_percent === 'number' || typeof value.commission_percent === 'string');
 }
 
 // Type guard for GeoCommission array
@@ -319,74 +319,78 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
                     Commission
                   </h4>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className="w-fit bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                      <DollarSign className="h-4 w-4 mr-1" />
-                      {(() => {
-                        // Default commission display
-                        const defaultCommission = offer.commission_type === 'RevShare' 
-                          ? (offer.commission_percent ? `${offer.commission_percent}%` : '0%')
-                          : (offer.commission_amount ? `$${offer.commission_amount}` : '$0');
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="w-fit bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                          <DollarSign className="h-4 w-4 mr-1" />
+                          {(() => {
+                            // Default commission display
+                            const defaultCommission = offer.commission_type === 'RevShare' 
+                              ? (offer.commission_percent ? `${offer.commission_percent}%` : '0%')
+                              : (offer.commission_amount ? `$${offer.commission_amount}` : '$0');
 
-                        // Check for geo commissions
-                        const geoCommissions = offer.geo_commissions;
-                        if (!Array.isArray(geoCommissions) || geoCommissions.length === 0) {
-                          return defaultCommission;
-                        }
+                            // Check for geo commissions
+                            const geoCommissions = (offer.geo_commissions as unknown) as GeoCommission[];
+                            if (!Array.isArray(geoCommissions) || geoCommissions.length === 0) {
+                              return defaultCommission;
+                            }
 
-                        // Filter valid amounts
-                        const amounts = geoCommissions
-                          .map(gc => {
-                            const amount = offer.commission_type === 'RevShare' 
-                              ? Number(gc?.commission_percent)
-                              : Number(gc?.commission_amount);
-                            return isNaN(amount) ? null : amount;
-                          })
-                          .filter((amount): amount is number => amount !== null);
+                            // Filter valid amounts
+                            const amounts = geoCommissions
+                              .map(gc => {
+                                const amount = offer.commission_type === 'RevShare' 
+                                  ? Number(gc.commission_percent)
+                                  : Number(gc.commission_amount);
+                                return isNaN(amount) ? null : amount;
+                              })
+                              .filter((amount): amount is number => amount !== null);
 
-                        if (amounts.length === 0) {
-                          return defaultCommission;
-                        }
+                            if (amounts.length === 0) {
+                              return defaultCommission;
+                            }
 
-                        const min = Math.min(...amounts);
-                        const max = Math.max(...amounts);
+                            const min = Math.min(...amounts);
+                            const max = Math.max(...amounts);
 
-                        if (min === max) {
-                          return offer.commission_type === 'RevShare'
-                            ? `${min}%`
-                            : `$${min}`;
-                        }
+                            if (min === max) {
+                              return offer.commission_type === 'RevShare'
+                                ? `${min}%`
+                                : `$${min}`;
+                            }
 
-                        return offer.commission_type === 'RevShare'
-                          ? `${min}-${max}%`
-                          : `$${min}-$${max}`;
-                      })()}
-                    </Badge>
-                    <Badge variant="secondary" className="w-fit">
-                      {(() => {
-                        const typeMap: Record<string, string> = {
-                          'C2A': 'CPA (Cost per Action)',
-                          'C2L': 'CPL (Cost per Lead)',
-                          'C2S': 'CPS (Cost per Sale)',
-                          'C2C': 'CPC (Cost per Click)',
-                          'RevShare': 'Revenue Share'
-                        };
-                        return typeMap[offer.commission_type] || offer.commission_type;
-                      })()}
-                    </Badge>
-                    <Badge variant="outline" className="w-fit">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {offer.payout_frequency || 'Monthly'}
-                    </Badge>
+                            return offer.commission_type === 'RevShare'
+                              ? `${min}-${max}%`
+                              : `$${min}-$${max}`;
+                          })()}
+                        </Badge>
+                        <Badge variant="secondary" className="w-fit">
+                          {(() => {
+                            const typeMap: Record<string, string> = {
+                              'C2A': 'CPA',
+                              'C2L': 'CPL',
+                              'C2S': 'CPS',
+                              'C2C': 'CPC',
+                              'RevShare': 'Revenue Share'
+                            };
+                            return typeMap[offer.commission_type] || offer.commission_type;
+                          })()}
+                        </Badge>
+                        <Badge variant="outline" className="w-fit">
+                          <Clock className="h-3 w-3 mr-1" />
+                          {offer.payout_frequency || 'Monthly'}
+                        </Badge>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Geo-Specific Rates */}
                   {offer.geo_commissions && Array.isArray(offer.geo_commissions) && offer.geo_commissions.length > 0 && (
-                    <div className="rounded-lg border p-4 space-y-3 mt-4">
-                      <h4 className="font-medium flex items-center">
+                    <div className="mt-4">
+                      <Label className="text-sm font-medium flex items-center mb-3">
                         <Globe className="h-4 w-4 mr-2 text-blue-500" />
                         Geo-Specific Rates
-                      </h4>
-                      <div className="grid grid-cols-3 gap-3">
+                      </Label>
+                      <div className="grid grid-cols-2 gap-4">
                         {(offer.geo_commissions as any[])
                           .sort((a, b) => (a?.country || '').localeCompare(b?.country || ''))
                           .map((gc, idx) => {
@@ -406,7 +410,7 @@ export default function OfferDetails({ offerId }: { offerId: string }) {
                             return (
                               <div 
                                 key={idx} 
-                                className="flex items-center justify-between p-2 rounded-md bg-muted/40"
+                                className="flex items-center justify-between p-3 rounded-md bg-muted/40"
                               >
                                 <span className="flex items-center gap-2">
                                   <span className="text-base">{flag}</span>

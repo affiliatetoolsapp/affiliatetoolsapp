@@ -225,9 +225,58 @@ export default function OfferBrowser() {
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="flex items-center bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
                 <DollarSign className="h-3 w-3 mr-1" />
-                {commissionRange
-                  ? `${commissionRange.min}-${commissionRange.max} ${getFullCommissionType(offer.commission_type)}`
-                  : `${offer.commission_amount} ${getFullCommissionType(offer.commission_type)}`}
+                {(() => {
+                  // Default commission display
+                  const defaultCommission = offer.commission_type === 'RevShare' 
+                    ? (offer.commission_percent ? `${offer.commission_percent}%` : '0%')
+                    : (offer.commission_amount ? `$${offer.commission_amount}` : '$0');
+
+                  // Check for geo commissions
+                  const geoCommissions = offer.geo_commissions;
+                  if (!Array.isArray(geoCommissions) || geoCommissions.length === 0) {
+                    return defaultCommission;
+                  }
+
+                  // Filter valid amounts
+                  const amounts = geoCommissions
+                    .map(gc => {
+                      const geoCommission = gc as unknown as { commission_amount: number; commission_percent: number };
+                      const amount = offer.commission_type === 'RevShare' 
+                        ? Number(geoCommission.commission_percent)
+                        : Number(geoCommission.commission_amount);
+                      return isNaN(amount) ? null : amount;
+                    })
+                    .filter((amount): amount is number => amount !== null);
+
+                  if (amounts.length === 0) {
+                    return defaultCommission;
+                  }
+
+                  const min = Math.min(...amounts);
+                  const max = Math.max(...amounts);
+
+                  if (min === max) {
+                    return offer.commission_type === 'RevShare'
+                      ? `${min}%`
+                      : `$${min}`;
+                  }
+
+                  return offer.commission_type === 'RevShare'
+                    ? `${min}-${max}%`
+                    : `$${min}-$${max}`;
+                })()}
+              </Badge>
+              <Badge variant="secondary" className="w-fit">
+                {(() => {
+                  const typeMap: Record<string, string> = {
+                    'C2A': 'CPA',
+                    'C2L': 'CPL',
+                    'C2S': 'CPS',
+                    'C2C': 'CPC',
+                    'RevShare': 'Revenue Share'
+                  };
+                  return typeMap[offer.commission_type] || offer.commission_type;
+                })()}
               </Badge>
             </div>
           </div>

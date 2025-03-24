@@ -24,7 +24,8 @@ import {
   Clock,
   Pencil,
   Play,
-  Trash2
+  Trash2,
+  Badge as BadgeIcon
 } from 'lucide-react';
 import {
   Table,
@@ -89,12 +90,7 @@ export default function OfferTable({
 
   // Get icon for commission type
   const getCommissionTypeIcon = (commissionType: string) => {
-    switch (commissionType) {
-      case 'CPL': return <TagIcon className="h-3 w-3 mr-1" />;
-      case 'CPA': return <Check className="h-3 w-3 mr-1" />;
-      case 'CPS': return <TagIcon className="h-3 w-3 mr-1" />;
-      default: return <TagIcon className="h-3 w-3 mr-1" />;
-    }
+    return <BadgeIcon className="h-4 w-4 mr-1 text-blue-500" />;
   };
 
   // Get commission range if there are geo-specific commissions
@@ -279,37 +275,41 @@ export default function OfferTable({
                   {/* Payout column */}
                   <TableCell>
                     <div className="flex flex-col gap-1">
-                      {/* Commission amount badge */}
-                      <div className="flex items-center gap-1">
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                          <DollarSign className="h-3 w-3 mr-1" />
+                      {/* Commission amount */}
+                      <div className="flex items-center text-sm">
+                        <DollarSign className="h-4 w-4 mr-1 text-green-500" />
+                        <Badge variant="outline" className="text-xs bg-green-50/50 text-green-700 border-green-200 dark:bg-green-900/10 dark:text-green-400 dark:border-green-800">
                           {commissionRange
                             ? `${commissionRange.min}-${commissionRange.max}`
                             : offer.commission_type === 'RevShare'
                               ? `${offer.commission_percent}%`
-                              : `$${offer.commission_amount}`}
+                              : `${offer.commission_amount}`}
                         </Badge>
                       </div>
                       
-                      {/* Commission type badge */}
-                      <div className="flex items-center gap-1">
+                      {/* Commission type */}
+                      <div className="flex items-center text-sm">
                         {offer.commission_type !== 'RevShare' ? (
-                          <Badge variant="secondary" className="text-xs">
+                          <>
                             {getCommissionTypeIcon(offer.commission_type)}
-                            {getFullCommissionType(offer.commission_type)}
-                          </Badge>
+                            <Badge variant="secondary" className="text-xs">
+                              {getFullCommissionType(offer.commission_type)}
+                            </Badge>
+                          </>
                         ) : (
-                          <Badge variant="secondary" className="text-xs">
-                            <TagIcon className="h-3 w-3 mr-1" />
-                            RevShare
-                          </Badge>
+                          <>
+                            <BadgeIcon className="h-4 w-4 mr-1 text-blue-500" />
+                            <Badge variant="secondary" className="text-xs">
+                              RevShare
+                            </Badge>
+                          </>
                         )}
                       </div>
                       
                       {/* Payout frequency */}
-                      <div className="flex items-center gap-1">
-                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800">
-                          <Clock className="h-3 w-3 mr-1" />
+                      <div className="flex items-center text-sm">
+                        <Clock className="h-4 w-4 mr-1 text-indigo-500" />
+                        <Badge variant="outline" className="text-xs bg-indigo-50/50 text-indigo-500 border-indigo-200 dark:bg-indigo-900/10 dark:text-indigo-400 dark:border-indigo-800">
                           {offer.payout_frequency === 'Biweekly' ? 'Bi-weekly' : offer.payout_frequency || 'Monthly'}
                         </Badge>
                       </div>
@@ -348,7 +348,9 @@ export default function OfferTable({
                             </HoverCardContent>
                           </HoverCard>
                         ) : (
-                          <span className="text-muted-foreground text-xs">Global</span>
+                          <Badge variant="outline" className="text-xs">
+                            Global
+                          </Badge>
                         )}
                       </div>
                       

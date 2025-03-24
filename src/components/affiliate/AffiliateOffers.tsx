@@ -26,7 +26,7 @@ export default function AffiliateOffers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const [filters, setFilters] = useState<FilterOptions>({
     niche: [],
     payoutMin: null,

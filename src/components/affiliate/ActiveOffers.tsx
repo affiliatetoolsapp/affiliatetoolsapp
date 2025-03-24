@@ -10,7 +10,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { DollarSign, Calendar, Tag, MapPin, Globe, Eye, Link as LinkIcon, Award, ExternalLink } from 'lucide-react';
 import OfferTable from '@/components/offers/OfferTable';
-import { Table } from '@/components/ui/table';
 
 interface ActiveOffersProps {
   offers: Offer[];
@@ -49,11 +48,6 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
       </Card>
     );
   }
-
-  // Handle card or image click
-  const handleOfferClick = (offerId: string) => {
-    onViewOfferDetails(offerId);
-  };
 
   if (viewMode === 'grid') {
     return (
@@ -116,54 +110,14 @@ const ActiveOffers: React.FC<ActiveOffersProps> = ({
     );
   }
 
-  // Table view - Updated to use the reusable OfferTable with improved styling
+  // Table view - Using the OfferTable component
   return (
-    <Table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Status</th>
-          <th>Commission</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {offers.map((offer) => {
-          if (!offer) return null;
-          
-          return (
-            <tr key={offer.id}>
-              <td className="font-medium">{offer.name}</td>
-              <td><Badge variant="outline">{offer.status}</Badge></td>
-              <td>
-                {offer.commission_type === 'RevShare'
-                  ? `${offer.commission_percent}%`
-                  : `$${offer.commission_amount}`
-                }
-              </td>
-              <td>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onViewOfferDetails(offer.id)}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onGenerateLinks(offer.id)}
-                  >
-                    <LinkIcon className="h-4 w-4" />
-                  </Button>
-                </div>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </Table>
+    <OfferTable 
+      offers={offers}
+      userRole="affiliate"
+      onViewDetails={onViewOfferDetails}
+      onGenerateLinks={onGenerateLinks}
+    />
   );
 };
 

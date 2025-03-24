@@ -48,6 +48,7 @@ export default function ReportsPage() {
   });
   const [groupBy, setGroupBy] = useState('daily');
   const [selectedType, setSelectedType] = useState('all');
+  const [selectedGeo, setSelectedGeo] = useState<string>('all');
   
   const isAdvertiser = user?.role === 'advertiser';
 
@@ -130,7 +131,7 @@ export default function ReportsPage() {
   
   // Get clicks with offer filtering
   const { data: clicks, isLoading: isLoadingClicks } = useQuery({
-    queryKey: ['report-clicks', user?.id, selectedOffer, timeRange, dateRange],
+    queryKey: ['report-clicks', user?.id, selectedOffer, selectedGeo, timeRange, dateRange],
     queryFn: async () => {
       if (!user) return [];
       
@@ -156,6 +157,10 @@ export default function ReportsPage() {
           query = query.eq('offer_id', selectedOffer);
         }
 
+        if (selectedGeo !== 'all') {
+          query = query.eq('geo', selectedGeo);
+        }
+
         const { data, error } = await query;
         
         if (error) {
@@ -176,7 +181,7 @@ export default function ReportsPage() {
 
   // Get conversions with offer filtering
   const { data: conversions, isLoading: isLoadingConversions } = useQuery({
-    queryKey: ['report-conversions', user?.id, selectedOffer, timeRange, dateRange],
+    queryKey: ['report-conversions', user?.id, selectedOffer, selectedGeo, timeRange, dateRange],
     queryFn: async () => {
       if (!user) return [];
       
@@ -204,6 +209,10 @@ export default function ReportsPage() {
 
         if (selectedOffer !== 'all') {
           query = query.eq('click.offer_id', selectedOffer);
+        }
+
+        if (selectedGeo !== 'all') {
+          query = query.eq('click.geo', selectedGeo);
         }
 
         const { data, error } = await query;
@@ -675,88 +684,94 @@ export default function ReportsPage() {
         </p>
       </div>
       
-      <div className="flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex flex-wrap gap-2">
-          <Select
-            value={selectedOffer}
-            onValueChange={setSelectedOffer}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Select offer" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Offers</SelectItem>
-              {approvedOffers?.map((offer: any) => (
-                <SelectItem key={offer.offer_id} value={offer.offer_id}>
-                  {offer.offers.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          
-          <Select
-            value={timeRange}
-            onValueChange={setTimeRange}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Select time period" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="yesterday">Yesterday</SelectItem>
-              <SelectItem value="this_week">This Week</SelectItem>
-              <SelectItem value="last_week">Last Week</SelectItem>
-              <SelectItem value="this_month">This Month</SelectItem>
-              <SelectItem value="last_month">Last Month</SelectItem>
-              <SelectItem value="custom">Custom Range</SelectItem>
-            </SelectContent>
-          </Select>
+      <div className="flex flex-col sm:flex-row gap-4">
+        <Select value={selectedOffer} onValueChange={setSelectedOffer}>
+          <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectValue placeholder="Select Offer" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Offers</SelectItem>
+            {approvedOffers?.map((offer: any) => (
+              <SelectItem key={offer.offer_id} value={offer.offer_id}>
+                {offer.offers.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-          {timeRange === 'custom' && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-[280px] justify-start text-left font-normal",
-                    !dateRange && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateRange?.from ? (
-                    dateRange.to ? (
-                      <>
-                        {format(dateRange.from, "LLL dd, y")} -{" "}
-                        {format(dateRange.to, "LLL dd, y")}
-                      </>
-                    ) : (
-                      format(dateRange.from, "LLL dd, y")
-                    )
+        <Select value={selectedGeo} onValueChange={setSelectedGeo}>
+          <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectValue placeholder="Select Country" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Countries</SelectItem>
+            {getCountryFilterOptions().map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={timeRange} onValueChange={setTimeRange}>
+          <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectValue placeholder="Select Time Range" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="today">Today</SelectItem>
+            <SelectItem value="yesterday">Yesterday</SelectItem>
+            <SelectItem value="this_week">This Week</SelectItem>
+            <SelectItem value="last_week">Last Week</SelectItem>
+            <SelectItem value="this_month">This Month</SelectItem>
+            <SelectItem value="last_month">Last Month</SelectItem>
+            <SelectItem value="custom">Custom Range</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {timeRange === 'custom' && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full sm:w-[300px] justify-start text-left font-normal",
+                  !dateRange && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, "LLL dd, y")} -{" "}
+                      {format(dateRange.to, "LLL dd, y")}
+                    </>
                   ) : (
-                    <span>Pick a date range</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={dateRange?.from}
-                  selected={{ from: dateRange.from, to: dateRange.to }}
-                  onSelect={(range) => {
-                    if (range?.from && range?.to) {
-                      setDateRange({
-                        from: startOfDay(range.from),
-                        to: endOfDay(range.to)
-                      });
-                    }
-                  }}
-                  numberOfMonths={2}
-                />
-              </PopoverContent>
-            </Popover>
-          )}
-        </div>
+                    format(dateRange.from, "LLL dd, y")
+                  )
+                ) : (
+                  <span>Pick a date range</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange?.from}
+                selected={dateRange}
+                onSelect={(range) => {
+                  if (range?.from && range?.to) {
+                    setDateRange({
+                      from: startOfDay(range.from),
+                      to: endOfDay(range.to)
+                    });
+                  }
+                }}
+                numberOfMonths={2}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
       
       {/* Stats Cards */}

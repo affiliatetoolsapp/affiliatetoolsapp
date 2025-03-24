@@ -10,8 +10,18 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
-// Helper functions for dashboard data
-export async function getAdvertiserDashboardStats(userId: string, timeRange: string) {
+type Click = Database['public']['Tables']['clicks']['Row'];
+type Conversion = Database['public']['Tables']['conversions']['Row'];
+
+type ClickData = Pick<Click, 'id' | 'offer_id' | 'created_at' | 'geo'>;
+type ConversionData = Pick<Conversion, 'id' | 'click_id' | 'revenue' | 'created_at'>;
+
+export async function getAdvertiserDashboardStats(
+  userId: string, 
+  timeRange: 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'custom',
+  selectedOffer?: string,
+  selectedGeo?: string
+) {
   // Get offer data for the advertiser
   const { data: offers } = await supabase
     .from('offers')
@@ -19,35 +29,62 @@ export async function getAdvertiserDashboardStats(userId: string, timeRange: str
     .eq('advertiser_id', userId);
 
   // Get offer IDs for this advertiser
-  const offerIds = offers?.map(offer => offer.id) || [];
+  let offerIds = offers?.map(offer => offer.id) || [];
+  
+  // Filter by selected offer if specified
+  if (selectedOffer && selectedOffer !== 'all') {
+    offerIds = offerIds.filter(id => id === selectedOffer);
+  }
   
   // Get time range boundaries
   const now = new Date();
   let startDate = new Date();
+  let endDate = new Date();
   
   switch(timeRange) {
-    case '7d':
-      startDate.setDate(now.getDate() - 7);
+    case 'today':
+      // Keep start and end as today
       break;
-    case '30d':
-      startDate.setDate(now.getDate() - 30);
+    case 'yesterday':
+      startDate.setDate(now.getDate() - 1);
+      endDate.setDate(now.getDate() - 1);
       break;
-    case '90d':
-      startDate.setDate(now.getDate() - 90);
+    case 'this_week':
+      startDate.setDate(now.getDate() - now.getDay());
       break;
-    case 'all':
-      startDate = new Date(2000, 0, 1); // Far in the past
+    case 'last_week':
+      startDate.setDate(now.getDate() - now.getDay() - 7);
+      endDate.setDate(now.getDate() - now.getDay() - 1);
+      break;
+    case 'this_month':
+      startDate.setDate(1);
+      break;
+    case 'last_month':
+      startDate.setMonth(now.getMonth() - 1, 1);
+      endDate.setDate(0); // Last day of previous month
+      break;
+    case 'custom':
+      // Use the provided dates from the UI
       break;
   }
   
   const isoStartDate = startDate.toISOString();
+  const isoEndDate = endDate.toISOString();
   
   // Get clicks for the advertiser's offers
-  const { data: clicks, error: clicksError } = await supabase
+  let clicksQuery = supabase
     .from('clicks')
-    .select('id, offer_id, created_at')
+    .select('id, offer_id, created_at, geo')
     .in('offer_id', offerIds)
-    .gte('created_at', isoStartDate);
+    .gte('created_at', isoStartDate)
+    .lte('created_at', isoEndDate);
+  
+  // Add GEO filter if specified
+  if (selectedGeo && selectedGeo !== 'all') {
+    clicksQuery = clicksQuery.eq('geo', selectedGeo);
+  }
+  
+  const { data: clicks, error: clicksError } = await clicksQuery;
   
   if (clicksError) console.error('Error fetching clicks:', clicksError);
   
@@ -55,7 +92,8 @@ export async function getAdvertiserDashboardStats(userId: string, timeRange: str
   const { data: conversions, error: convsError } = await supabase
     .from('conversions')
     .select('id, click_id, revenue, created_at')
-    .gte('created_at', isoStartDate);
+    .gte('created_at', isoStartDate)
+    .lte('created_at', isoEndDate);
   
   if (convsError) console.error('Error fetching conversions:', convsError);
   
@@ -89,7 +127,11 @@ export async function getAdvertiserDashboardStats(userId: string, timeRange: str
   const conversionRate = clickCount > 0 ? ((conversionCount / clickCount) * 100).toFixed(1) : "0.0";
   
   // Get daily data for charts
-  const dailyData = getDailyData(clicks || [], conversions || [], timeRange);
+  const dailyData = getDailyData(
+    clicks || [], 
+    conversions || [], 
+    timeRange
+  );
   
   return {
     revenue: Math.floor(totalRevenue),
@@ -104,27 +146,53 @@ export async function getAdvertiserDashboardStats(userId: string, timeRange: str
   };
 }
 
-function getDailyData(clicks: any[], conversions: any[], timeRange: string) {
+function getDailyData(clicks: ClickData[], conversions: ConversionData[], timeRange: string) {
   // Create a map to store data by day
   const dataByDay = new Map();
   
-  // Determine how many days to look back
-  const daysToLookBack = timeRange === '7d' ? 7 : 
-                         timeRange === '30d' ? 30 : 
-                         timeRange === '90d' ? 90 : 365;
-  
-  // Create entries for each day
+  // Determine how many days to look back based on timeRange
   const now = new Date();
-  for (let i = daysToLookBack - 1; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    const dayStr = formatDate(date);
+  let startDate = new Date();
+  let endDate = new Date();
+  
+  switch(timeRange) {
+    case 'today':
+      // Keep start and end as today
+      break;
+    case 'yesterday':
+      startDate.setDate(now.getDate() - 1);
+      endDate.setDate(now.getDate() - 1);
+      break;
+    case 'this_week':
+      startDate.setDate(now.getDate() - now.getDay());
+      break;
+    case 'last_week':
+      startDate.setDate(now.getDate() - now.getDay() - 7);
+      endDate.setDate(now.getDate() - now.getDay() - 1);
+      break;
+    case 'this_month':
+      startDate.setDate(1);
+      break;
+    case 'last_month':
+      startDate.setMonth(now.getMonth() - 1, 1);
+      endDate.setDate(0); // Last day of previous month
+      break;
+    case 'custom':
+      // Use the provided dates from the UI
+      break;
+  }
+  
+  // Create entries for each day in the range
+  let currentDate = new Date(startDate);
+  while (currentDate <= endDate) {
+    const dayStr = formatDate(currentDate);
     dataByDay.set(dayStr, { 
       name: dayStr, 
       clicks: 0, 
       conversions: 0, 
       revenue: 0 
     });
+    currentDate.setDate(currentDate.getDate() + 1);
   }
   
   // Add click data

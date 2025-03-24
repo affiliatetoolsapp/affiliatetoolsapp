@@ -1,5 +1,6 @@
+import { Database } from '@/integrations/supabase/types';
 
-import { Offer } from '@/types';
+type Offer = Database['public']['Tables']['offers']['Row'];
 
 /**
  * Get emoji flag for country code
@@ -79,4 +80,37 @@ export const formatGeoTargets = (offer: Offer): Array<{ flag: string; code: stri
 export const formatTrackingUrl = (trackingCode: string) => {
   const baseUrl = window.location.origin;
   return `${baseUrl}/r/${trackingCode}`;
+};
+
+/**
+ * Get country filter options with flags
+ */
+export const getCountryFilterOptions = () => {
+  const countries = [
+    { value: 'US', label: 'United States' },
+    { value: 'GB', label: 'United Kingdom' },
+    { value: 'CA', label: 'Canada' },
+    { value: 'AU', label: 'Australia' },
+    { value: 'DE', label: 'Germany' },
+    { value: 'FR', label: 'France' },
+    { value: 'IT', label: 'Italy' },
+    { value: 'ES', label: 'Spain' },
+    { value: 'BR', label: 'Brazil' },
+    { value: 'MX', label: 'Mexico' },
+    { value: 'IN', label: 'India' },
+    { value: 'JP', label: 'Japan' },
+    { value: 'KR', label: 'South Korea' },
+    { value: 'RU', label: 'Russia' },
+    { value: 'CN', label: 'China' },
+    { value: 'ZA', label: 'South Africa' },
+    { value: 'NG', label: 'Nigeria' },
+    { value: 'EG', label: 'Egypt' },
+    { value: 'SA', label: 'Saudi Arabia' },
+    { value: 'AE', label: 'United Arab Emirates' },
+  ];
+  
+  return countries.map(country => ({
+    ...country,
+    label: `${getCountryFlag(country.value)} ${country.label}`
+  }));
 };

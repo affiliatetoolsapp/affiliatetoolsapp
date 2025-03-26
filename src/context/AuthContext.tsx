@@ -8,7 +8,7 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<Session>;
   signUp: (email: string, password: string, role: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
@@ -31,13 +31,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function createUserFromSession(currentSession: Session): User {
     const userId = currentSession.user.id;
     const userEmail = currentSession.user.email || '';
-    const userRole = (currentSession.user.user_metadata?.role || 'affiliate') as 'admin' | 'advertiser' | 'affiliate';
     
-    console.log('Creating user from session data:', {
-      id: userId,
-      email: userEmail,
-      role: userRole
-    });
+    // Log the full user metadata for debugging
+    console.log('Session user metadata:', currentSession.user.user_metadata);
+    
+    // Get the role from user metadata, with more detailed logging
+    const rawRole = currentSession.user.user_metadata?.role;
+    console.log('Raw role from metadata:', rawRole);
+    
+    // Check if this is the admin user by email
+    const isAdminUser = userEmail === 'admin@affiliatetools.app';
+    console.log('Is admin user:', isAdminUser);
+    
+    // Set role based on email or metadata
+    let userRole: 'admin' | 'advertiser' | 'affiliate';
+    if (isAdminUser) {
+      userRole = 'admin';
+    } else if (rawRole === 'advertiser') {
+      userRole = 'advertiser';
+    } else {
+      userRole = 'affiliate';
+    }
+    
+    console.log('Final user role:', userRole);
     
     // Create a user object with all required fields
     return {
@@ -289,6 +305,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Success",
         description: "You have successfully signed in!",
       });
+
+      return data.session;
     } catch (error: any) {
       console.error('Sign in error:', error);
       toast({

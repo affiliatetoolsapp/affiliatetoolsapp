@@ -1,35 +1,11 @@
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import SignInForm from '@/components/SignInForm';
 import { useAuth } from '@/context/AuthContext';
 import { PublicHeader } from '@/components/PublicHeader';
 import { LoadingState } from '@/components/LoadingState';
 
 export default function LoginPage() {
-  const { session, isLoading, profileError, user } = useAuth();
-  const navigate = useNavigate();
-  
-  // Handle redirection based on session with better logging
-  useEffect(() => {
-    console.log('LoginPage: Checking auth state', { 
-      hasSession: !!session, 
-      isLoading, 
-      hasProfileError: !!profileError,
-      hasUser: !!user,
-      userRole: user?.role
-    });
-    
-    // Only redirect if we have a session and user data
-    if (!isLoading && session && user) {
-      console.log('LoginPage: Session and user data detected, redirecting based on role');
-      // Redirect admin users to admin dashboard
-      if (user.role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
-    }
-  }, [session, isLoading, navigate, profileError, user]);
+  const { isLoading } = useAuth();
   
   // Show loading state during initialization
   if (isLoading) {
@@ -41,7 +17,7 @@ export default function LoginPage() {
     );
   }
   
-  // If there's no session or there's a profile error, show login form
+  // Show login form
   return (
     <div className="min-h-screen bg-background">
       <PublicHeader />

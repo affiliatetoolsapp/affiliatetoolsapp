@@ -45,23 +45,33 @@ export default function SignInForm() {
     console.log('SignInForm: Submitting with email:', data.email);
     setIsLoading(true);
     try {
-      await signIn(data.email, data.password);
+      const session = await signIn(data.email, data.password);
       console.log('SignInForm: Sign in successful');
       
-      // Get the user role directly from the session
-      const userRole = session?.user?.user_metadata?.role;
-      console.log('SignInForm: Session data:', session);
-      console.log('SignInForm: User metadata:', session?.user?.user_metadata);
-      console.log('SignInForm: User role detected:', userRole);
-      
-      // Navigate based on user role
-      if (userRole === 'admin') {
-        console.log('SignInForm: Redirecting to admin dashboard');
-        navigate('/admin');
-      } else {
-        console.log('SignInForm: Redirecting to regular dashboard');
-        navigate('/dashboard');
+      if (!session) {
+        console.error('SignInForm: No session returned from sign in');
+        return;
       }
+      
+      // Get the user role directly from the session
+      const userRole = session.user.user_metadata?.role;
+      const isAdminUser = data.email === 'admin@affiliatetools.app';
+      
+      console.log('SignInForm: Full session data:', session);
+      console.log('SignInForm: User metadata:', session.user.user_metadata);
+      console.log('SignInForm: Raw user role:', userRole);
+      console.log('SignInForm: Is admin user:', isAdminUser);
+      
+      // Force admin redirection if admin user
+      if (isAdminUser || userRole === 'admin') {
+        console.log('SignInForm: Admin role detected, forcing redirect to admin dashboard');
+        window.location.replace('/admin');
+        return;
+      }
+      
+      // Default redirection for non-admin users
+      console.log('SignInForm: Non-admin role detected, redirecting to regular dashboard');
+      window.location.replace('/dashboard');
     } catch (error: any) {
       console.error('SignInForm: Sign in error:', error);
       // Error is already displayed via toast in the signIn function

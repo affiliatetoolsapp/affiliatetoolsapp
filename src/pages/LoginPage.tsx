@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SignInForm from '@/components/SignInForm';
@@ -16,13 +15,19 @@ export default function LoginPage() {
       hasSession: !!session, 
       isLoading, 
       hasProfileError: !!profileError,
-      hasUser: !!user
+      hasUser: !!user,
+      userRole: user?.role
     });
     
     // Only redirect if we have a session and user data
     if (!isLoading && session && user) {
-      console.log('LoginPage: Session and user data detected, redirecting to dashboard');
-      navigate('/dashboard');
+      console.log('LoginPage: Session and user data detected, redirecting based on role');
+      // Redirect admin users to admin dashboard
+      if (user.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     }
   }, [session, isLoading, navigate, profileError, user]);
   

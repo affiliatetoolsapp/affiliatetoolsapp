@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function createUserFromSession(currentSession: Session): User {
     const userId = currentSession.user.id;
     const userEmail = currentSession.user.email || '';
-    const userRole = (currentSession.user.user_metadata?.role || 'affiliate') as string;
+    const userRole = (currentSession.user.user_metadata?.role || 'affiliate') as 'admin' | 'advertiser' | 'affiliate';
     
     console.log('Creating user from session data:', {
       id: userId,
@@ -44,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: userId,
       email: userEmail,
       role: userRole,
+      status: 'active',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       // Add nullable fields required by User type
@@ -275,6 +276,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
       
       console.log('Sign in successful, data:', data.session ? 'Session exists' : 'No session');
+      
+      // Set the session state immediately
+      if (data.session) {
+        setSession(data.session);
+        // Create and set user from session data
+        const sessionUser = createUserFromSession(data.session);
+        setUser(sessionUser);
+      }
       
       toast({
         title: "Success",

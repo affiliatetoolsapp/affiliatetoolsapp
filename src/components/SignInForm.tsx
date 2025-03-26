@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,7 +25,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 export default function SignInForm() {
-  const { signIn, session } = useAuth();
+  const { signIn, session, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -49,8 +48,20 @@ export default function SignInForm() {
       await signIn(data.email, data.password);
       console.log('SignInForm: Sign in successful');
       
-      // Explicitly navigate to dashboard after successful login
-      navigate('/dashboard');
+      // Get the user role directly from the session
+      const userRole = session?.user?.user_metadata?.role;
+      console.log('SignInForm: Session data:', session);
+      console.log('SignInForm: User metadata:', session?.user?.user_metadata);
+      console.log('SignInForm: User role detected:', userRole);
+      
+      // Navigate based on user role
+      if (userRole === 'admin') {
+        console.log('SignInForm: Redirecting to admin dashboard');
+        navigate('/admin');
+      } else {
+        console.log('SignInForm: Redirecting to regular dashboard');
+        navigate('/dashboard');
+      }
     } catch (error: any) {
       console.error('SignInForm: Sign in error:', error);
       // Error is already displayed via toast in the signIn function
@@ -58,14 +69,6 @@ export default function SignInForm() {
       setIsLoading(false);
     }
   };
-
-  // If we already have a session, redirect to dashboard
-  React.useEffect(() => {
-    if (session) {
-      console.log('SignInForm: Session detected, redirecting to dashboard');
-      navigate('/dashboard');
-    }
-  }, [session, navigate]);
 
   return (
     <div className="space-y-6">

@@ -169,7 +169,11 @@ export default function ReportsPage() {
           return [];
         }
         
-        return data || [];
+        // Add unique IDs to each row
+        return (data || []).map((click, index) => ({
+          ...click,
+          id: `click-${click.click_id || index}`,
+        }));
       } catch (error) {
         console.error('Error processing clicks:', error);
         toast.error('Error loading click data');
@@ -222,7 +226,11 @@ export default function ReportsPage() {
           throw error;
         }
         
-        return data || [];
+        // Add unique IDs to each row
+        return (data || []).map((conv, index) => ({
+          ...conv,
+          id: `conv-${conv.id || index}`,
+        }));
       } catch (error) {
         console.error('Error processing conversions:', error);
         return [];
@@ -692,8 +700,8 @@ export default function ReportsPage() {
           <SelectContent>
             <SelectItem value="all">All Offers</SelectItem>
             {approvedOffers?.map((offer: any) => (
-              <SelectItem key={offer.offer_id} value={offer.offer_id}>
-                {offer.offers.name}
+              <SelectItem key={`offer-${offer.offer_id}`} value={offer.offer_id}>
+                {offer.offers?.name || 'Unnamed Offer'}
               </SelectItem>
             ))}
           </SelectContent>

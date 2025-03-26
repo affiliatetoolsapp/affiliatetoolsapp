@@ -356,7 +356,7 @@ export function OffersManagement() {
                 <td className="px-6 py-4 whitespace-nowrap">
                   <Badge variant="outline" className="flex items-center">
                     <Globe className="h-3.5 w-3.5 mr-1" />
-                    {offer.geo_targets?.length || 0} {offer.geo_targets?.length === 1 ? 'country' : 'countries'}
+                    {formatGeoTargets(offer).length} {formatGeoTargets(offer).length === 1 ? 'country' : 'countries'}
                   </Badge>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">

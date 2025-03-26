@@ -43,11 +43,11 @@ export function Sidebar({ className, isCollapsed = false, onToggle, ...props }: 
   ];
   
   const adminLinks = [
-    { name: 'Users', href: '/users', icon: Users },
-    { name: 'Offers', href: '/offers', icon: Box },
-    { name: 'Marketplace', href: '/marketplace', icon: Store },
-    { name: 'Payments', href: '/payments', icon: DollarSign },
-    { name: 'Reports', href: '/reports', icon: FileText },
+    { name: 'Users', href: '/admin/users', icon: Users },
+    { name: 'Offers', href: '/admin/offers', icon: Box },
+    { name: 'Marketplace', href: '/admin/marketplace', icon: Store },
+    { name: 'Payments', href: '/admin/payments', icon: DollarSign },
+    { name: 'Reports', href: '/admin/reports', icon: FileText },
   ];
   
   const advertiserLinks = [

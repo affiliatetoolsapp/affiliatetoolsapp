@@ -1,3 +1,17 @@
+export interface User {
+  id: string;
+  email: string;
+  role: 'admin' | 'advertiser' | 'affiliate';
+  created_at: string;
+  updated_at: string;
+  bio?: string | null;
+  company_name?: string | null;
+  contact_name?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  status: 'active' | 'inactive' | 'suspended';
+}
+
 export interface Offer {
   id: string;
   name: string;

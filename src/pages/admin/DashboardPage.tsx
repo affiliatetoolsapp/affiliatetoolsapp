@@ -9,48 +9,49 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-
-const data = [
-  { name: 'Jan', revenue: 4000, clicks: 2400, conversions: 240 },
-  { name: 'Feb', revenue: 3000, clicks: 1398, conversions: 139 },
-  { name: 'Mar', revenue: 2000, clicks: 9800, conversions: 980 },
-  { name: 'Apr', revenue: 2780, clicks: 3908, conversions: 390 },
-  { name: 'May', revenue: 1890, clicks: 4800, conversions: 480 },
-  { name: 'Jun', revenue: 2390, clicks: 3800, conversions: 380 },
-];
-
-const stats = [
-  {
-    title: 'Total Revenue',
-    value: '$45,231.89',
-    description: '+20.1% from last month',
-    icon: DollarSign,
-  },
-  {
-    title: 'Active Affiliates',
-    value: '2,350',
-    description: '+180.1% from last month',
-    icon: Users,
-  },
-  {
-    title: 'Active Offers',
-    value: '1,234',
-    description: '+19% from last month',
-    icon: ShoppingCart,
-  },
-  {
-    title: 'Conversion Rate',
-    value: '12.57%',
-    description: '+4.3% from last month',
-    icon: TrendingUp,
-  },
-];
+import { useAdminStats } from '@/hooks/useAdminStats';
+import { useAdminHistoricalData } from '@/hooks/useAdminHistoricalData';
+import { formatCurrency } from '@/lib/utils';
 
 export function AdminDashboardPage() {
+  const { data: stats, isLoading: statsLoading } = useAdminStats();
+  const { data: historicalData, isLoading: historicalLoading } = useAdminHistoricalData();
+
+  if (statsLoading || historicalLoading) {
+    return <div>Loading...</div>;
+  }
+
+  const statsData = [
+    {
+      title: 'Total Revenue',
+      value: formatCurrency(stats?.totalRevenue || 0),
+      description: `${stats?.revenueChange >= 0 ? '+' : ''}${stats?.revenueChange.toFixed(1)}% from last month`,
+      icon: DollarSign,
+    },
+    {
+      title: 'Active Affiliates',
+      value: stats?.activeAffiliates.toLocaleString() || '0',
+      description: `${stats?.affiliatesChange >= 0 ? '+' : ''}${stats?.affiliatesChange.toFixed(1)}% from last month`,
+      icon: Users,
+    },
+    {
+      title: 'Active Offers',
+      value: stats?.activeOffers.toLocaleString() || '0',
+      description: `${stats?.offersChange >= 0 ? '+' : ''}${stats?.offersChange.toFixed(1)}% from last month`,
+      icon: ShoppingCart,
+    },
+    {
+      title: 'Conversion Rate',
+      value: `${stats?.conversionRate.toFixed(2)}%`,
+      description: `${stats?.conversionRateChange >= 0 ? '+' : ''}${stats?.conversionRateChange.toFixed(1)}% from last month`,
+      icon: TrendingUp,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
+        {statsData.map((stat) => (
           <Card key={stat.title}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -75,11 +76,18 @@ export function AdminDashboardPage() {
         <CardContent>
           <div className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data}>
+              <LineChart data={historicalData || []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
-                <Tooltip />
+                <Tooltip 
+                  formatter={(value: number, name: string) => {
+                    if (name === 'Revenue') {
+                      return formatCurrency(value);
+                    }
+                    return value.toLocaleString();
+                  }}
+                />
                 <Line
                   type="monotone"
                   dataKey="revenue"

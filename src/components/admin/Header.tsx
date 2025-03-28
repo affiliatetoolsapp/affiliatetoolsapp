@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 export function Header() {
   return (
@@ -21,6 +22,7 @@ export function Header() {
           </div>
         </div>
         <div className="flex items-center gap-4">
+          <ThemeToggle />
           <Button variant="ghost" size="icon">
             <Bell className="h-5 w-5" />
           </Button>

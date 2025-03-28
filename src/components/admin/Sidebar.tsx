@@ -11,6 +11,11 @@ import {
   Building2,
   UserCog,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface SidebarProps {
+  className?: string;
+}
 
 const navigation = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
@@ -25,11 +30,11 @@ const navigation = [
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
-export function Sidebar() {
+export function Sidebar({ className }: SidebarProps) {
   const location = useLocation();
 
   return (
-    <div className="w-64 min-h-screen bg-card border-r">
+    <div className={cn("w-64 min-h-screen bg-card border-r", className)}>
       <nav className="p-4 space-y-1">
         {navigation.map((item) => {
           const isActive = location.pathname === item.href;

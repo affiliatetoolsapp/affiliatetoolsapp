@@ -10,10 +10,15 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { cn } from '@/lib/utils';
 
-export function Header() {
+interface HeaderProps {
+  className?: string;
+}
+
+export function Header({ className }: HeaderProps) {
   return (
-    <header className="border-b bg-background">
+    <header className={cn("border-b bg-background", className)}>
       <div className="flex h-16 items-center px-4">
         <div className="flex-1">
           <div className="relative w-full max-w-sm">

@@ -8,9 +8,11 @@ export function AdminLayout() {
       <Header />
       <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-6">
-          <Outlet />
-        </main>
+        <div className="flex-1 h-[calc(100vh-64px)] overflow-y-auto">
+          <main className="p-6">
+            <Outlet />
+          </main>
+        </div>
       </div>
     </div>
   );

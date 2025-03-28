@@ -51,7 +51,7 @@ export function AdminAffiliatesPage() {
     if (!searchQuery) {
       // Filter by tab first
       if (activeTab === 'active') {
-        return affiliate.status === 'active';
+        return affiliate.has_activity;
       }
       return true;
     }
@@ -65,7 +65,7 @@ export function AdminAffiliatesPage() {
     
     // Apply tab filter after search
     if (activeTab === 'active') {
-      return matchesSearch && affiliate.status === 'active';
+      return matchesSearch && affiliate.has_activity;
     }
     return matchesSearch;
   }) || [];
@@ -127,64 +127,68 @@ export function AdminAffiliatesPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {filteredAffiliates.length === 0 ? (
-            <div className="text-center py-4 text-muted-foreground">
-              {searchQuery ? 'No affiliates found matching your search.' : 'No affiliates found.'}
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Total Earnings</TableHead>
-                  <TableHead>Active Offers</TableHead>
-                  <TableHead>Conversion Rate</TableHead>
-                  <TableHead>Joined Date</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAffiliates.map((affiliate) => (
-                  <TableRow key={affiliate.id}>
-                    <TableCell>{affiliate.contact_name || affiliate.company_name || 'N/A'}</TableCell>
-                    <TableCell>{affiliate.email}</TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        affiliate.status === 'active' ? 'bg-green-100 text-green-800' : 
-                        affiliate.status === 'suspended' ? 'bg-red-100 text-red-800' : 
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {affiliate.status.charAt(0).toUpperCase() + affiliate.status.slice(1)}
-                      </span>
-                    </TableCell>
-                    <TableCell>{formatCurrency(affiliate.total_earnings)}</TableCell>
-                    <TableCell>{affiliate.active_offers}</TableCell>
-                    <TableCell>{affiliate.conversion_rate.toFixed(2)}%</TableCell>
-                    <TableCell>{new Date(affiliate.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>View Details</DropdownMenuItem>
-                          <DropdownMenuItem>Edit</DropdownMenuItem>
-                          <DropdownMenuItem>
-                            {affiliate.status === 'active' ? 'Suspend' : 'Activate'}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <div className="border rounded-md">
+            {filteredAffiliates.length === 0 ? (
+              <div className="text-center py-4 text-muted-foreground">
+                {searchQuery ? 'No affiliates found matching your search.' : 'No affiliates found.'}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Total Earnings</TableHead>
+                      <TableHead>Active Offers</TableHead>
+                      <TableHead>Conversion Rate</TableHead>
+                      <TableHead>Joined Date</TableHead>
+                      <TableHead className="w-[50px]"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredAffiliates.map((affiliate) => (
+                      <TableRow key={affiliate.id}>
+                        <TableCell>{affiliate.contact_name || affiliate.company_name || 'N/A'}</TableCell>
+                        <TableCell>{affiliate.email}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            affiliate.status === 'active' ? 'bg-green-100 text-green-800' : 
+                            affiliate.status === 'suspended' ? 'bg-red-100 text-red-800' : 
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {affiliate.status ? (affiliate.status.charAt(0).toUpperCase() + affiliate.status.slice(1)) : 'Pending'}
+                          </span>
+                        </TableCell>
+                        <TableCell>{formatCurrency(affiliate.total_earnings)}</TableCell>
+                        <TableCell>{affiliate.active_offers}</TableCell>
+                        <TableCell>{affiliate.conversion_rate.toFixed(2)}%</TableCell>
+                        <TableCell>{new Date(affiliate.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>View Details</DropdownMenuItem>
+                              <DropdownMenuItem>Edit</DropdownMenuItem>
+                              <DropdownMenuItem>
+                                {affiliate.status === 'active' ? 'Suspend' : 'Activate'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

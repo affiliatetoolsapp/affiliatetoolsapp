@@ -15,35 +15,68 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Search, UserPlus } from 'lucide-react';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { MoreHorizontal, Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
-// Mock data - replace with actual data from your backend
-const affiliates = [
-  {
-    id: 1,
-    name: 'John Doe',
-    email: 'john@example.com',
-    status: 'Active',
-    totalEarnings: '$12,345',
-    activeOffers: 15,
-    conversionRate: '12.5%',
-    joinedDate: '2024-01-15',
-  },
-  // Add more mock data as needed
-];
+import { useAdminAffiliates } from '@/hooks/useAdminAffiliates';
+import { formatCurrency } from '@/lib/utils';
+import { CreateAffiliateDialog } from '@/components/admin/CreateAffiliateDialog';
 
 export function AdminAffiliatesPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('all');
+  const { stats, affiliates, refetch } = useAdminAffiliates();
+
+  console.log('Stats data:', stats.data);
+  console.log('Affiliates data:', affiliates.data);
+  console.log('Loading states:', { stats: stats.isLoading, affiliates: affiliates.isLoading });
+  console.log('Error states:', { stats: stats.error, affiliates: affiliates.error });
+
+  if (stats.isLoading || affiliates.isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (stats.error || affiliates.error) {
+    console.error('Stats error:', stats.error);
+    console.error('Affiliates error:', affiliates.error);
+    return <div>Error loading affiliates data. Please try again.</div>;
+  }
+
+  const filteredAffiliates = affiliates.data?.filter(affiliate => {
+    if (!searchQuery) {
+      // Filter by tab first
+      if (activeTab === 'active') {
+        return affiliate.status === 'active';
+      }
+      return true;
+    }
+    
+    const searchLower = searchQuery.toLowerCase();
+    const matchesSearch = (
+      affiliate.email.toLowerCase().includes(searchLower) ||
+      (affiliate.company_name?.toLowerCase().includes(searchLower) || false) ||
+      (affiliate.contact_name?.toLowerCase().includes(searchLower) || false)
+    );
+    
+    // Apply tab filter after search
+    if (activeTab === 'active') {
+      return matchesSearch && affiliate.status === 'active';
+    }
+    return matchesSearch;
+  }) || [];
+
+  console.log('Filtered affiliates:', filteredAffiliates);
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Affiliates Management</h1>
-        <Button>
-          <UserPlus className="mr-2 h-4 w-4" />
-          Add New Affiliate
-        </Button>
+        <CreateAffiliateDialog onSuccess={refetch} />
       </div>
 
       <Card>
@@ -54,15 +87,15 @@ export function AdminAffiliatesPage() {
           <div className="grid gap-4 md:grid-cols-3">
             <div className="p-4 bg-card rounded-lg border">
               <h3 className="text-sm font-medium text-muted-foreground">Total Affiliates</h3>
-              <p className="text-2xl font-bold">2,350</p>
+              <p className="text-2xl font-bold">{stats.data?.totalAffiliates.toLocaleString()}</p>
             </div>
             <div className="p-4 bg-card rounded-lg border">
               <h3 className="text-sm font-medium text-muted-foreground">Active Affiliates</h3>
-              <p className="text-2xl font-bold">1,890</p>
+              <p className="text-2xl font-bold">{stats.data?.activeAffiliates.toLocaleString()}</p>
             </div>
             <div className="p-4 bg-card rounded-lg border">
               <h3 className="text-sm font-medium text-muted-foreground">Total Earnings</h3>
-              <p className="text-2xl font-bold">$1.2M</p>
+              <p className="text-2xl font-bold">{formatCurrency(stats.data?.totalEarnings || 0)}</p>
             </div>
           </div>
         </CardContent>
@@ -70,70 +103,88 @@ export function AdminAffiliatesPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Affiliate List</CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search affiliates..."
-                  className="pl-8"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+          <div className="flex flex-col space-y-4">
+            <div className="flex items-center justify-between">
+              <CardTitle>Affiliate List ({filteredAffiliates.length})</CardTitle>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search affiliates..."
+                    className="pl-8"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
+            <Tabs defaultValue="all" className="w-full" onValueChange={setActiveTab}>
+              <TabsList>
+                <TabsTrigger value="all">All Affiliates</TabsTrigger>
+                <TabsTrigger value="active">Active Affiliates</TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Total Earnings</TableHead>
-                <TableHead>Active Offers</TableHead>
-                <TableHead>Conversion Rate</TableHead>
-                <TableHead>Joined Date</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {affiliates.map((affiliate) => (
-                <TableRow key={affiliate.id}>
-                  <TableCell>{affiliate.name}</TableCell>
-                  <TableCell>{affiliate.email}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      affiliate.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {affiliate.status}
-                    </span>
-                  </TableCell>
-                  <TableCell>{affiliate.totalEarnings}</TableCell>
-                  <TableCell>{affiliate.activeOffers}</TableCell>
-                  <TableCell>{affiliate.conversionRate}</TableCell>
-                  <TableCell>{affiliate.joinedDate}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>View Details</DropdownMenuItem>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Suspend</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          {filteredAffiliates.length === 0 ? (
+            <div className="text-center py-4 text-muted-foreground">
+              {searchQuery ? 'No affiliates found matching your search.' : 'No affiliates found.'}
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Total Earnings</TableHead>
+                  <TableHead>Active Offers</TableHead>
+                  <TableHead>Conversion Rate</TableHead>
+                  <TableHead>Joined Date</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredAffiliates.map((affiliate) => (
+                  <TableRow key={affiliate.id}>
+                    <TableCell>{affiliate.contact_name || affiliate.company_name || 'N/A'}</TableCell>
+                    <TableCell>{affiliate.email}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        affiliate.status === 'active' ? 'bg-green-100 text-green-800' : 
+                        affiliate.status === 'suspended' ? 'bg-red-100 text-red-800' : 
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {affiliate.status.charAt(0).toUpperCase() + affiliate.status.slice(1)}
+                      </span>
+                    </TableCell>
+                    <TableCell>{formatCurrency(affiliate.total_earnings)}</TableCell>
+                    <TableCell>{affiliate.active_offers}</TableCell>
+                    <TableCell>{affiliate.conversion_rate.toFixed(2)}%</TableCell>
+                    <TableCell>{new Date(affiliate.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>View Details</DropdownMenuItem>
+                          <DropdownMenuItem>Edit</DropdownMenuItem>
+                          <DropdownMenuItem>
+                            {affiliate.status === 'active' ? 'Suspend' : 'Activate'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -172,35 +172,17 @@ export default function AffiliatePartners() {
     enabled: !!user && user.role === 'advertiser',
   });
   
-  // Invite affiliate mutation
-  const inviteAffiliateMutation = useMutation({
-    mutationFn: async ({ email, message }: { email: string, message: string }) => {
-      if (!user) throw new Error('User not authenticated');
-      
-      // In a real app, this would send an invitation email
-      // For now, we'll just show a success toast
-      
-      return { success: true };
-    },
-    onSuccess: () => {
-      toast({
-        title: "Invitation Sent",
-        description: "The affiliate has been invited to join your program",
-      });
-      
-      setIsInviteDialogOpen(false);
-      setInviteEmail('');
-      setInviteMessage('');
-    },
-    onError: (error: any) => {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to send invitation",
-      });
-    }
-  });
+  // Filter affiliates based on search query
+  const filteredAffiliates = affiliates?.filter(affiliate => 
+    affiliate.contact_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    affiliate.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
   
+  const viewAffiliateProfile = (affiliate: any) => {
+    setSelectedAffiliate(affiliate);
+    setIsProfileDialogOpen(true);
+  };
+
   const handleInviteAffiliate = () => {
     if (!inviteEmail) {
       toast({
@@ -211,22 +193,17 @@ export default function AffiliatePartners() {
       return;
     }
     
-    inviteAffiliateMutation.mutate({
-      email: inviteEmail,
-      message: inviteMessage
+    // In a real app, this would send an invitation email
+    // For now, we'll just show a success toast
+    toast({
+      title: "Invitation Sent",
+      description: "The affiliate has been invited to join your program",
     });
+    
+    setIsInviteDialogOpen(false);
+    setInviteEmail('');
+    setInviteMessage('');
   };
-  
-  const viewAffiliateProfile = (affiliate: any) => {
-    setSelectedAffiliate(affiliate);
-    setIsProfileDialogOpen(true);
-  };
-  
-  // Filter affiliates based on search query
-  const filteredAffiliates = affiliates?.filter(affiliate => 
-    affiliate.contact_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    affiliate.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
   
   return (
     <div className="space-y-6">
@@ -249,42 +226,36 @@ export default function AffiliatePartners() {
             <DialogHeader>
               <DialogTitle>Invite New Affiliate</DialogTitle>
               <DialogDescription>
-                Send an invitation to a new affiliate to join your program.
+                Send an invitation to join your affiliate program
               </DialogDescription>
             </DialogHeader>
-            
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
+            <div className="space-y-4">
+              <div>
                 <Label htmlFor="email">Email Address</Label>
                 <Input 
-                  id="email" 
-                  placeholder="affiliate@example.com" 
+                  id="email"
+                  type="email"
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="affiliate@example.com"
                 />
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="message">Invitation Message (Optional)</Label>
-                <Textarea 
-                  id="message" 
-                  placeholder="Enter a personal message..." 
-                  rows={4}
+              <div>
+                <Label htmlFor="message">Message (Optional)</Label>
+                <Textarea
+                  id="message"
                   value={inviteMessage}
                   onChange={(e) => setInviteMessage(e.target.value)}
+                  placeholder="Add a personal message to your invitation..."
                 />
               </div>
             </div>
-            
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsInviteDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button
-                onClick={handleInviteAffiliate}
-                disabled={inviteAffiliateMutation.isPending || !inviteEmail}
-              >
-                {inviteAffiliateMutation.isPending ? "Sending..." : "Send Invitation"}
+              <Button onClick={handleInviteAffiliate}>
+                Send Invitation
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -383,61 +354,56 @@ export default function AffiliatePartners() {
       
       {/* Affiliate Profile Dialog */}
       <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Affiliate Profile</DialogTitle>
           </DialogHeader>
-          
           {selectedAffiliate && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-lg font-medium mb-2">Affiliate ID: {selectedAffiliate.id}</h3>
-                  <div className="mt-2">
-                    <div className="text-sm font-medium mb-1">Joined:</div>
-                    <div>{selectedAffiliate.join_date}</div>
-                  </div>
-                  <div className="mt-2">
-                    <div className="text-sm font-medium mb-1">Status:</div>
-                    <div className="capitalize">{selectedAffiliate.status}</div>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <div>
-                    <div className="text-sm font-medium mb-1">Total Clicks:</div>
-                    <div>{selectedAffiliate.total_clicks.toLocaleString()}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium mb-1">Total Conversions:</div>
-                    <div>{selectedAffiliate.total_conversions}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium mb-1">Conversion Rate:</div>
-                    <div>{selectedAffiliate.conversion_rate}%</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium mb-1">Total Paid:</div>
-                    <div>${selectedAffiliate.total_payout.toFixed(2)}</div>
-                  </div>
-                </div>
-              </div>
-              
+            <div className="space-y-4">
               <div>
-                <div className="text-sm font-medium mb-2">Approved Offers:</div>
-                <p className="text-sm text-muted-foreground">
-                  This affiliate is approved for {selectedAffiliate.approved_offers} offers.
+                <Label>Contact Name</Label>
+                <p className="text-sm">{selectedAffiliate.contact_name}</p>
+              </div>
+              <div>
+                <Label>Email</Label>
+                <p className="text-sm">{selectedAffiliate.email}</p>
+              </div>
+              <div>
+                <Label>Company</Label>
+                <p className="text-sm">{selectedAffiliate.company_name || 'Not provided'}</p>
+              </div>
+              <div>
+                <Label>Website</Label>
+                <p className="text-sm">{selectedAffiliate.website || 'Not provided'}</p>
+              </div>
+              <div>
+                <Label>Traffic Sources</Label>
+                <p className="text-sm">
+                  {selectedAffiliate.traffic_sources?.length 
+                    ? selectedAffiliate.traffic_sources.join(', ') 
+                    : 'Not provided'}
                 </p>
               </div>
-              
-              <div className="flex justify-end gap-3 pt-2">
-                <Button variant="outline" onClick={() => setIsProfileDialogOpen(false)}>
-                  Close
-                </Button>
-                <Button>
-                  <Mail className="mr-2 h-4 w-4" />
-                  Contact
-                </Button>
+              <div>
+                <Label>Performance</Label>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Clicks</p>
+                    <p className="font-medium">{selectedAffiliate.total_clicks.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Conversions</p>
+                    <p className="font-medium">{selectedAffiliate.total_conversions}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Conversion Rate</p>
+                    <p className="font-medium">{selectedAffiliate.conversion_rate}%</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Payout</p>
+                    <p className="font-medium">${selectedAffiliate.total_payout.toFixed(2)}</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}

@@ -46,32 +46,65 @@ ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.conversions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clicks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.affiliate_offers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.offers ENABLE ROW LEVEL SECURITY;
 
--- Update RLS policies
+-- Drop existing policies
 DROP POLICY IF EXISTS admin_all_users ON public.users;
 DROP POLICY IF EXISTS admin_all_conversions ON public.conversions;
 DROP POLICY IF EXISTS admin_all_clicks ON public.clicks;
 DROP POLICY IF EXISTS admin_all_affiliate_offers ON public.affiliate_offers;
+DROP POLICY IF EXISTS admin_all_offers ON public.offers;
+DROP POLICY IF EXISTS "Advertisers can view their own offers" ON public.offers;
+DROP POLICY IF EXISTS "Advertisers can insert their own offers" ON public.offers;
+DROP POLICY IF EXISTS "Advertisers can update their own offers" ON public.offers;
+DROP POLICY IF EXISTS "Advertisers can delete their own offers" ON public.offers;
 
+-- Create policies for admin access
 CREATE POLICY admin_all_users ON public.users
     FOR ALL
     TO authenticated
-    USING (auth.jwt() ->> 'role' = 'admin');
+    USING (auth.jwt() ->> 'email' = 'admin@affiliatetools.app');
 
 CREATE POLICY admin_all_conversions ON public.conversions
     FOR ALL
     TO authenticated
-    USING (auth.jwt() ->> 'role' = 'admin');
+    USING (auth.jwt() ->> 'email' = 'admin@affiliatetools.app');
 
 CREATE POLICY admin_all_clicks ON public.clicks
     FOR ALL
     TO authenticated
-    USING (auth.jwt() ->> 'role' = 'admin');
+    USING (auth.jwt() ->> 'email' = 'admin@affiliatetools.app');
 
 CREATE POLICY admin_all_affiliate_offers ON public.affiliate_offers
     FOR ALL
     TO authenticated
-    USING (auth.jwt() ->> 'role' = 'admin');
+    USING (auth.jwt() ->> 'email' = 'admin@affiliatetools.app');
+
+CREATE POLICY admin_all_offers ON public.offers
+    FOR ALL
+    TO authenticated
+    USING (auth.jwt() ->> 'email' = 'admin@affiliatetools.app');
+
+-- Create policies for advertiser access
+CREATE POLICY "Advertisers can view their own offers" ON public.offers
+    FOR SELECT
+    TO authenticated
+    USING (advertiser_id = auth.uid());
+
+CREATE POLICY "Advertisers can insert their own offers" ON public.offers
+    FOR INSERT
+    TO authenticated
+    WITH CHECK (advertiser_id = auth.uid());
+
+CREATE POLICY "Advertisers can update their own offers" ON public.offers
+    FOR UPDATE
+    TO authenticated
+    USING (advertiser_id = auth.uid());
+
+CREATE POLICY "Advertisers can delete their own offers" ON public.offers
+    FOR DELETE
+    TO authenticated
+    USING (advertiser_id = auth.uid());
 
 -- Update existing affiliate users to have status
 UPDATE public.users

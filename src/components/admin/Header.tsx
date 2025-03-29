@@ -11,12 +11,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
 
 interface HeaderProps {
   className?: string;
 }
 
 export function Header({ className }: HeaderProps) {
+  const { signOut } = useAuth();
+
   return (
     <header className={cn("border-b bg-background", className)}>
       <div className="flex h-16 items-center px-4">
@@ -43,7 +46,12 @@ export function Header({ className }: HeaderProps) {
               <DropdownMenuItem>Profile</DropdownMenuItem>
               <DropdownMenuItem>Settings</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">Logout</DropdownMenuItem>
+              <DropdownMenuItem 
+                className="text-destructive"
+                onClick={() => signOut()}
+              >
+                Logout
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

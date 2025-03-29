@@ -30,12 +30,42 @@ import {
   Upload,
   Loader2,
   Trash2,
-  X
+  X,
+  Copy,
+  Plus,
+  FileText,
+  DollarSign,
+  Target,
+  Images,
+  LineChart,
+  Link,
+  Store,
+  Globe2,
+  Users,
+  FileEdit,
+  BadgeCheck,
+  PenSquare,
+  Coins,
+  Calendar,
+  GanttChartSquare,
+  ScrollText,
+  Percent,
+  Clock,
+  MapPin,
+  Ban,
+  ShieldAlert,
+  Share2,
+  AlertCircle
 } from 'lucide-react';
 import GeoCommissionSelector from './GeoCommissionSelector';
 import CreativesTab from './CreativesTab';
 import { OfferPreviewDialog } from './OfferPreviewDialog';
 import { Offer } from '@/types';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 // Form schema
 const offerSchema = z.object({
@@ -63,6 +93,20 @@ const offerSchema = z.object({
 
 type OfferFormValues = z.infer<typeof offerSchema>;
 
+const PREDEFINED_PARAMETERS = [
+  { key: 'payout', description: 'Conversion/sale payout amount' },
+  { key: 'transaction_id', description: 'Unique transaction identifier' },
+  { key: 'amount', description: 'Transaction amount' },
+  { key: 'currency', description: 'Transaction currency' },
+  { key: 'customer_id', description: 'Customer identifier' },
+  { key: 'product_id', description: 'Product identifier' },
+  { key: 'campaign_id', description: 'Campaign identifier' },
+  { key: 'source', description: 'Traffic source' },
+  { key: 'sub1', description: 'Custom sub-affiliate parameter 1' },
+  { key: 'sub2', description: 'Custom sub-affiliate parameter 2' },
+  { key: 'sub3', description: 'Custom sub-affiliate parameter 3' },
+];
+
 const CreateOffer = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -76,6 +120,9 @@ const CreateOffer = () => {
   const [geoCommissionsEnabled, setGeoCommissionsEnabled] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const [customParams, setCustomParams] = useState<{ [key: string]: string }>({});
+  const [newParamKey, setNewParamKey] = useState('');
+  const [newParamValue, setNewParamValue] = useState('');
   
   const form = useForm<OfferFormValues>({
     resolver: zodResolver(offerSchema),
@@ -409,11 +456,53 @@ const CreateOffer = () => {
     };
   };
 
+  // Add helper function to generate URL with custom params
+  const generateUrlWithParams = (baseUrl: string) => {
+    const params: string[] = [];
+    
+    // Add required params first
+    if (baseUrl.includes('click_id')) {
+      params.push(`click_id={click_id}`);
+    }
+    
+    // Add custom params
+    Object.entries(customParams).forEach(([key, value]) => {
+      params.push(`${key}={${value}}`);
+    });
+    
+    const queryString = params.join('&');
+    return `${baseUrl.split('?')[0]}${queryString ? `?${queryString}` : ''}`;
+  };
+
+  // Add handler for adding new params
+  const handleAddParam = () => {
+    if (newParamKey && newParamValue) {
+      setCustomParams(prev => ({
+        ...prev,
+        [newParamKey]: newParamValue
+      }));
+      setNewParamKey('');
+      setNewParamValue('');
+    }
+  };
+
+  // Add handler for removing params
+  const handleRemoveParam = (key: string) => {
+    setCustomParams(prev => {
+      const newParams = { ...prev };
+      delete newParams[key];
+      return newParams;
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Create New Offer</h2>
-        <p className="text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <PenSquare className="h-5 w-5" />
+          <h2 className="text-2xl font-bold tracking-tight">Create New Offer</h2>
+        </div>
+        <p className="text-muted-foreground ml-7">
           Create a new affiliate offer to promote your product or service
         </p>
       </div>
@@ -421,11 +510,26 @@ const CreateOffer = () => {
       <form onSubmit={handleSubmit(handleFormSubmit)}>
         <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="basic">Basic Info</TabsTrigger>
-            <TabsTrigger value="commission">Commission</TabsTrigger>
-            <TabsTrigger value="targeting">Targeting</TabsTrigger>
-            <TabsTrigger value="creatives">Creatives</TabsTrigger>
-            <TabsTrigger value="tracking">Tracking</TabsTrigger>
+            <TabsTrigger value="basic" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Basic Info
+            </TabsTrigger>
+            <TabsTrigger value="commission" className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4" />
+              Commission
+            </TabsTrigger>
+            <TabsTrigger value="targeting" className="flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Targeting
+            </TabsTrigger>
+            <TabsTrigger value="creatives" className="flex items-center gap-2">
+              <Images className="h-4 w-4" />
+              Creatives
+            </TabsTrigger>
+            <TabsTrigger value="tracking" className="flex items-center gap-2">
+              <LineChart className="h-4 w-4" />
+              Tracking
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="basic" className="space-y-4 mt-4">
@@ -434,7 +538,10 @@ const CreateOffer = () => {
                 <div className="grid gap-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Offer Name</Label>
+                      <Label htmlFor="name" className="flex items-center gap-2">
+                        <FileEdit className="h-4 w-4" />
+                        Offer Name
+                      </Label>
                       <Input
                         id="name"
                         placeholder="e.g. Premium Product Promotion"
@@ -446,7 +553,10 @@ const CreateOffer = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="niche">Niche/Category</Label>
+                      <Label htmlFor="niche" className="flex items-center gap-2">
+                        <Store className="h-4 w-4" />
+                        Niche/Category
+                      </Label>
                       <Select
                         onValueChange={(value) => setValue('niche', value)}
                         defaultValue={getValues('niche')}
@@ -472,7 +582,10 @@ const CreateOffer = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="url">Offer URL</Label>
+                      <Label htmlFor="url" className="flex items-center gap-2">
+                        <Link className="h-4 w-4" />
+                        Offer URL
+                      </Label>
                       <Input
                         id="url"
                         placeholder="https://yourdomain.com/offer"
@@ -484,7 +597,10 @@ const CreateOffer = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="status">Offer Status</Label>
+                      <Label htmlFor="status" className="flex items-center gap-2">
+                        <BadgeCheck className="h-4 w-4" />
+                        Offer Status
+                      </Label>
                       <Select
                         onValueChange={(value) => setValue('status', value)}
                         defaultValue={getValues('status')}
@@ -502,7 +618,10 @@ const CreateOffer = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="description">Offer Description</Label>
+                    <Label htmlFor="description" className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Offer Description
+                    </Label>
                     <Textarea
                       id="description"
                       placeholder="Describe your offer in detail"
@@ -515,7 +634,10 @@ const CreateOffer = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="target_audience">Target Audience</Label>
+                    <Label htmlFor="target_audience" className="flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Target Audience
+                    </Label>
                     <Textarea
                       id="target_audience"
                       placeholder="Describe the ideal customer for this offer"
@@ -525,7 +647,10 @@ const CreateOffer = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="offer_image">Offer Image</Label>
+                    <Label htmlFor="offer_image" className="flex items-center gap-2">
+                      <ImageIcon className="h-4 w-4" />
+                      Offer Image
+                    </Label>
                     <input
                       ref={imageInputRef}
                       type="file"
@@ -596,7 +721,10 @@ const CreateOffer = () => {
                 <div className="grid gap-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="commission_type">Commission Type</Label>
+                      <Label htmlFor="commission_type" className="flex items-center gap-2">
+                        <Coins className="h-4 w-4" />
+                        Commission Type
+                      </Label>
                       <Select
                         onValueChange={(value) => setValue('commission_type', value)}
                         defaultValue={getValues('commission_type')}
@@ -619,7 +747,10 @@ const CreateOffer = () => {
 
                     {!geoCommissionsEnabled && commissionType !== 'RevShare' ? (
                       <div className="space-y-2">
-                        <Label htmlFor="commission_amount">Commission Amount ($)</Label>
+                        <Label htmlFor="commission_amount" className="flex items-center gap-2">
+                          <DollarSign className="h-4 w-4" />
+                          Commission Amount ($)
+                        </Label>
                         <Input
                           id="commission_amount"
                           type="number"
@@ -631,7 +762,10 @@ const CreateOffer = () => {
                       </div>
                     ) : !geoCommissionsEnabled && commissionType === 'RevShare' ? (
                       <div className="space-y-2">
-                        <Label htmlFor="commission_percent">Commission Percentage (%)</Label>
+                        <Label htmlFor="commission_percent" className="flex items-center gap-2">
+                          <Percent className="h-4 w-4" />
+                          Commission Percentage (%)
+                        </Label>
                         <Input
                           id="commission_percent"
                           type="number"
@@ -645,7 +779,10 @@ const CreateOffer = () => {
                     ) : null}
 
                     <div className="space-y-2">
-                      <Label htmlFor="payout_frequency">Payout Frequency</Label>
+                      <Label htmlFor="payout_frequency" className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Payout Frequency
+                      </Label>
                       <Select
                         onValueChange={(value) => setValue('payout_frequency', value)}
                         defaultValue={getValues('payout_frequency')}
@@ -669,6 +806,10 @@ const CreateOffer = () => {
                   </div>
                   
                   <div className="space-y-4">
+                    <Label className="flex items-center gap-2">
+                      <GanttChartSquare className="h-4 w-4" />
+                      Commission Structure
+                    </Label>
                     <GeoCommissionSelector 
                       geoCommissions={geoCommissions}
                       onChange={handleGeoCommissionsChange}
@@ -679,7 +820,10 @@ const CreateOffer = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="conversion_requirements">Conversion Requirements</Label>
+                    <Label htmlFor="conversion_requirements" className="flex items-center gap-2">
+                      <ScrollText className="h-4 w-4" />
+                      Conversion Requirements
+                    </Label>
                     <Textarea
                       id="conversion_requirements"
                       placeholder="What is required for a conversion to be valid?"
@@ -708,7 +852,10 @@ const CreateOffer = () => {
               <CardContent className="pt-6">
                 <div className="grid gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="traffic_sources">Allowed Traffic Sources</Label>
+                    <Label htmlFor="traffic_sources" className="flex items-center gap-2">
+                      <Share2 className="h-4 w-4" />
+                      Allowed Traffic Sources
+                    </Label>
                     <TagInput
                       placeholder="Add a traffic source and press Enter (e.g. Facebook, Google)"
                       tags={watch('allowed_traffic_sources') || []}
@@ -718,7 +865,10 @@ const CreateOffer = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="geo_targets">Geographic Targeting (Allowed)</Label>
+                    <Label htmlFor="geo_targets" className="flex items-center gap-2">
+                      <Globe2 className="h-4 w-4" />
+                      Geographic Targeting (Allowed)
+                    </Label>
                     {geoCommissionsEnabled ? (
                       <>
                         <p className="text-sm text-muted-foreground mb-2">
@@ -747,7 +897,10 @@ const CreateOffer = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="restricted_geos">Geographic Restrictions (Blocked)</Label>
+                    <Label htmlFor="restricted_geos" className="flex items-center gap-2">
+                      <Ban className="h-4 w-4" />
+                      Geographic Restrictions (Blocked)
+                    </Label>
                     <TagInput
                       placeholder="Add restricted country codes (e.g. CN, RU)"
                       tags={watch('restricted_geos') || []}
@@ -757,7 +910,10 @@ const CreateOffer = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="restrictions">Additional Restrictions</Label>
+                    <Label htmlFor="restrictions" className="flex items-center gap-2">
+                      <ShieldAlert className="h-4 w-4" />
+                      Additional Restrictions
+                    </Label>
                     <Textarea
                       id="restrictions"
                       placeholder="Any other restrictions or compliance requirements"
@@ -807,16 +963,168 @@ const CreateOffer = () => {
                   <div>
                     <h3 className="text-lg font-medium">Tracking Setup</h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Your offer will have unique tracking links for each affiliate
+                      Configure your postback URLs and custom parameters
                     </p>
 
                     <div className="space-y-4">
                       <div className="p-4 border rounded-md bg-muted">
-                        <p className="text-sm font-medium mb-1">Sample Tracking Link Format:</p>
-                        <code className="text-xs bg-background p-2 rounded block">
-                          https://afftools.up.railway.app/click/[tracking_code]
-                        </code>
+                        <p className="text-sm font-medium mb-2">Postback URLs:</p>
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Conversion Postback:</p>
+                            <div className="flex items-center gap-2">
+                              <code className="text-xs bg-background p-2 rounded flex-1">
+                                {generateUrlWithParams('https://afftools.up.railway.app/api/postbacks/conversion?click_id={click_id}')}
+                              </code>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(
+                                    generateUrlWithParams('https://afftools.up.railway.app/api/postbacks/conversion?click_id={click_id}')
+                                  );
+                                  toast({
+                                    title: "Copied!",
+                                    description: "Conversion postback URL copied to clipboard",
+                                  });
+                                }}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Lead Postback:</p>
+                            <div className="flex items-center gap-2">
+                              <code className="text-xs bg-background p-2 rounded flex-1">
+                                {generateUrlWithParams('https://afftools.up.railway.app/api/postbacks/lead?click_id={click_id}')}
+                              </code>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(
+                                    generateUrlWithParams('https://afftools.up.railway.app/api/postbacks/lead?click_id={click_id}')
+                                  );
+                                  toast({
+                                    title: "Copied!",
+                                    description: "Lead postback URL copied to clipboard",
+                                  });
+                                }}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Sale Postback:</p>
+                            <div className="flex items-center gap-2">
+                              <code className="text-xs bg-background p-2 rounded flex-1">
+                                {generateUrlWithParams('https://afftools.up.railway.app/api/postbacks/sale?click_id={click_id}')}
+                              </code>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(
+                                    generateUrlWithParams('https://afftools.up.railway.app/api/postbacks/sale?click_id={click_id}')
+                                  );
+                                  toast({
+                                    title: "Copied!",
+                                    description: "Sale postback URL copied to clipboard",
+                                  });
+                                }}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
+
+                      <Collapsible className="w-full">
+                        <div className="p-4 border rounded-md bg-muted">
+                          <CollapsibleTrigger className="flex items-center justify-between w-full">
+                            <div>
+                              <p className="text-sm font-medium">Custom Parameters</p>
+                              <p className="text-xs text-muted-foreground">
+                                Add optional parameters to your postback URLs
+                              </p>
+                            </div>
+                            <ChevronRight className="h-4 w-4 transform transition-transform duration-200" />
+                          </CollapsibleTrigger>
+
+                          <CollapsibleContent className="space-y-4 mt-4">
+                            <div className="space-y-2">
+                              <div className="flex gap-2">
+                                <Select
+                                  value={newParamKey}
+                                  onValueChange={setNewParamKey}
+                                >
+                                  <SelectTrigger className="flex-1">
+                                    <SelectValue placeholder="Select parameter" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {PREDEFINED_PARAMETERS.map((param) => (
+                                      <SelectItem key={param.key} value={param.key}>
+                                        <div>
+                                          <p className="font-medium">{param.key}</p>
+                                          <p className="text-xs text-muted-foreground">{param.description}</p>
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Input
+                                  placeholder="Variable name"
+                                  value={newParamValue}
+                                  onChange={(e) => setNewParamValue(e.target.value)}
+                                  className="flex-1"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="secondary"
+                                  onClick={handleAddParam}
+                                  disabled={!newParamKey || !newParamValue}
+                                >
+                                  Add
+                                </Button>
+                              </div>
+                            </div>
+
+                            {Object.entries(customParams).length > 0 && (
+                              <div>
+                                <p className="text-sm font-medium mb-2">Added Parameters:</p>
+                                <div className="space-y-2">
+                                  {Object.entries(customParams).map(([key, value]) => (
+                                    <div key={key} className="flex items-center gap-2 bg-background p-2 rounded">
+                                      <div className="flex-1">
+                                        <p className="text-sm font-medium">{key}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {PREDEFINED_PARAMETERS.find(p => p.key === key)?.description}
+                                        </p>
+                                      </div>
+                                      <code className="text-xs bg-muted px-2 py-1 rounded">
+                                        {`{${value}}`}
+                                      </code>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleRemoveParam(key)}
+                                      >
+                                        <X className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </CollapsibleContent>
+                        </div>
+                      </Collapsible>
 
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">

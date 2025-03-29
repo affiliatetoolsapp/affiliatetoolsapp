@@ -314,14 +314,129 @@ const CreateOffer = () => {
     setCreatives(newCreatives);
   };
 
-  // Start the form submission process by showing preview
-  const handleFormSubmit = (data: OfferFormValues) => {
+  // Add helper function to get tab name
+  const getTabName = (tab: string): string => {
+    switch (tab) {
+      case 'basic':
+        return 'Basic Info';
+      case 'commission':
+        return 'Commission';
+      case 'targeting':
+        return 'Targeting';
+      case 'creatives':
+        return 'Creatives';
+      case 'tracking':
+        return 'Tracking';
+      default:
+        return tab;
+    }
+  };
+
+  // Add helper function to get field name
+  const getFieldName = (field: string): string => {
+    switch (field) {
+      case 'name':
+        return 'Offer Name';
+      case 'description':
+        return 'Offer Description';
+      case 'url':
+        return 'Offer URL';
+      case 'niche':
+        return 'Niche/Category';
+      case 'commission_type':
+        return 'Commission Type';
+      case 'payout_frequency':
+        return 'Payout Frequency';
+      default:
+        return field.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    }
+  };
+
+  // Add function to check which tab contains a field
+  const getFieldTab = (field: string): string => {
+    const tabFields: { [key: string]: string[] } = {
+      basic: ['name', 'description', 'url', 'niche', 'target_audience', 'offer_image'],
+      commission: ['commission_type', 'commission_amount', 'commission_percent', 'payout_frequency', 'conversion_requirements'],
+      targeting: ['allowed_traffic_sources', 'geo_targets', 'restricted_geos', 'restrictions'],
+      creatives: [],
+      tracking: []
+    };
+
+    for (const [tab, fields] of Object.entries(tabFields)) {
+      if (fields.includes(field)) {
+        return tab;
+      }
+    }
+    return 'basic';
+  };
+
+  // Update the form submission handler
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    // Trigger validation on all fields
+    const result = await form.trigger();
+    
+    // Check for validation errors
+    const errors = form.formState.errors;
+    if (!result || Object.keys(errors).length > 0) {
+      // Group errors by tab
+      const errorsByTab = Object.entries(errors).reduce((acc: { [key: string]: string[] }, [field, error]) => {
+        const tab = getFieldTab(field);
+        if (!acc[tab]) {
+          acc[tab] = [];
+        }
+        if (error?.message) {
+          acc[tab].push(`${getFieldName(field)}: ${error.message}`);
+        }
+        return acc;
+      }, {});
+
+      // Create error message
+      const errorMessage = Object.entries(errorsByTab)
+        .map(([tab, tabErrors]) => (
+          `${getTabName(tab)}:\n${tabErrors.map(err => `• ${err}`).join('\n')}`
+        ))
+        .join('\n\n');
+
+      // Show error toast
+      toast({
+        variant: 'destructive',
+        title: 'Please Fix the Following Errors',
+        description: (
+          <div className="mt-2 space-y-2 max-h-[300px] overflow-y-auto">
+            <pre className="text-[11px] whitespace-pre-wrap bg-secondary/50 p-2 rounded">
+              {errorMessage}
+            </pre>
+          </div>
+        ),
+        duration: 10000, // Show for 10 seconds
+      });
+
+      // Navigate to the first tab with an error
+      const firstErrorTab = Object.keys(errorsByTab)[0];
+      if (firstErrorTab && firstErrorTab !== activeTab) {
+        setActiveTab(firstErrorTab);
+      }
+
+      return;
+    }
+
+    // If no errors, proceed with showing preview
     setShowPreview(true);
   };
 
-  // Submit the form after confirmation
+  // Update the final submit handler
   const handleFinalSubmit = async () => {
     if (!user) return;
+
+    // Check for validation errors again before final submit
+    const isValid = await form.trigger();
+    if (!isValid) {
+      const fakeEvent = { preventDefault: () => {} } as React.FormEvent<HTMLFormElement>;
+      await handleFormSubmit(fakeEvent);
+      return;
+    }
 
     setIsSubmitting(true);
     const data = getValues();
@@ -507,7 +622,7 @@ const CreateOffer = () => {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(handleFormSubmit)}>
+      <form onSubmit={handleFormSubmit}>
         <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="basic" className="flex items-center gap-2">

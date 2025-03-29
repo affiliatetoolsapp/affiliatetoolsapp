@@ -122,7 +122,7 @@ export function Sidebar({ className, isCollapsed = false, onToggle, ...props }: 
                       "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                       isActive(link.href)
                         ? "bg-primary/10 text-primary font-medium"
-                        : "text-muted-foreground hover:bg-muted",
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                       isCollapsed && "justify-center px-2"
                     )}
                   >

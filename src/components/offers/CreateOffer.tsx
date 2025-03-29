@@ -66,6 +66,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { generatePostbackUrl } from '@/lib/postback';
 
 // Form schema
 const offerSchema = z.object({
@@ -106,6 +107,9 @@ const PREDEFINED_PARAMETERS = [
   { key: 'sub2', description: 'Custom sub-affiliate parameter 2' },
   { key: 'sub3', description: 'Custom sub-affiliate parameter 3' },
 ];
+
+// Add the base URL constant at the top with other imports
+const POSTBACK_BASE_URL = 'https://jruzfpymzkzegdhmzwsr.supabase.co/functions/v1/postback';
 
 const CreateOffer = () => {
   const { user } = useAuth();
@@ -571,14 +575,14 @@ const CreateOffer = () => {
     };
   };
 
-  // Add helper function to generate URL with custom params
+  // Update the generateUrlWithParams function
   const generateUrlWithParams = (baseUrl: string) => {
     const params: string[] = [];
     
     // Add required params first
-    if (baseUrl.includes('click_id')) {
-      params.push(`click_id={click_id}`);
-    }
+    params.push(`click_id={click_id}`);
+    params.push(`type={type}`);
+    params.push(`payout={payout}`);
     
     // Add custom params
     Object.entries(customParams).forEach(([key, value]) => {
@@ -586,7 +590,7 @@ const CreateOffer = () => {
     });
     
     const queryString = params.join('&');
-    return `${baseUrl.split('?')[0]}${queryString ? `?${queryString}` : ''}`;
+    return `${baseUrl}${queryString ? `?${queryString}` : ''}`;
   };
 
   // Add handler for adding new params
@@ -1078,84 +1082,31 @@ const CreateOffer = () => {
                   <div>
                     <h3 className="text-lg font-medium">Tracking Setup</h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Configure your postback URLs and custom parameters
+                      Configure your postback URL and custom parameters
                     </p>
 
                     <div className="space-y-4">
                       <div className="p-4 border rounded-md bg-muted">
-                        <p className="text-sm font-medium mb-2">Postback URLs:</p>
-                        <div className="space-y-4">
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">Conversion Postback:</p>
-                            <div className="flex items-center gap-2">
-                              <code className="text-xs bg-background p-2 rounded flex-1">
-                                {generateUrlWithParams('https://afftools.up.railway.app/api/postbacks/conversion?click_id={click_id}')}
-                              </code>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(
-                                    generateUrlWithParams('https://afftools.up.railway.app/api/postbacks/conversion?click_id={click_id}')
-                                  );
-                                  toast({
-                                    title: "Copied!",
-                                    description: "Conversion postback URL copied to clipboard",
-                                  });
-                                }}
-                              >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">Lead Postback:</p>
-                            <div className="flex items-center gap-2">
-                              <code className="text-xs bg-background p-2 rounded flex-1">
-                                {generateUrlWithParams('https://afftools.up.railway.app/api/postbacks/lead?click_id={click_id}')}
-                              </code>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(
-                                    generateUrlWithParams('https://afftools.up.railway.app/api/postbacks/lead?click_id={click_id}')
-                                  );
-                                  toast({
-                                    title: "Copied!",
-                                    description: "Lead postback URL copied to clipboard",
-                                  });
-                                }}
-                              >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-
-                          <div>
-                            <p className="text-xs text-muted-foreground mb-1">Sale Postback:</p>
-                            <div className="flex items-center gap-2">
-                              <code className="text-xs bg-background p-2 rounded flex-1">
-                                {generateUrlWithParams('https://afftools.up.railway.app/api/postbacks/sale?click_id={click_id}')}
-                              </code>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(
-                                    generateUrlWithParams('https://afftools.up.railway.app/api/postbacks/sale?click_id={click_id}')
-                                  );
-                                  toast({
-                                    title: "Copied!",
-                                    description: "Sale postback URL copied to clipboard",
-                                  });
-                                }}
-                              >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
+                        <p className="text-sm font-medium mb-2">Global Postback URL:</p>
+                        <div className="flex items-center gap-2">
+                          <code className="text-xs bg-background p-2 rounded flex-1">
+                            {generateUrlWithParams(POSTBACK_BASE_URL)}
+                          </code>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              navigator.clipboard.writeText(
+                                generateUrlWithParams(POSTBACK_BASE_URL)
+                              );
+                              toast({
+                                title: "Copied!",
+                                description: "Postback URL copied to clipboard",
+                              });
+                            }}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
 

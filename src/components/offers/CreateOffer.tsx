@@ -94,6 +94,10 @@ const offerSchema = z.object({
 
 type OfferFormValues = z.infer<typeof offerSchema>;
 
+interface CreateOfferProps {
+  advertiserId?: string;
+}
+
 const PREDEFINED_PARAMETERS = [
   { key: 'payout', description: 'Conversion/sale payout amount' },
   { key: 'transaction_id', description: 'Unique transaction identifier' },
@@ -111,7 +115,7 @@ const PREDEFINED_PARAMETERS = [
 // Add the base URL constant at the top with other imports
 const POSTBACK_BASE_URL = 'https://jruzfpymzkzegdhmzwsr.supabase.co/functions/v1/postback';
 
-const CreateOffer = () => {
+const CreateOffer: React.FC<CreateOfferProps> = ({ advertiserId }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -464,7 +468,7 @@ const CreateOffer = () => {
         geo_targets: data.geo_targets || [], // Ensure geo_targets is always an array
         restricted_geos: data.restricted_geos || [],
         offer_image: data.offer_image || null,
-        advertiser_id: user.id,
+        advertiser_id: advertiserId || user.id,
         geo_commissions: geoCommissionsEnabled && geoCommissions.length > 0 ? geoCommissions : null,
         marketing_materials: creatives.length > 0 ? creatives : null,
         // Commission fields based on type and geo settings
@@ -1058,7 +1062,7 @@ const CreateOffer = () => {
           
           <TabsContent value="creatives" className="space-y-4 mt-4">
             <CreativesTab 
-              advertiserId={user?.id || ''}
+              advertiserId={advertiserId || user?.id || ''}
               savedCreatives={creatives} 
               onCreativesChange={handleCreativesChange}
             />

@@ -38,6 +38,7 @@ import { AdminDocumentsPage } from '@/pages/admin/DocumentsPage';
 import { AdminUsersPage } from '@/pages/admin/UsersPage';
 import { AdminSecurityPage } from '@/pages/admin/SecurityPage';
 import { AdminSettingsPage } from '@/pages/admin/SettingsPage';
+import CreateOfferPage from '@/pages/admin/CreateOfferPage';
 import './App.css';
 
 // Create a client with latest React Query configuration
@@ -128,6 +129,7 @@ function AppContent() {
             <Route path="affiliates" element={<AdminAffiliatesPage />} />
             <Route path="advertisers" element={<AdminAdvertisersPage />} />
             <Route path="offers" element={<AdminOffersPage />} />
+            <Route path="offers/create" element={<CreateOfferPage />} />
             <Route path="reports" element={<AdminReportsPage />} />
             <Route path="payments" element={<AdminPaymentsPage />} />
             <Route path="documents" element={<AdminDocumentsPage />} />

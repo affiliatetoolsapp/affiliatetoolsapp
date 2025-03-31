@@ -82,7 +82,7 @@ export default function AdvertiserPostbackSetup() {
       }));
       setSelectedParam('');
       setVariableName('');
-      toast({
+    toast({
         title: "Parameter Added",
         description: `Added ${selectedParam} to your postback URL.`,
       });
@@ -94,7 +94,7 @@ export default function AdvertiserPostbackSetup() {
       const newParams = { ...prev };
       delete newParams[key];
       return newParams;
-    });
+      });
   };
   
   if (!mounted) {
@@ -108,7 +108,7 @@ export default function AdvertiserPostbackSetup() {
   
   return (
     <div className="space-y-6">
-      <div>
+        <div>
         <h2 className="text-lg font-semibold">Tracking Setup</h2>
         <p className="text-sm text-muted-foreground">Configure your postback URL and custom parameters</p>
       </div>
@@ -116,15 +116,15 @@ export default function AdvertiserPostbackSetup() {
       <div className="bg-muted/50 rounded-lg p-4 space-y-2">
         <div className="text-sm font-medium">Global Postback URL:</div>
         <div className="flex gap-2">
-          <Input
+            <Input
             value={generateUrlWithParams(POSTBACK_BASE_URL)}
-            readOnly
+              readOnly
             className="font-mono text-sm bg-background"
-          />
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={copyToClipboard}
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={copyToClipboard}
           >
             <Clipboard className="h-4 w-4" />
           </Button>
@@ -179,10 +179,10 @@ export default function AdvertiserPostbackSetup() {
             >
               Add
             </Button>
-          </div>
-
+        </div>
+        
           {Object.entries(customParams).length > 0 && (
-            <div className="space-y-2">
+          <div className="space-y-2">
               <div className="text-sm font-medium">Added Parameters:</div>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(customParams).map(([key, value]) => (
@@ -196,7 +196,7 @@ export default function AdvertiserPostbackSetup() {
                     </button>
                   </Badge>
                 ))}
-              </div>
+        </div>
             </div>
           )}
         </CollapsibleContent>
@@ -215,9 +215,9 @@ export default function AdvertiserPostbackSetup() {
           <CheckCircle2 className="h-5 w-5 text-green-500" />
           <span>Detailed reporting on clicks, conversions, and revenue</span>
         </div>
-      </div>
-
+        </div>
+        
       <p className="text-sm text-muted-foreground">After creating the offer, you can configure advanced tracking options</p>
-    </div>
+        </div>
   );
 }

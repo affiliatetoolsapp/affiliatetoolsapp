@@ -36,7 +36,11 @@ import {
   Target,
   Users,
   DollarSign,
-  Tag
+  Tag,
+  MoreHorizontal,
+  Plus,
+  Loader2,
+  Image
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatGeoTargets, getCountryFlag } from '@/components/affiliate/utils/offerUtils';
@@ -52,6 +56,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { formatCurrency } from '@/lib/utils';
 
 type SortField = 'created_at' | 'name' | 'status' | 'advertiser';
 type SortOrder = 'asc' | 'desc';
@@ -331,346 +336,236 @@ export function AdminOffersPage() {
   });
 
   return (
-    <div className="h-full flex flex-col p-6">
-      {/* Header Section */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold">Offers Management</h1>
-          <p className="text-muted-foreground">
-            Manage all offers across all advertisers
-          </p>
-        </div>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Offers Management</h1>
         <Button onClick={() => navigate('/admin/offers/create')}>
-          <PlusCircle className="mr-2 h-4 w-4" />
+          <Plus className="mr-2 h-4 w-4" />
           Create New Offer
         </Button>
       </div>
 
-      {/* Overview Cards */}
-      <Card className="mb-6">
+      <Card>
         <CardHeader>
-          <CardTitle>Offers Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="p-4 bg-card rounded-lg border">
-              <h3 className="text-sm font-medium text-muted-foreground">Total Offers</h3>
-              <p className="text-2xl font-bold">{offers?.length || 0}</p>
-            </div>
-            <div className="p-4 bg-card rounded-lg border">
-              <h3 className="text-sm font-medium text-muted-foreground">Active Offers</h3>
-              <p className="text-2xl font-bold">{offers?.filter(o => o.status === 'active').length || 0}</p>
-            </div>
-            <div className="p-4 bg-card rounded-lg border">
-              <h3 className="text-sm font-medium text-muted-foreground">Paused Offers</h3>
-              <p className="text-2xl font-bold">{offers?.filter(o => o.status === 'paused').length || 0}</p>
-            </div>
-            <div className="p-4 bg-card rounded-lg border">
-              <h3 className="text-sm font-medium text-muted-foreground">Total Advertisers</h3>
-              <p className="text-2xl font-bold">{new Set(offers?.map(o => o.advertiser.id)).size || 0}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Offers List with View Toggle */}
-      <Card className="flex-1 min-h-0">
-        <CardHeader className="border-b">
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Offers</CardTitle>
-              <CardDescription>
-                View and manage offers from all advertisers
-              </CardDescription>
-            </div>
+            <CardTitle>All Offers</CardTitle>
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search offers..."
-                  className="pl-8"
+                  className="pl-8 w-[300px]"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" ref={filterMenuRef}>
-                    <Filter className="mr-2 h-4 w-4" />
-                    {filterOption === 'all' ? 'All Status' : filterOption.charAt(0).toUpperCase() + filterOption.slice(1)}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setFilterOption('all')}>
-                    All Status
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterOption('active')}>
-                    Active
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterOption('paused')}>
-                    Paused
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setFilterOption('inactive')}>
-                    Inactive
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <Button
-                variant="outline"
-                onClick={() => setViewMode(viewMode === 'table' ? 'grid' : 'table')}
-              >
-                {viewMode === 'table' ? (
-                  <Grid className="h-4 w-4" />
-                ) : (
-                  <TableIcon className="h-4 w-4" />
-                )}
-              </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto p-0">
-          {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            </div>
-          ) : viewMode === 'table' ? (
-            <div className="relative">
-              <Table>
-                <TableHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="w-[400px]">Offer</TableHead>
+                  <TableHead>Niche</TableHead>
+                  <TableHead>Payout</TableHead>
+                  <TableHead>Targeting</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-[50px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
                   <TableRow>
-                    <TableHead 
-                      className="cursor-pointer"
-                      onClick={() => handleSort('name')}
-                    >
-                      <div className="flex items-center">
-                        Name
-                        {sortField === 'name' && (
-                          sortOrder === 'asc' ? <ArrowUpAZ className="ml-2 h-4 w-4" /> : <ArrowDownAZ className="ml-2 h-4 w-4" />
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead 
-                      className="cursor-pointer"
-                      onClick={() => handleSort('advertiser')}
-                    >
-                      <div className="flex items-center">
-                        Advertiser
-                        {sortField === 'advertiser' && (
-                          sortOrder === 'asc' ? <ArrowUpAZ className="ml-2 h-4 w-4" /> : <ArrowDownAZ className="ml-2 h-4 w-4" />
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead>Payout</TableHead>
-                    <TableHead 
-                      className="cursor-pointer"
-                      onClick={() => handleSort('status')}
-                    >
-                      <div className="flex items-center">
-                        Status
-                        {sortField === 'status' && (
-                          sortOrder === 'asc' ? <ArrowUpAZ className="ml-2 h-4 w-4" /> : <ArrowDownAZ className="ml-2 h-4 w-4" />
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead>Geo Targets</TableHead>
-                    <TableHead 
-                      className="cursor-pointer"
-                      onClick={() => handleSort('created_at')}
-                    >
-                      <div className="flex items-center">
-                        Created
-                        {sortField === 'created_at' && (
-                          sortOrder === 'asc' ? <SortAsc className="ml-2 h-4 w-4" /> : <SortDesc className="ml-2 h-4 w-4" />
-                        )}
-                      </div>
-                    </TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
+                    <TableCell colSpan={6} className="text-center py-4">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredOffers?.map((offer) => (
-                    <TableRow key={offer.id}>
-                      <TableCell className="font-medium">{offer.name}</TableCell>
-                      <TableCell>{offer.advertiser.name}</TableCell>
+                ) : filteredOffers?.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
+                      No offers found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredOffers?.map((offer) => (
+                    <TableRow key={offer.id} className="group">
                       <TableCell>
-                        {offer.commission_type === 'fixed' 
-                          ? `$${offer.commission_amount}`
-                          : `${offer.commission_percent}%`
-                        }
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={
-                          offer.status === 'active' ? 'default' :
-                          offer.status === 'paused' ? 'secondary' :
-                          'destructive'
-                        }>
-                          {offer.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <HoverCard>
-                          <HoverCardTrigger>
-                            <Button variant="ghost" size="sm">
-                              <Globe className="h-4 w-4 mr-2" />
-                              {offer.geo_targets?.length || 0} countries
-                            </Button>
-                          </HoverCardTrigger>
-                          <HoverCardContent>
-                            <div className="space-y-2">
-                              <h4 className="text-sm font-semibold">Geo Targets</h4>
-                              <p className="text-sm text-muted-foreground">
-                                {offer.geo_targets?.join(', ')}
-                              </p>
+                        <div className="flex items-start gap-3">
+                          {offer.offer_image ? (
+                            <img 
+                              src={offer.offer_image} 
+                              alt={offer.name}
+                              className="w-16 h-16 object-cover rounded-md"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
+                              <Image className="w-8 h-8 text-muted-foreground" />
                             </div>
-                          </HoverCardContent>
-                        </HoverCard>
+                          )}
+                          <div className="flex flex-col">
+                            <span className="font-medium">{offer.name}</span>
+                            <span className="text-sm text-muted-foreground line-clamp-2">
+                              {offer.description}
+                            </span>
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell>
-                        {new Date(offer.created_at || '').toLocaleDateString()}
+                        <div className="flex items-center gap-1.5">
+                          <Tag className="h-4 w-4 text-[#3B82F6]" />
+                          <span className="text-sm">{offer.niche}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-1">
+                            <span className="text-[#10B981] text-sm font-medium">
+                              ${Number(offer.commission_amount).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-sm text-muted-foreground">
+                              CPA
+                            </span>
+                          </div>
+                          <Badge variant="outline" className="w-fit text-xs bg-[#EFF6FF] text-[#3B82F6] border-[#93C5FD]">
+                            Bi-weekly
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1.5">
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <div className="flex items-center gap-1.5 cursor-pointer">
+                                <Globe className="h-4 w-4 text-[#3B82F6]" />
+                                <span className="text-sm">{offer.geo_targets?.length || 0} country</span>
+                              </div>
+                            </HoverCardTrigger>
+                            <HoverCardContent align="start" className="w-[280px] p-3">
+                              <div className="flex flex-col gap-2">
+                                <h4 className="font-medium">Allowed Countries</h4>
+                                <div className="flex flex-wrap gap-1">
+                                  {offer.geo_targets?.map((geo: string) => (
+                                    <div key={geo} className="flex items-center gap-1 bg-muted rounded-md px-2 py-1">
+                                      <span className="text-xs">{getCountryFlag(geo)}</span>
+                                      <span className="text-xs">{geo}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </HoverCardContent>
+                          </HoverCard>
+
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <div className="flex items-center gap-1.5 cursor-pointer">
+                                <Target className="h-4 w-4 text-[#8B5CF6]" />
+                                <span className="text-sm">{offer.allowed_traffic_sources?.length || 0} source</span>
+                              </div>
+                            </HoverCardTrigger>
+                            <HoverCardContent align="start" className="w-[280px] p-3">
+                              <div className="flex flex-col gap-2">
+                                <h4 className="font-medium">Allowed Traffic Sources</h4>
+                                <div className="flex flex-wrap gap-1">
+                                  {offer.allowed_traffic_sources?.map((source: string) => (
+                                    <Badge key={source} variant="secondary" className="text-xs">
+                                      {source}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            </HoverCardContent>
+                          </HoverCard>
+
+                          {offer.restricted_geos?.length > 0 && (
+                            <HoverCard>
+                              <HoverCardTrigger asChild>
+                                <div className="flex items-center gap-1.5 cursor-pointer">
+                                  <Badge variant="destructive" className="w-fit text-xs bg-[#FEE2E2] text-[#EF4444] border-none">
+                                    {offer.restricted_geos.length} restricted
+                                  </Badge>
+                                </div>
+                              </HoverCardTrigger>
+                              <HoverCardContent align="start" className="w-[280px] p-3">
+                                <div className="flex flex-col gap-2">
+                                  <h4 className="font-medium">Restricted Countries</h4>
+                                  <div className="flex flex-wrap gap-1">
+                                    {offer.restricted_geos?.map((geo: string) => (
+                                      <div key={geo} className="flex items-center gap-1 bg-muted rounded-md px-2 py-1">
+                                        <span className="text-xs">{getCountryFlag(geo)}</span>
+                                        <span className="text-xs">{geo}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </HoverCardContent>
+                            </HoverCard>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={offer.status === 'active' ? 'default' : 'secondary'}
+                          className={
+                            offer.status === 'active' 
+                              ? 'text-[#10B981] bg-transparent hover:bg-transparent'
+                              : 'text-[#F59E0B] bg-transparent hover:bg-transparent'
+                          }
+                        >
+                          {offer.status === 'active' ? 'Active' : 'Paused'}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 hover:bg-transparent"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent align="end" className="w-[160px]">
+                            <DropdownMenuItem onClick={() => navigate(`/admin/offers/${offer.id}`)}>
+                              View Details
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => navigate(`/admin/offers/${offer.id}/edit`)}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit
+                              Edit Offer
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleStatusUpdate(offer.id, offer.status === 'active' ? 'paused' : 'active')}>
-                              {offer.status === 'active' ? (
-                                <>
-                                  <Pause className="mr-2 h-4 w-4" />
-                                  Pause
-                                </>
-                              ) : (
-                                <>
-                                  <Play className="mr-2 h-4 w-4" />
-                                  Activate
-                                </>
-                              )}
-                            </DropdownMenuItem>
+                            {offer.status === 'active' ? (
+                              <DropdownMenuItem 
+                                className="text-[#F59E0B]"
+                                onClick={() => handleStatusUpdate(offer.id, 'paused')}
+                              >
+                                Pause Offer
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem 
+                                className="text-[#10B981]"
+                                onClick={() => handleStatusUpdate(offer.id, 'active')}
+                              >
+                                Activate Offer
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem 
-                              className="text-destructive"
+                              className="text-[#EF4444]"
                               onClick={() => handleDeleteOffer(offer.id)}
                             >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
+                              Delete Offer
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
-              {filteredOffers?.map((offer) => (
-                <Card key={offer.id} className="overflow-hidden hover:shadow-md transition-shadow duration-200">
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg text-left flex items-center gap-2">
-                        {offer.is_featured && (
-                          <Badge className="mr-1">
-                            <Award className="h-3 w-3 mr-1" />
-                            Featured
-                          </Badge>
-                        )}
-                        {offer.name}
-                      </CardTitle>
-                      <Badge variant={
-                        offer.status === 'active' ? 'default' :
-                        offer.status === 'paused' ? 'secondary' :
-                        'destructive'
-                      }>
-                        {offer.status}
-                      </Badge>
-                    </div>
-                    <CardDescription className="line-clamp-2 text-left">
-                      {offer.description}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {offer.offer_image && (
-                      <div className="mb-3 rounded-md overflow-hidden h-32 bg-gray-100">
-                        <img 
-                          src={offer.offer_image} 
-                          alt={offer.name} 
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center text-sm">
-                      <DollarSign className="h-4 w-4 mr-1 text-green-500" />
-                      <span className="font-medium mr-1">Commission:</span>
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                        {offer.commission_type === 'fixed' 
-                          ? `$${offer.commission_amount}`
-                          : `${offer.commission_percent}%`
-                        }
-                      </Badge>
-                    </div>
-                    
-                    {offer.niche && (
-                      <div className="flex items-center text-sm">
-                        <Tag className="h-4 w-4 mr-1 text-blue-500" />
-                        <span className="font-medium mr-1">Niche:</span>
-                        {offer.niche}
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center text-sm">
-                      <Globe className="h-4 w-4 mr-1 text-indigo-500" />
-                      <span className="font-medium mr-1">Targeting:</span>
-                      <span>{offer.geo_targets?.length || 0} countries</span>
-                    </div>
-
-                    <div className="flex items-center text-sm">
-                      <Users className="h-4 w-4 mr-1 text-purple-500" />
-                      <span className="font-medium mr-1">Advertiser:</span>
-                      {offer.advertiser.name}
-                    </div>
-
-                    <Separator className="my-2" />
-
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => navigate(`/admin/offers/${offer.id}/edit`)}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        Edit
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => handleStatusUpdate(offer.id, offer.status === 'active' ? 'paused' : 'active')}>
-                        {offer.status === 'active' ? (
-                          <>
-                            <Pause className="h-4 w-4 mr-2" />
-                            Pause
-                          </>
-                        ) : (
-                          <>
-                            <Play className="h-4 w-4 mr-2" />
-                            Activate
-                          </>
-                        )}
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => handleDeleteOffer(offer.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 

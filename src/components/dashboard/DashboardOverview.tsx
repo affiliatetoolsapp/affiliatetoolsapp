@@ -76,6 +76,10 @@ type TrackingLink = Tables['tracking_links']['Row'];
 type Click = Tables['clicks']['Row'];
 type Conversion = Tables['conversions']['Row'];
 
+type ClickGeo = {
+  geo: string;
+};
+
 export default function DashboardOverview() {
   const { user } = useAuth();
   const [timeRange, setTimeRange] = useState<TimeRange>('today');
@@ -190,29 +194,35 @@ export default function DashboardOverview() {
   // Fetch countries from clicks data
   useEffect(() => {
     const fetchCountries = async () => {
-      if (!user) return;
-      
       try {
+        if (!user) return;
+
         let query = supabase
           .from('clicks')
-          .select(`
-            geo,
-            offers!inner(*)
-          `)
+          .select('geo')
           .not('geo', 'is', null);
 
         if (user.role === 'advertiser') {
           // For advertisers, filter by their offers
-          query = query.eq('offers.advertiser_id', user.id);
+          const { data: offers } = await supabase
+            .from('offers')
+            .select('id')
+            .eq('advertiser_id', user.id);
+          
+          if (offers && offers.length > 0) {
+            const offerIds = offers.map(offer => offer.id);
+            query = query.in('offer_id', offerIds);
+          }
         } else {
           // For affiliates, filter by their ID
           query = query.eq('affiliate_id', user.id);
         }
 
-        const { data, error } = await query;
+        const { data, error } = await query as { data: ClickGeo[] | null, error: any };
         
         if (error) {
           console.error('Error fetching countries:', error);
+          setCountries([{ value: 'all', label: 'All Countries' }]);
           return;
         }
         
@@ -233,9 +243,12 @@ export default function DashboardOverview() {
           ];
           
           setCountries(countryOptions);
+        } else {
+          setCountries([{ value: 'all', label: 'All Countries' }]);
         }
       } catch (error) {
         console.error('Error fetching countries:', error);
+        setCountries([{ value: 'all', label: 'All Countries' }]);
       }
     };
     

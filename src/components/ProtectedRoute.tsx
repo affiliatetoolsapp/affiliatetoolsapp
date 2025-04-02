@@ -1,63 +1,54 @@
-
 import React, { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Navigate, useLocation } from 'react-router-dom';
-import { LoadingState } from '@/components/LoadingState';
-import { UserRole } from '@/types';
+import { useLocation, Navigate } from 'react-router-dom';
+import type { User } from '@/types';
 
-type ProtectedRouteProps = {
+type UserRole = 'admin' | 'advertiser' | 'affiliate';
+
+interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: UserRole[];
-};
+}
 
-export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  const { user, session, isLoading } = useAuth();
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
+  const { session, user, isLoading } = useAuth();
   const location = useLocation();
-  
-  // Enhanced debug logging
+
   useEffect(() => {
-    console.log('ProtectedRoute mounted/updated:', { 
-      isLoading, 
-      hasUser: !!user, 
-      hasSession: !!session, 
-      allowedRoles, 
-      currentPath: location.pathname,
-      sessionExpiry: session?.expires_at ? new Date(session.expires_at * 1000).toISOString() : 'none'
+    console.log('ProtectedRoute: Checking auth state', {
+      hasSession: !!session,
+      hasUser: !!user,
+      isLoading,
+      currentPath: location.pathname
     });
-    
-    return () => {
-      console.log('ProtectedRoute unmounting from path:', location.pathname);
-    };
-  }, [isLoading, user, session, allowedRoles, location.pathname]);
-  
-  // If still loading, show loading state
+  }, [session, user, isLoading, location]);
+
+  // If loading, don't render anything to prevent flash of login page
   if (isLoading) {
-    console.log('ProtectedRoute: Still loading, showing loading state');
-    return <LoadingState />;
+    return null;
   }
-  
-  // If not logged in, redirect to login
+
+  // Check if session exists
   if (!session) {
     console.log('ProtectedRoute: No session, redirecting to login');
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-  
-  // Check role-based access if roles are specified
-  if (allowedRoles && allowedRoles.length > 0) {
-    // If we don't have user data yet but have a session, use session data
-    if (!user && session) {
-      console.log('ProtectedRoute: Has session but no user data, redirecting to unauthorized');
-      return <Navigate to="/unauthorized" replace />;
-    }
-    
-    // Check if user has one of the allowed roles
-    if (!allowedRoles.includes(user?.role as UserRole)) {
-      console.log('ProtectedRoute: User role not allowed, redirecting to unauthorized');
-      return <Navigate to="/unauthorized" replace />;
-    }
+
+  // If no role restrictions, allow access
+  if (!allowedRoles) {
+    console.log('ProtectedRoute: No role restrictions, allowing access');
+    return <>{children}</>;
   }
-  
-  // User is authorized - render the children
-  console.log('ProtectedRoute: User is authorized, rendering children');
+
+  // Get user role from either user object or session metadata
+  const userRole = user?.role || session.user.user_metadata?.role;
+  console.log('ProtectedRoute: User role:', userRole);
+
+  if (!userRole || !allowedRoles.includes(userRole as UserRole)) {
+    console.log('ProtectedRoute: Role not allowed, redirecting to unauthorized');
+    return <Navigate to="/unauthorized" state={{ from: location }} replace />;
+  }
+
+  console.log('ProtectedRoute: Access granted');
   return <>{children}</>;
-}
+};

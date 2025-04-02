@@ -22,128 +22,161 @@ export async function getAdvertiserDashboardStats(
   selectedOffer?: string,
   selectedGeo?: string
 ) {
-  // Get offer data for the advertiser
-  const { data: offers } = await supabase
-    .from('offers')
-    .select('id, name')
-    .eq('advertiser_id', userId);
+  try {
+    // Get time range boundaries
+    const now = new Date();
+    let startDate = new Date();
+    let endDate = new Date();
+    
+    switch(timeRange) {
+      case 'today':
+        // Keep start and end as today
+        break;
+      case 'yesterday':
+        startDate.setDate(now.getDate() - 1);
+        endDate.setDate(now.getDate() - 1);
+        break;
+      case 'this_week':
+        startDate.setDate(now.getDate() - now.getDay());
+        break;
+      case 'last_week':
+        startDate.setDate(now.getDate() - now.getDay() - 7);
+        endDate.setDate(now.getDate() - now.getDay() - 1);
+        break;
+      case 'this_month':
+        startDate.setDate(1);
+        break;
+      case 'last_month':
+        startDate.setMonth(now.getMonth() - 1, 1);
+        endDate.setDate(0); // Last day of previous month
+        break;
+      case 'custom':
+        // Use the provided dates from the UI
+        break;
+    }
+    
+    const isoStartDate = startDate.toISOString();
+    const isoEndDate = endDate.toISOString();
+    
+    // Get offer data for the advertiser
+    const { data: offers, error: offersError } = await supabase
+      .from('offers')
+      .select('id, name')
+      .eq('advertiser_id', userId);
 
-  // Get offer IDs for this advertiser
-  let offerIds = offers?.map(offer => offer.id) || [];
-  
-  // Filter by selected offer if specified
-  if (selectedOffer && selectedOffer !== 'all') {
-    offerIds = offerIds.filter(id => id === selectedOffer);
+    if (offersError) {
+      console.error('Error fetching offers:', offersError);
+      throw offersError;
+    }
+
+    // Get offer IDs for this advertiser
+    const offerIds = offers?.map(offer => offer.id) || [];
+    
+    // If no offers, return empty stats
+    if (offerIds.length === 0) {
+      return {
+        revenue: 0,
+        clicks: 0,
+        conversions: 0,
+        conversionRate: '0.0%',
+        activeOffers: 0,
+        totalAffiliates: 0,
+        pendingAffiliates: 0,
+        averageConversion: '0.0%',
+        chartData: []
+      };
+    }
+    
+    // Get clicks for the advertiser's offers
+    let clicksQuery = supabase
+      .from('clicks')
+      .select('id, offer_id, created_at, geo')
+      .in('offer_id', offerIds)
+      .gte('created_at', isoStartDate)
+      .lte('created_at', isoEndDate);
+    
+    // Add GEO filter if specified
+    if (selectedGeo && selectedGeo !== 'all') {
+      clicksQuery = clicksQuery.eq('geo', selectedGeo);
+    }
+    
+    const { data: clicks, error: clicksError } = await clicksQuery;
+    
+    if (clicksError) {
+      console.error('Error fetching clicks:', clicksError);
+      throw clicksError;
+    }
+    
+    // Get conversions for the advertiser's offers
+    const { data: conversions, error: convsError } = await supabase
+      .from('conversions')
+      .select('id, click_id, revenue, created_at')
+      .in('click_id', clicks?.map(c => c.id) || [])
+      .gte('created_at', isoStartDate)
+      .lte('created_at', isoEndDate);
+    
+    if (convsError) {
+      console.error('Error fetching conversions:', convsError);
+      throw convsError;
+    }
+    
+    // Get affiliate partners
+    const { data: affiliateOffers, error: affOffersError } = await supabase
+      .from('affiliate_offers')
+      .select('id, affiliate_id, offer_id, status')
+      .in('offer_id', offerIds);
+    
+    if (affOffersError) {
+      console.error('Error fetching affiliate offers:', affOffersError);
+      throw affOffersError;
+    }
+    
+    // Get unique affiliate IDs who have applied to this advertiser's offers
+    const uniqueAffiliateIds = [...new Set(affiliateOffers?.map(ao => ao.affiliate_id))];
+    const pendingAffiliates = affiliateOffers?.filter(ao => ao.status === 'pending') || [];
+    const uniquePendingAffiliateIds = [...new Set(pendingAffiliates.map(pa => pa.affiliate_id))];
+    
+    // Calculate revenue
+    const totalRevenue = conversions?.reduce((sum, conv) => sum + (conv.revenue || 0), 0) || 0;
+    
+    // Calculate performance metrics
+    const clickCount = clicks?.length || 0;
+    const conversionCount = conversions?.length || 0;
+    const conversionRate = clickCount > 0 ? ((conversionCount / clickCount) * 100).toFixed(1) : "0.0";
+    
+    // Get daily data for charts
+    const dailyData = getDailyData(
+      clicks || [], 
+      conversions || [], 
+      timeRange
+    );
+    
+    return {
+      revenue: Math.floor(totalRevenue),
+      clicks: clickCount,
+      conversions: conversionCount,
+      conversionRate: conversionRate + '%',
+      activeOffers: offers?.length || 0,
+      totalAffiliates: uniqueAffiliateIds.length,
+      pendingAffiliates: uniquePendingAffiliateIds.length,
+      averageConversion: conversionRate + '%',
+      chartData: dailyData
+    };
+  } catch (error) {
+    console.error('Error in getAdvertiserDashboardStats:', error);
+    // Return empty stats on error
+    return {
+      revenue: 0,
+      clicks: 0,
+      conversions: 0,
+      conversionRate: '0.0%',
+      activeOffers: 0,
+      totalAffiliates: 0,
+      pendingAffiliates: 0,
+      averageConversion: '0.0%',
+      chartData: []
+    };
   }
-  
-  // Get time range boundaries
-  const now = new Date();
-  let startDate = new Date();
-  let endDate = new Date();
-  
-  switch(timeRange) {
-    case 'today':
-      // Keep start and end as today
-      break;
-    case 'yesterday':
-      startDate.setDate(now.getDate() - 1);
-      endDate.setDate(now.getDate() - 1);
-      break;
-    case 'this_week':
-      startDate.setDate(now.getDate() - now.getDay());
-      break;
-    case 'last_week':
-      startDate.setDate(now.getDate() - now.getDay() - 7);
-      endDate.setDate(now.getDate() - now.getDay() - 1);
-      break;
-    case 'this_month':
-      startDate.setDate(1);
-      break;
-    case 'last_month':
-      startDate.setMonth(now.getMonth() - 1, 1);
-      endDate.setDate(0); // Last day of previous month
-      break;
-    case 'custom':
-      // Use the provided dates from the UI
-      break;
-  }
-  
-  const isoStartDate = startDate.toISOString();
-  const isoEndDate = endDate.toISOString();
-  
-  // Get clicks for the advertiser's offers
-  let clicksQuery = supabase
-    .from('clicks')
-    .select('id, offer_id, created_at, geo')
-    .in('offer_id', offerIds)
-    .gte('created_at', isoStartDate)
-    .lte('created_at', isoEndDate);
-  
-  // Add GEO filter if specified
-  if (selectedGeo && selectedGeo !== 'all') {
-    clicksQuery = clicksQuery.eq('geo', selectedGeo);
-  }
-  
-  const { data: clicks, error: clicksError } = await clicksQuery;
-  
-  if (clicksError) console.error('Error fetching clicks:', clicksError);
-  
-  // Get conversions for the advertiser's offers
-  const { data: conversions, error: convsError } = await supabase
-    .from('conversions')
-    .select('id, click_id, revenue, created_at')
-    .gte('created_at', isoStartDate)
-    .lte('created_at', isoEndDate);
-  
-  if (convsError) console.error('Error fetching conversions:', convsError);
-  
-  // Get the click IDs from the conversions
-  const clickIds = conversions?.map(conv => conv.click_id) || [];
-  
-  // Filter valid conversions (only those with clicks from this advertiser's offers)
-  const validClicks = clicks?.filter(click => 
-    clickIds.includes(click.id)
-  ) || [];
-  
-  // Get affiliate partners
-  const { data: affiliateOffers, error: affOffersError } = await supabase
-    .from('affiliate_offers')
-    .select('id, affiliate_id, offer_id, status')
-    .in('offer_id', offerIds);
-  
-  if (affOffersError) console.error('Error fetching affiliate offers:', affOffersError);
-  
-  // Get unique affiliate IDs who have applied to this advertiser's offers
-  const uniqueAffiliateIds = [...new Set(affiliateOffers?.map(ao => ao.affiliate_id))];
-  const pendingAffiliates = affiliateOffers?.filter(ao => ao.status === 'pending') || [];
-  const uniquePendingAffiliateIds = [...new Set(pendingAffiliates.map(pa => pa.affiliate_id))];
-  
-  // Calculate revenue
-  const totalRevenue = conversions?.reduce((sum, conv) => sum + (conv.revenue || 0), 0) || 0;
-  
-  // Calculate performance metrics
-  const clickCount = clicks?.length || 0;
-  const conversionCount = conversions?.length || 0;
-  const conversionRate = clickCount > 0 ? ((conversionCount / clickCount) * 100).toFixed(1) : "0.0";
-  
-  // Get daily data for charts
-  const dailyData = getDailyData(
-    clicks || [], 
-    conversions || [], 
-    timeRange
-  );
-  
-  return {
-    revenue: Math.floor(totalRevenue),
-    clicks: clickCount,
-    conversions: conversionCount,
-    conversionRate: conversionRate + '%',
-    activeOffers: offers?.length || 0,
-    totalAffiliates: uniqueAffiliateIds.length,
-    pendingAffiliates: uniquePendingAffiliateIds.length,
-    averageConversion: conversionRate + '%',
-    chartData: dailyData
-  };
 }
 
 function getDailyData(clicks: ClickData[], conversions: ConversionData[], timeRange: string) {

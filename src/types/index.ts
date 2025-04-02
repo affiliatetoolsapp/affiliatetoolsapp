@@ -67,3 +67,17 @@ export interface TrackingLinkWithOffer extends TrackingLink {
   offer: Partial<Offer>;
   link_type: 'direct' | 'shortened' | 'qr';
 }
+
+export interface User {
+  id: string;
+  email: string;
+  role: UserRole;
+  status: 'active' | 'inactive' | 'suspended';
+  created_at: string;
+  updated_at: string;
+  bio?: string | null;
+  company_name?: string | null;
+  contact_name?: string | null;
+  phone?: string | null;
+  website?: string | null;
+}

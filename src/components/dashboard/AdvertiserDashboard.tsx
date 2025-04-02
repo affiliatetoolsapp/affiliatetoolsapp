@@ -54,50 +54,49 @@ export default function AdvertiserDashboard() {
   });
 
   const { data: affiliateOffers } = useQuery({
-    queryKey: ['affiliate-offers', offers],
+    queryKey: ['affiliate-offers', user?.id],
     queryFn: async () => {
-      if (!offers || offers.length === 0) return [];
-      const offerIds = offers.map(offer => offer.id);
+      if (!user) return [];
       const { data, error } = await supabase
         .from('affiliate_offers')
         .select('*')
-        .in('offer_id', offerIds);
+        .eq('advertiser_id', user.id);
       if (error) throw error;
       return data as AffiliateOffer[];
     },
-    enabled: !!(offers && offers.length > 0),
+    enabled: !!user,
   });
 
   const { data: clicks } = useQuery({
-    queryKey: ['advertiser-clicks', offers, dateRange],
+    queryKey: ['advertiser-clicks', user?.id, dateRange],
     queryFn: async () => {
-      if (!offers || offers.length === 0) return [];
-      const offerIds = offers.map(offer => offer.id);
+      if (!user) return [];
       const { data, error } = await supabase
         .from('clicks')
         .select('*')
-        .in('offer_id', offerIds)
+        .eq('advertiser_id', user.id)
         .gte('created_at', startOfDay(startDate).toISOString())
         .lte('created_at', endOfDay(endDate).toISOString());
       if (error) throw error;
       return data as Click[];
     },
-    enabled: !!(offers && offers.length > 0),
+    enabled: !!user,
   });
 
   const { data: conversions } = useQuery({
-    queryKey: ['advertiser-conversions', clicks],
+    queryKey: ['advertiser-conversions', user?.id, dateRange],
     queryFn: async () => {
-      if (!clicks || clicks.length === 0) return [];
-      const clickIds = clicks.map(click => click.click_id);
+      if (!user) return [];
       const { data, error } = await supabase
         .from('conversions')
         .select('*')
-        .in('click_id', clickIds);
+        .eq('advertiser_id', user.id)
+        .gte('created_at', startOfDay(startDate).toISOString())
+        .lte('created_at', endOfDay(endDate).toISOString());
       if (error) throw error;
       return data as Conversion[];
     },
-    enabled: !!(clicks && clicks.length > 0),
+    enabled: !!user,
   });
 
   const { data: wallet } = useQuery({

@@ -31,31 +31,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function createUserFromSession(currentSession: Session): User {
     const userId = currentSession.user.id;
     const userEmail = currentSession.user.email || '';
-    
-    // Log the full user metadata for debugging
-    console.log('Session user metadata:', currentSession.user.user_metadata);
-    
-    // Get the role from user metadata, with more detailed logging
     const rawRole = currentSession.user.user_metadata?.role;
-    console.log('Raw role from metadata:', rawRole);
-    
-    // Check if this is the admin user by email
     const isAdminUser = userEmail === 'admin@affiliatetools.app';
-    console.log('Is admin user:', isAdminUser);
     
     // Set role based on email or metadata
-    let userRole: 'admin' | 'advertiser' | 'affiliate';
-    if (isAdminUser) {
-      userRole = 'admin';
-    } else if (rawRole === 'advertiser') {
-      userRole = 'advertiser';
-    } else {
-      userRole = 'affiliate';
-    }
+    const userRole: 'admin' | 'advertiser' | 'affiliate' = isAdminUser 
+      ? 'admin' 
+      : rawRole === 'advertiser' 
+        ? 'advertiser' 
+        : 'affiliate';
     
-    console.log('Final user role:', userRole);
-    
-    // Create a user object with all required fields
     return {
       id: userId,
       email: userEmail,
@@ -63,7 +48,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       status: 'active',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      // Add nullable fields required by User type
       bio: null,
       company_name: null,
       contact_name: null,
@@ -74,175 +58,106 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   // Fetch user profile only when explicitly needed
   async function fetchUserProfile(userId: string): Promise<User | null> {
-    if (!userId) {
-      console.error('Cannot fetch user profile: No user ID provided');
-      setProfileError('Cannot fetch user profile: No user ID provided');
+    if (!userId) return null;
+    
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+      return data as User;
+    } catch (error) {
+      console.error('Profile fetch error:', error);
       return null;
     }
-    
-    const maxRetries = 3;
-    let retryCount = 0;
-    let delay = 1000; // Start with 1 second delay
-    
-    while (retryCount < maxRetries) {
-      try {
-        console.log(`Fetching user profile for ID: ${userId} (Attempt ${retryCount + 1}/${maxRetries})`);
-        
-        // Create a timeout promise that rejects after 5 seconds
-        const timeoutPromise = new Promise<null>((_, reject) => {
-          setTimeout(() => reject(new Error(`User profile fetch timed out after 5 seconds (Attempt ${retryCount + 1})`)), 5000);
-        });
-        
-        // Race between the fetch and the timeout
-        const profilePromise = supabase
-          .from('users')
-          .select('*')
-          .eq('id', userId)
-          .single();
-          
-        const { data, error } = await Promise.race([
-          profilePromise,
-          timeoutPromise.then(() => {
-            throw new Error(`User profile fetch timed out (Attempt ${retryCount + 1})`);
-          })
-        ]);
-
-        if (error) {
-          throw error;
-        }
-
-        if (!data) {
-          throw new Error(`No user profile found for ID: ${userId}`);
-        }
-
-        console.log('User profile fetched successfully:', data);
-        setProfileError(null);
-        return data as User;
-      } catch (error: any) {
-        console.error(`Profile fetch attempt ${retryCount + 1} failed:`, error);
-        
-        retryCount++;
-        
-        if (retryCount >= maxRetries) {
-          console.log("All retry attempts failed, using session data instead...");
-          return null;
-        }
-        
-        // Wait before retrying with exponential backoff
-        console.log(`Waiting ${delay}ms before retry ${retryCount}...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        delay *= 2; // Exponential backoff
-      }
-    }
-    
-    return null;
   }
 
   // Initialize auth state
   useEffect(() => {
-    console.log('AuthProvider: Setting up auth state');
     let mounted = true;
     
     // Handle session and user initialization
     async function initialize() {
       try {
-        setIsLoading(true);
-        
-        // Get current session
         const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
           console.error('Error getting session:', sessionError);
-          if (mounted) {
-            setIsLoading(false);
-            setProfileError('Error loading session. Please try logging in again.');
-          }
+          if (mounted) setIsLoading(false);
           return;
         }
         
         if (!mounted) return;
-        
-        console.log('Initial auth check:', currentSession ? 'Session found' : 'No session');
         
         // Update session state
         setSession(currentSession);
         
         // If we have a session, create user from session data
         if (currentSession?.user) {
-          // Create a user object from session data - avoid network request
           const sessionUser = createUserFromSession(currentSession);
+          setUser(sessionUser);
           
-          if (mounted) {
-            setUser(sessionUser);
-            setProfileError(null);
-            setIsLoading(false);
-            console.log('User created from session data:', sessionUser);
-          }
-        } else {
-          if (mounted) {
-            setIsLoading(false);
-          }
+          // Fetch profile in the background
+          fetchUserProfile(currentSession.user.id)
+            .then(profileData => {
+              if (profileData && mounted) {
+                setUser(profileData);
+              }
+            })
+            .catch(error => {
+              console.error('Background profile fetch error:', error);
+            });
         }
+        
+        if (mounted) setIsLoading(false);
       } catch (error) {
         console.error('Auth initialization error:', error);
-        if (mounted) {
-          setIsLoading(false);
-        }
+        if (mounted) setIsLoading(false);
       }
     }
+
+    // Initialize auth
+    initialize();
 
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         if (!mounted) return;
         
-        console.log('Auth state change event:', event, newSession ? 'with session' : 'no session');
-        
         // Always update the session state immediately
-        setSession(newSession);
-        
-        // Handle auth events
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          if (newSession) {
-            setIsLoading(true);
-            
-            // First create user from session data
-            const sessionUser = createUserFromSession(newSession);
-            setUser(sessionUser);
-            
-            // Set loading to false immediately so UI can render
-            setIsLoading(false);
-            
-            // Optionally try to fetch additional profile data in the background
-            // This won't block the UI from rendering with the basic user data
-            fetchUserProfile(newSession.user.id).then(profileData => {
+        if (newSession) {
+          setSession(newSession);
+          
+          // Create user from session data immediately
+          const sessionUser = createUserFromSession(newSession);
+          setUser(sessionUser);
+          
+          // Fetch profile in the background
+          fetchUserProfile(newSession.user.id)
+            .then(profileData => {
               if (profileData && mounted) {
                 setUser(profileData);
               }
-            }).catch(error => {
+            })
+            .catch(error => {
               console.error('Background profile fetch error:', error);
-              // User already set from session, so we can ignore this error
             });
-          }
-        } else if (event === 'SIGNED_OUT') {
-          // Clear local state on sign out
+        } else {
+          setSession(null);
           setUser(null);
-          setProfileError(null);
-          setIsLoading(false);
         }
       }
     );
-    
-    // Initialize auth
-    initialize();
 
     // Cleanup function
     return () => {
-      console.log('Auth: Cleaning up auth provider');
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [toast]);
+  }, []);
 
   // Function to retry fetching user profile
   async function retryFetchProfile() {
@@ -284,6 +199,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('Attempting to sign in with email:', email);
     setIsLoading(true);
     try {
+      // First set the session config for long-lived sessions
+      await supabase.auth.setSession({
+        access_token: '',
+        refresh_token: ''
+      });
+
       const { data, error } = await supabase.auth.signInWithPassword({ 
         email, 
         password
@@ -295,10 +216,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Set the session state immediately
       if (data.session) {
-        setSession(data.session);
-        // Create and set user from session data
-        const sessionUser = createUserFromSession(data.session);
-        setUser(sessionUser);
+        // Refresh the session with a long expiry
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        if (!refreshError && refreshData.session) {
+          setSession(refreshData.session);
+          // Create and set user from session data
+          const sessionUser = createUserFromSession(refreshData.session);
+          setUser(sessionUser);
+        } else {
+          setSession(data.session);
+          // Create and set user from session data
+          const sessionUser = createUserFromSession(data.session);
+          setUser(sessionUser);
+        }
+        
+        // Fetch profile in the background and keep loading state until complete
+        await fetchUserProfile(data.session.user.id)
+          .then(profileData => {
+            if (profileData) {
+              setUser(profileData);
+            }
+          })
+          .catch(error => {
+            console.error('Background profile fetch error:', error);
+          })
+          .finally(() => {
+            setIsLoading(false);
+          });
       }
       
       toast({
@@ -314,9 +258,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: error.message || "An error occurred during sign in",
         variant: "destructive",
       });
-      throw error;
-    } finally {
       setIsLoading(false);
+      throw error;
     }
   }
 

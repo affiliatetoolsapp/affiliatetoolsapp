@@ -2,10 +2,11 @@
 import React, { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useLocation, Navigate } from 'react-router-dom';
+import { UserRole } from '@/types';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: ('admin' | 'advertiser' | 'affiliate')[];
+  allowedRoles?: UserRole[];
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
@@ -42,7 +43,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowe
   const userRole = user?.role || session.user.user_metadata?.role;
   console.log('ProtectedRoute: User role:', userRole);
 
-  if (!userRole || !allowedRoles.includes(userRole as 'admin' | 'advertiser' | 'affiliate')) {
+  if (!userRole || !allowedRoles.includes(userRole as UserRole)) {
     console.log('ProtectedRoute: Role not allowed, redirecting to unauthorized');
     return <Navigate to="/unauthorized" state={{ from: location }} replace />;
   }

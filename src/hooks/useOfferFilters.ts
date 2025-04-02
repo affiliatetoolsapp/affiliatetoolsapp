@@ -1,57 +1,88 @@
-import { useMemo } from 'react';
+
+import { useState, useEffect } from 'react';
 import { Offer } from '@/types';
 import { FilterOptions } from '@/components/offers/OffersFilter';
 
-export function useOfferFilters(offers: Offer[], filters: FilterOptions): Offer[] {
-  return useMemo(() => {
-    if (!offers) return [];
+export const useOfferFilters = (offers: Offer[], filters: FilterOptions) => {
+  const [filteredOffers, setFilteredOffers] = useState<Offer[]>(offers);
+
+  useEffect(() => {
+    if (!offers) {
+      setFilteredOffers([]);
+      return;
+    }
     
-    return offers.filter(offer => {
-      if (!offer) return false;
-      
-      // Filter by niche
-      if (filters.niche.length > 0 && !filters.niche.includes(offer.niche || '')) {
-        return false;
-      }
+    let result = [...offers];
 
-      // Filter by payout range
-      const commission = offer.commission_type === 'RevShare'
-        ? offer.commission_percent || 0
-        : offer.commission_amount || 0;
-      if (filters.payoutMin !== null && commission < filters.payoutMin) {
-        return false;
-      }
-      if (filters.payoutMax !== null && commission > filters.payoutMax) {
-        return false;
-      }
+    // Filter by niche
+    if (filters.niche && filters.niche.length > 0) {
+      result = result.filter(offer => 
+        offer.niche && filters.niche.includes(offer.niche.toLowerCase())
+      );
+    }
 
-      // Filter by offer types
-      if (filters.offerTypes.length > 0 && !filters.offerTypes.includes(offer.commission_type)) {
-        return false;
-      }
+    // Filter by payout range
+    if (filters.payoutMin !== null) {
+      result = result.filter(offer => {
+        const amount = Number(offer.commission_amount);
+        return !isNaN(amount) && amount >= (filters.payoutMin || 0);
+      });
+    }
+    
+    if (filters.payoutMax !== null) {
+      result = result.filter(offer => {
+        const amount = Number(offer.commission_amount);
+        return !isNaN(amount) && amount <= (filters.payoutMax || Infinity);
+      });
+    }
 
-      // Filter by geos
-      if (filters.geos.length > 0) {
-        const offerGeos = [...(offer.geo_targets || []), ...(offer.restricted_geos || [])];
-        if (!filters.geos.some(geo => offerGeos.includes(geo))) {
-          return false;
+    // Filter by commission types
+    if (filters.offerTypes && filters.offerTypes.length > 0) {
+      result = result.filter(offer => 
+        offer.commission_type && filters.offerTypes.includes(offer.commission_type)
+      );
+    }
+
+    // Filter by geo targets
+    if (filters.geos && filters.geos.length > 0) {
+      result = result.filter(offer => {
+        if (!offer.geo_targets) return false;
+        
+        // Handle array geo_targets
+        if (Array.isArray(offer.geo_targets)) {
+          return offer.geo_targets.some(geo => filters.geos.includes(geo));
         }
-      }
-
-      // Filter by traffic types
-      if (filters.trafficTypes.length > 0) {
-        const allowedTraffic = offer.allowed_traffic_sources || [];
-        if (!filters.trafficTypes.some(type => allowedTraffic.includes(type))) {
-          return false;
+        
+        // Handle object geo_targets
+        if (typeof offer.geo_targets === 'object') {
+          return Object.keys(offer.geo_targets).some(geo => filters.geos.includes(geo));
         }
-      }
-
-      // Filter by status
-      if (filters.status.length > 0 && !filters.status.includes(offer.status)) {
+        
         return false;
-      }
+      });
+    }
 
-      return true;
-    });
+    // Filter by allowed traffic sources
+    if (filters.trafficTypes && filters.trafficTypes.length > 0) {
+      result = result.filter(offer => {
+        if (!offer.allowed_traffic_sources) return false;
+        return offer.allowed_traffic_sources.some(source => 
+          filters.trafficTypes.includes(source)
+        );
+      });
+    }
+
+    // Filter by status
+    if (filters.status && filters.status.length > 0) {
+      result = result.filter(offer => 
+        offer.status && filters.status.includes(offer.status)
+      );
+    }
+
+    setFilteredOffers(result);
   }, [offers, filters]);
-} 
+
+  return filteredOffers;
+};
+
+export default useOfferFilters;

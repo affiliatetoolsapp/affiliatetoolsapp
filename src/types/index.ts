@@ -48,7 +48,7 @@ export interface Offer {
   featured_until: string | null;
   created_at: string | null;
   updated_at: string | null;
-  payout_amount: number | null;
+  payout_amount: number;
   subtitle?: string | null;
   advertiser?: { // Optional property for joins
     id?: string;
@@ -101,6 +101,7 @@ export interface Click {
   referrer: string | null;
   custom_params: any | null;
   created_at: string | null;
+  advertiser_id?: string; // Added for joining with offers
 }
 
 export interface Conversion {

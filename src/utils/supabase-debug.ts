@@ -15,21 +15,23 @@ type TableName =
   | "system_logs" 
   | "system_settings" 
   | "tracking_links" 
-  | "wallets"
-  | "affiliate_offer_details"
-  | "affiliate_offers_match"
-  | "affiliate_offers_with_advertiser"
+  | "wallets";
+
+type ViewName = 
+  | "affiliate_offer_details" 
+  | "affiliate_offers_match" 
+  | "affiliate_offers_with_advertiser" 
   | "affiliate_offers_with_offers";
 
 /**
  * Utility for debugging database structure and contents
  */
-export const debugTable = async (tableName: TableName, limit: number = 10) => {
+export const debugTable = async (tableName: TableName | ViewName, limit: number = 10) => {
   try {
     console.log(`Fetching ${limit} records from ${tableName}...`);
     
     const { data, error } = await supabase
-      .from(tableName)
+      .from(tableName as any)
       .select('*')
       .limit(limit);
     
@@ -94,6 +96,33 @@ export const debugJwtClaims = async () => {
     return { success: true, data };
   } catch (error) {
     console.error('Error in debugJwtClaims:', error);
+    return { success: false, error };
+  }
+};
+
+/**
+ * Utility to debug RLS policies
+ */
+export const debugRlsPolicies = async () => {
+  try {
+    // Check if we can access data with current authentication
+    const tablesResult = await Promise.all([
+      debugTable('users', 2),
+      debugTable('offers', 2),
+      debugTable('affiliate_offers', 2)
+    ]);
+    
+    const rlsResult = {
+      users: tablesResult[0].success ? 'accessible' : 'restricted',
+      offers: tablesResult[1].success ? 'accessible' : 'restricted',
+      affiliate_offers: tablesResult[2].success ? 'accessible' : 'restricted'
+    };
+    
+    console.log('RLS policy check results:', rlsResult);
+    
+    return { success: true, data: rlsResult };
+  } catch (error) {
+    console.error('Error in debugRlsPolicies:', error);
     return { success: false, error };
   }
 };

@@ -7,8 +7,11 @@ import { Offer } from '@/types';
  */
 export const createOffer = async (offerData: Partial<Offer>) => {
   try {
+    // Convert the Offer type to a plain object that can be serialized
+    const plainOfferData = JSON.parse(JSON.stringify(offerData));
+    
     const { data, error } = await supabase
-      .rpc('create_offer_safely', { p_offer_data: offerData });
+      .rpc('create_offer_safely', { p_offer_data: plainOfferData });
 
     if (error) {
       console.error('Error creating offer:', error);

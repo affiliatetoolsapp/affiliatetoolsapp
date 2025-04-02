@@ -1,27 +1,26 @@
 
 import { Route } from 'react-router-dom';
 import { lazy } from 'react';
+import { AdminLayout } from '@/pages/admin/AdminLayout';
 
-// Use dynamic imports to avoid issues with non-default exports
-// Note: We're using path aliases for the imports that should work with proper setup
-// If these paths are not working, they need to be configured in the build setup
-const AdminLayout = lazy(() => import('@/components/layouts/AdminLayout').then(module => ({ default: module.AdminLayout })));
-const Dashboard = lazy(() => import('@/pages/admin/DashboardPage').then(module => ({ default: module.DashboardPage })));
-const OffersManagement = lazy(() => import('@/pages/admin/OffersManagement').then(module => ({ default: module.OffersManagement })));
-const UsersPage = lazy(() => import('@/pages/admin/UsersPage').then(module => ({ default: module.UsersPage })));
-const SettingsPage = lazy(() => import('@/pages/admin/SettingsPage').then(module => ({ default: module.SettingsPage })));
-const AffiliatesPage = lazy(() => import('@/pages/admin/AffiliatesPage').then(module => ({ default: module.AffiliatesPage })));
-const AdvertisersPage = lazy(() => import('@/pages/admin/AdvertisersPage').then(module => ({ default: module.AdvertisersPage })));
-const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage').then(module => ({ default: module.ReportsPage })));
-const PaymentsPage = lazy(() => import('@/pages/admin/PaymentsPage').then(module => ({ default: module.PaymentsPage })));
-const DocumentsPage = lazy(() => import('@/pages/admin/DocumentsPage').then(module => ({ default: module.DocumentsPage })));
-const EditUserPage = lazy(() => import('@/pages/admin/EditUserPage').then(module => ({ default: module.EditUserPage })));
-const OffersPage = lazy(() => import('@/pages/admin/OffersPage').then(module => ({ default: module.OffersPage })));
+// Use dynamic imports for admin pages
+const DashboardPage = lazy(() => import('@/pages/admin/DashboardPage').then(module => ({ default: module.DashboardPage || module.default || module })));
+const OffersManagement = lazy(() => import('@/pages/admin/OffersManagement').then(module => ({ default: module.OffersManagement || module.default || module })));
+const UsersPage = lazy(() => import('@/pages/admin/UsersPage').then(module => ({ default: module.UsersPage || module.default || module })));
+const SettingsPage = lazy(() => import('@/pages/admin/SettingsPage').then(module => ({ default: module.SettingsPage || module.default || module })));
+const AffiliatesPage = lazy(() => import('@/pages/admin/AffiliatesPage').then(module => ({ default: module.AffiliatesPage || module.default || module })));
+const AdvertisersPage = lazy(() => import('@/pages/admin/AdvertisersPage').then(module => ({ default: module.AdminAdvertisersPage || module.AdvertisersPage || module.default || module })));
+const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage').then(module => ({ default: module.ReportsPage || module.default || module })));
+const PaymentsPage = lazy(() => import('@/pages/admin/PaymentsPage').then(module => ({ default: module.PaymentsPage || module.default || module })));
+const DocumentsPage = lazy(() => import('@/pages/admin/DocumentsPage').then(module => ({ default: module.DocumentsPage || module.default || module })));
+// For EditUserPage, we'll need to handle this differently or implement it
+const EditUserPage = lazy(() => import('@/pages/admin/UsersPage').then(module => ({ default: module.EditUserPage || module.default || module })));
+const OffersPage = lazy(() => import('@/pages/admin/OffersPage').then(module => ({ default: module.OffersPage || module.default || module })));
 
 const adminRoutes = (
   <Route path="/admin" element={<AdminLayout />}>
-    <Route index element={<Dashboard />} />
-    <Route path="dashboard" element={<Dashboard />} />
+    <Route index element={<DashboardPage />} />
+    <Route path="dashboard" element={<DashboardPage />} />
     <Route path="offers" element={<OffersManagement />} />
     <Route path="offers/:offerId" element={<OffersPage />} />
     <Route path="offers/:offerId/edit" element={<OffersPage />} />

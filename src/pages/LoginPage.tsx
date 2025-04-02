@@ -7,7 +7,7 @@ import { PublicHeader } from '@/components/PublicHeader';
 import { LoadingState } from '@/components/LoadingState';
 import { testDatabaseAccess } from '@/utils/rls-debug';
 import { useToast } from '@/hooks/use-toast';
-import { debugRlsPolicies } from '@/utils/supabase-debug'; 
+import { debugJwtClaims } from '@/utils/supabase-debug'; 
 
 export default function LoginPage() {
   const { isLoading, session } = useAuth();
@@ -26,17 +26,17 @@ export default function LoginPage() {
     });
   };
   
-  // Add an additional debug function for RLS policies
-  const handleRlsDebugClick = async () => {
-    const rlsResult = await debugRlsPolicies();
-    console.log("RLS Policies test result:", rlsResult);
+  // Add an additional debug function for JWT claims
+  const handleJwtDebugClick = async () => {
+    const jwtResult = await debugJwtClaims();
+    console.log("JWT Claims test result:", jwtResult);
     
     toast({
-      title: rlsResult.success ? "RLS Test Complete" : "RLS Test Failed",
-      description: rlsResult.success 
-        ? `Check console for detailed RLS results` 
-        : `Error: ${rlsResult.error || 'Unknown error'}`,
-      variant: rlsResult.success ? "default" : "destructive",
+      title: jwtResult.success ? "JWT Test Complete" : "JWT Test Failed",
+      description: jwtResult.success 
+        ? `Check console for detailed JWT results` 
+        : `Error: ${jwtResult.error || 'Unknown error'}`,
+      variant: jwtResult.success ? "default" : "destructive",
     });
   };
   
@@ -78,14 +78,14 @@ export default function LoginPage() {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={handleRlsDebugClick}
+                  onClick={handleJwtDebugClick}
                   disabled={!session}
                 >
-                  Test RLS Policies
+                  Test JWT Claims
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                {session ? 'Click to test database access and RLS policies' : 'Sign in first to test access'}
+                {session ? 'Click to test database access and JWT claims' : 'Sign in first to test access'}
               </p>
             </div>
           )}

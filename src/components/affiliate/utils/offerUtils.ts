@@ -43,3 +43,24 @@ export const getCountryName = (countryCode: string): string => {
   
   return countryNames[countryCode] || countryCode;
 };
+
+// Add a helper function for formatting tracking URLs
+export const formatTrackingUrl = (trackingCode: string, baseUrl: string = window.location.origin): string => {
+  return `${baseUrl}/track/${trackingCode}`;
+};
+
+// Helper to get country filter options for use in dashboard components
+export const getCountryFilterOptions = (): CountryOption[] => {
+  return [
+    { code: 'US', name: 'United States', flag: getCountryFlag('US') },
+    { code: 'UK', name: 'United Kingdom', flag: getCountryFlag('UK') },
+    { code: 'CA', name: 'Canada', flag: getCountryFlag('CA') },
+    { code: 'AU', name: 'Australia', flag: getCountryFlag('AU') },
+    { code: 'DE', name: 'Germany', flag: getCountryFlag('DE') },
+    { code: 'FR', name: 'France', flag: getCountryFlag('FR') },
+    { code: 'JP', name: 'Japan', flag: getCountryFlag('JP') },
+    { code: 'CN', name: 'China', flag: getCountryFlag('CN') },
+    { code: 'IN', name: 'India', flag: getCountryFlag('IN') },
+    { code: 'BR', name: 'Brazil', flag: getCountryFlag('BR') },
+  ];
+};

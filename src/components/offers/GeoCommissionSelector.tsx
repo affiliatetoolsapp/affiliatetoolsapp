@@ -49,6 +49,9 @@ const GeoCommissionSelector: React.FC<GeoCommissionSelectorProps> = ({
     
     const newCommission: GeoCommission = {
       country: selectedCountry,
+      geo: selectedCountry, // For backward compatibility
+      commission_amount: 0,
+      commission_percent: 0
     };
 
     if (commissionType === 'RevShare') {

@@ -1,1255 +1,884 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import React, { useState, useEffect } from 'react';
+import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/context/AuthContext';
-import { supabase, debugCreateOffer } from '@/integrations/supabase/client';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { TagInput } from '@/components/ui/tag-input';
-import {
-  CheckCircle,
-  ChevronRight,
-  ChevronLeft,
-  Image as ImageIcon,
-  Upload,
-  Loader2,
-  Trash2,
-  X,
-  Copy,
-  Plus,
-  FileText,
-  DollarSign,
-  Target,
-  Images,
-  LineChart,
-  Link,
-  Store,
-  Globe2,
-  Users,
-  FileEdit,
-  BadgeCheck,
-  PenSquare,
-  Coins,
-  Calendar,
-  GanttChartSquare,
-  ScrollText,
-  Percent,
-  Clock,
-  MapPin,
-  Ban,
-  ShieldAlert,
-  Share2,
-  AlertCircle
-} from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { supabase } from '@/integrations/supabase/client';
+import { Offer, GeoCommission } from '@/types';
+import { COUNTRY_CODES } from '@/components/offers/countryCodes';
+import { X, Upload, Trash2, Image } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import GeoCommissionSelector from './GeoCommissionSelector';
-import CreativesTab from './CreativesTab';
-import { OfferPreviewDialog } from './OfferPreviewDialog';
-import { Offer } from '@/types';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { generatePostbackUrl } from '@/lib/postback';
+import { createOffer } from '@/utils/offerCreation';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 
-// Form schema
-const offerSchema = z.object({
-  name: z.string().min(3, 'Name must be at least 3 characters'),
-  description: z.string().min(10, 'Description must be at least 10 characters'),
-  url: z.string().url('Must be a valid URL'),
-  niche: z.string().min(1, 'Please select a niche'),
+const TRAFFIC_SOURCES = [
+  "Search",
+  "Social",
+  "Email",
+  "Display",
+  "Native Ads",
+  "Push",
+  "Pop",
+  "Mobile",
+  "Contextual",
+  "Google",
+  "Facebook",
+  "TikTok",
+  "LinkedIn",
+  "Twitter",
+  "SEO",
+  "PPC",
+  "Content Marketing",
+  "Affiliate",
+  "Referral",
+  "Direct"
+];
+
+const NICHES = [
+  "Health & Wellness",
+  "Finance",
+  "E-commerce",
+  "Education",
+  "Technology",
+  "Travel",
+  "Dating",
+  "Gaming",
+  "Entertainment",
+  "Fashion",
+  "Beauty",
+  "Fitness",
+  "Home & Garden",
+  "Business",
+  "Crypto",
+  "Insurance",
+  "Gambling",
+  "Adult",
+  "Utilities",
+  "Other"
+];
+
+// Transform the COUNTRY_CODES list to array of objects with code and name
+const COUNTRIES = Object.entries(COUNTRY_CODES).map(([code, name]) => ({
+  code,
+  name: `${name} (${code})`
+}));
+
+const formSchema = z.object({
+  name: z.string().min(2, { message: "Name must be at least 2 characters" }),
+  description: z.string().optional(),
+  url: z.string().url({ message: "Must be a valid URL" }),
+  commission_type: z.string(),
+  commission_amount: z.number().optional(),
+  commission_percent: z.number().optional(),
+  niche: z.string().optional(),
+  status: z.string(),
   target_audience: z.string().optional(),
   conversion_requirements: z.string().optional(),
   restrictions: z.string().optional(),
-  commission_type: z.string().min(1, 'Please select a commission type'),
-  commission_amount: z.string().optional(),
-  commission_percent: z.string().optional(),
-  payout_frequency: z.string().min(1, 'Please select a payout frequency'),
-  allowed_traffic_sources: z.array(z.string()).optional(),
-  geo_targets: z.array(z.string()).optional(),
-  restricted_geos: z.array(z.string()).optional(),
-  status: z.string().optional(),
-  offer_image: z.string().optional(),
-  geo_commissions: z.array(z.object({
-    country: z.string(),
-    amount: z.string()
-  })).optional(),
+  payout_frequency: z.string().optional(),
 });
 
-type OfferFormValues = z.infer<typeof offerSchema>;
-
-interface CreateOfferProps {
-  advertiserId?: string;
-}
-
-const PREDEFINED_PARAMETERS = [
-  { key: 'payout', description: 'Conversion/sale payout amount' },
-  { key: 'transaction_id', description: 'Unique transaction identifier' },
-  { key: 'amount', description: 'Transaction amount' },
-  { key: 'currency', description: 'Transaction currency' },
-  { key: 'customer_id', description: 'Customer identifier' },
-  { key: 'product_id', description: 'Product identifier' },
-  { key: 'campaign_id', description: 'Campaign identifier' },
-  { key: 'source', description: 'Traffic source' },
-  { key: 'sub1', description: 'Custom sub-affiliate parameter 1' },
-  { key: 'sub2', description: 'Custom sub-affiliate parameter 2' },
-  { key: 'sub3', description: 'Custom sub-affiliate parameter 3' },
-];
-
-// Add the base URL constant at the top with other imports
-const POSTBACK_BASE_URL = 'https://jruzfpymzkzegdhmzwsr.supabase.co/functions/v1/postback';
-
-const CreateOffer: React.FC<CreateOfferProps> = ({ advertiserId }) => {
+export function CreateOffer() {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('basic');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [geoCommissions, setGeoCommissions] = useState<{country: string, amount: string}[]>([]);
-  const [creatives, setCreatives] = useState<any[]>([]);
+  const [trafficSources, setTrafficSources] = useState<string[]>([]);
+  const [restrictedGeos, setRestrictedGeos] = useState<string[]>([]);
+  const [geoTargets, setGeoTargets] = useState<string[]>([]);
+  const [geoCommissions, setGeoCommissions] = useState<GeoCommission[]>([]);
   const [geoCommissionsEnabled, setGeoCommissionsEnabled] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const [customParams, setCustomParams] = useState<{ [key: string]: string }>({});
-  const [newParamKey, setNewParamKey] = useState('');
-  const [newParamValue, setNewParamValue] = useState('');
-  
-  const form = useForm<OfferFormValues>({
-    resolver: zodResolver(offerSchema),
+  const [offerImage, setOfferImage] = useState<string | null>(null);
+  const [offerImageFile, setOfferImageFile] = useState<File | null>(null);
+  const [creatives, setCreatives] = useState<File[]>([]);
+  const [showCreativesDialog, setShowCreativesDialog] = useState(false);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
       description: '',
       url: '',
+      commission_type: 'CPA',
+      commission_amount: 0,
+      commission_percent: 0,
       niche: '',
+      status: 'active',
       target_audience: '',
       conversion_requirements: '',
       restrictions: '',
-      commission_type: 'CPA',
-      commission_amount: '',
-      commission_percent: '',
       payout_frequency: 'Monthly',
-      allowed_traffic_sources: [],
-      geo_targets: [],
-      restricted_geos: [],
-      status: 'active',
-      offer_image: '',
-      geo_commissions: [],
     },
   });
-  
-  const { 
-    register, 
-    handleSubmit, 
-    formState: { errors }, 
-    setValue, 
-    watch, 
-    getValues 
-  } = form;
-  
-  const commissionType = watch('commission_type');
-  
-  // Handle image upload for offer image with drag and drop
-  const handleImageUpload = async (file: File) => {
-    if (!file || !user) return;
-    
-    setUploading(true);
-    
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `offer-image-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-      const filePath = `${user.id}/offer-images/${fileName}`;
-      
-      // Upload file to Supabase Storage
-      const { data, error } = await supabase.storage
-        .from('offer-assets')
-        .upload(filePath, file);
-      
-      if (error) {
-        console.error('Error uploading offer image:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Upload Failed',
-          description: error.message,
-        });
-        return;
-      }
-      
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('offer-assets')
-        .getPublicUrl(filePath);
-      
-      // Update form and preview
-      setValue('offer_image', publicUrl);
-      setImagePreview(publicUrl);
-      
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!user?.id) {
       toast({
-        title: 'Image Uploaded',
-        description: 'Offer image uploaded successfully',
+        variant: "destructive",
+        title: "Error",
+        description: "You must be logged in to create an offer.",
       });
-    } catch (error) {
-      console.error('Error in upload process:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Upload Error',
-        description: 'An unexpected error occurred during upload',
-      });
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  // Handle drag over event for image upload
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.currentTarget.classList.add('border-primary', 'bg-primary/10');
-  };
-
-  // Handle drag leave event for image upload
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.currentTarget.classList.remove('border-primary', 'bg-primary/10');
-  };
-
-  // Handle drop event for image upload
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.currentTarget.classList.remove('border-primary', 'bg-primary/10');
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-      handleImageUpload(file);
-    }
-  };
-
-  // Handle input change for image upload
-  const handleImageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleImageUpload(file);
-    }
-  };
-
-  // Remove uploaded image
-  const handleRemoveImage = async () => {
-    const imagePath = imagePreview?.split('/').slice(-2).join('/');
-    if (imagePath && user) {
-      try {
-        const { error } = await supabase.storage
-          .from('offer-assets')
-          .remove([`${user.id}/offer-images/${imagePath.split('/').pop()}`]);
-        
-        if (error) {
-          console.error('Error removing image:', error);
-          toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'Failed to remove image',
-          });
-          return;
-        }
-        
-        setValue('offer_image', '');
-        setImagePreview(null);
-        toast({
-          title: 'Image Removed',
-          description: 'Offer image has been removed',
-        });
-      } catch (error) {
-        console.error('Error removing image:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'An unexpected error occurred',
-        });
-      }
-    }
-  };
-
-  // Handle moving between tabs
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-  };
-  
-  // Handle geo commission changes
-  const handleGeoCommissionsChange = (commissions: {country: string, amount: string}[]) => {
-    setGeoCommissions(commissions);
-    setValue('geo_commissions', commissions);
-  };
-  
-  // Handle geo targets update based on geo commissions
-  const handleGeoTargetsUpdate = (countries: string[]) => {
-    setValue('geo_targets', countries);
-  };
-  
-  // Handle direct geo targets changes when not using geo commissions
-  const handleGeoTargetsChange = useCallback(
-    (value: string[]) => {
-      setValue('geo_targets', value);
-    },
-    [setValue]
-  );
-  
-  // Handle enabling/disabling geo commissions
-  const handleGeoCommissionsEnabledChange = (enabled: boolean) => {
-    setGeoCommissionsEnabled(enabled);
-    if (!enabled) {
-      setGeoCommissions([]);
-      setValue('geo_commissions', []);
-      setValue('geo_targets', []);
-    }
-  };
-  
-  // Handle creatives change
-  const handleCreativesChange = (newCreatives: any[]) => {
-    setCreatives(newCreatives);
-  };
-
-  // Add helper function to get tab name
-  const getTabName = (tab: string): string => {
-    switch (tab) {
-      case 'basic':
-        return 'Basic Info';
-      case 'commission':
-        return 'Commission';
-      case 'targeting':
-        return 'Targeting';
-      case 'creatives':
-        return 'Creatives';
-      case 'tracking':
-        return 'Tracking';
-      default:
-        return tab;
-    }
-  };
-
-  // Add helper function to get field name
-  const getFieldName = (field: string): string => {
-    switch (field) {
-      case 'name':
-        return 'Offer Name';
-      case 'description':
-        return 'Offer Description';
-      case 'url':
-        return 'Offer URL';
-      case 'niche':
-        return 'Niche/Category';
-      case 'commission_type':
-        return 'Commission Type';
-      case 'payout_frequency':
-        return 'Payout Frequency';
-      default:
-        return field.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    }
-  };
-
-  // Add function to check which tab contains a field
-  const getFieldTab = (field: string): string => {
-    const tabFields: { [key: string]: string[] } = {
-      basic: ['name', 'description', 'url', 'niche', 'target_audience', 'offer_image'],
-      commission: ['commission_type', 'commission_amount', 'commission_percent', 'payout_frequency', 'conversion_requirements'],
-      targeting: ['allowed_traffic_sources', 'geo_targets', 'restricted_geos', 'restrictions'],
-      creatives: [],
-      tracking: []
-    };
-
-    for (const [tab, fields] of Object.entries(tabFields)) {
-      if (fields.includes(field)) {
-        return tab;
-      }
-    }
-    return 'basic';
-  };
-
-  // Update the form submission handler
-  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
-    // Trigger validation on all fields
-    const result = await form.trigger();
-    
-    // Check for validation errors
-    const errors = form.formState.errors;
-    if (!result || Object.keys(errors).length > 0) {
-      // Group errors by tab
-      const errorsByTab = Object.entries(errors).reduce((acc: { [key: string]: string[] }, [field, error]) => {
-        const tab = getFieldTab(field);
-        if (!acc[tab]) {
-          acc[tab] = [];
-        }
-        if (error?.message) {
-          acc[tab].push(`${getFieldName(field)}: ${error.message}`);
-        }
-        return acc;
-      }, {});
-
-      // Create error message
-      const errorMessage = Object.entries(errorsByTab)
-        .map(([tab, tabErrors]) => (
-          `${getTabName(tab)}:\n${tabErrors.map(err => `• ${err}`).join('\n')}`
-        ))
-        .join('\n\n');
-
-      // Show error toast
-      toast({
-        variant: 'destructive',
-        title: 'Please Fix the Following Errors',
-        description: (
-          <div className="mt-2 space-y-2 max-h-[300px] overflow-y-auto">
-            <pre className="text-[11px] whitespace-pre-wrap bg-secondary/50 p-2 rounded">
-              {errorMessage}
-            </pre>
-          </div>
-        ),
-        duration: 10000, // Show for 10 seconds
-      });
-
-      // Navigate to the first tab with an error
-      const firstErrorTab = Object.keys(errorsByTab)[0];
-      if (firstErrorTab && firstErrorTab !== activeTab) {
-        setActiveTab(firstErrorTab);
-      }
-
-      return;
-    }
-
-    // If no errors, proceed with showing preview
-    setShowPreview(true);
-  };
-
-  // Update the final submit handler
-  const handleFinalSubmit = async () => {
-    if (!user) return;
-
-    // Check for validation errors again before final submit
-    const isValid = await form.trigger();
-    if (!isValid) {
-      const fakeEvent = { preventDefault: () => {} } as React.FormEvent<HTMLFormElement>;
-      await handleFormSubmit(fakeEvent);
       return;
     }
 
     setIsSubmitting(true);
-    const data = getValues();
-    console.log("Form submission started with data:", data);
-    console.log("Geo commissions enabled:", geoCommissionsEnabled);
-    console.log("Geo commissions data:", geoCommissions);
-
     try {
-      // Prepare the offer data with proper typing
-      const offerData = {
-        name: data.name,
-        description: data.description,
-        url: data.url,
-        niche: data.niche || null,
-        target_audience: data.target_audience || null,
-        conversion_requirements: data.conversion_requirements || null,
-        restrictions: data.restrictions || null,
-        commission_type: data.commission_type,
-        status: data.status || 'active',
-        allowed_traffic_sources: data.allowed_traffic_sources || [],
-        geo_targets: data.geo_targets || [], // Ensure geo_targets is always an array
-        restricted_geos: data.restricted_geos || [],
-        offer_image: data.offer_image || null,
-        advertiser_id: advertiserId || user.id,
-        geo_commissions: geoCommissionsEnabled && geoCommissions.length > 0 ? geoCommissions : null,
-        marketing_materials: creatives.length > 0 ? creatives : null,
-        // Commission fields based on type and geo settings
-        commission_amount: !geoCommissionsEnabled && data.commission_amount ? parseFloat(data.commission_amount) : null,
-        commission_percent: !geoCommissionsEnabled && data.commission_percent ? parseFloat(data.commission_percent) : null,
-        payout_frequency: data.payout_frequency,
-      };
-
-      console.log("Prepared offer data:", offerData);
-
-      // Use the debug helper to create the offer
-      const result = await debugCreateOffer(offerData);
+      // First, handle file uploads if any
+      let uploadedOfferImage = null;
+      let uploadedCreatives = [];
       
-      if (!result.success) {
-        throw result.error;
+      // Upload offer image if selected
+      if (offerImageFile) {
+        const imagePath = `${user.id}/offer-images/offer-image-${Math.random().toString(36).substring(2, 15)}.${offerImageFile.name.split('.').pop()}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('offer-assets')
+          .upload(imagePath, offerImageFile);
+        
+        if (uploadError) throw uploadError;
+        
+        // Get public URL
+        const { data: publicUrlData } = supabase.storage
+          .from('offer-assets')
+          .getPublicUrl(imagePath);
+        
+        uploadedOfferImage = publicUrlData.publicUrl;
+      }
+      
+      // Upload creative files
+      for (const file of creatives) {
+        const filePath = `${user.id}/creatives/${Math.random().toString(36).substring(2, 15)}.${file.name.split('.').pop()}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('offer-assets')
+          .upload(filePath, file);
+        
+        if (uploadError) throw uploadError;
+        
+        // Get public URL
+        const { data: publicUrlData } = supabase.storage
+          .from('offer-assets')
+          .getPublicUrl(filePath);
+        
+        uploadedCreatives.push({
+          url: publicUrlData.publicUrl,
+          name: file.name,
+          path: filePath,
+          size: file.size,
+          type: file.type
+        });
+      }
+      
+      // Create the offer object
+      const offerData: Partial<Offer> = {
+        advertiser_id: user.id,
+        name: values.name,
+        description: values.description || null,
+        url: values.url,
+        commission_type: values.commission_type,
+        commission_amount: values.commission_amount || 0,
+        commission_percent: values.commission_percent || 0,
+        niche: values.niche || null,
+        status: values.status,
+        target_audience: values.target_audience || null,
+        conversion_requirements: values.conversion_requirements || null,
+        restrictions: values.restrictions || null,
+        payout_frequency: values.payout_frequency || null,
+        allowed_traffic_sources: trafficSources.length > 0 ? trafficSources : null,
+        restricted_geos: restrictedGeos.length > 0 ? restrictedGeos : null,
+        geo_targets: geoTargets.length > 0 ? geoTargets : null,
+        geo_commissions: geoCommissionsEnabled ? geoCommissions : null,
+        offer_image: uploadedOfferImage,
+        marketing_materials: uploadedCreatives.length > 0 ? uploadedCreatives : null,
+        is_featured: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        payout_amount: values.commission_amount || 0
+      };
+      
+      // Use the helper function to create the offer
+      const { success, offerId, error } = await createOffer(offerData);
+      
+      if (!success) {
+        throw error;
       }
 
       toast({
-        title: 'Offer Created',
-        description: 'Your offer has been created successfully',
+        title: "Offer created",
+        description: "Your offer has been created successfully",
       });
-
-      // Redirect to offers list
-      navigate('/offers');
-    } catch (error: any) {
+      
+      // Navigate to the offer details page
+      navigate(`/offers/${offerId}`);
+    } catch (error) {
       console.error('Error creating offer:', error);
       toast({
-        variant: 'destructive',
-        title: 'Error Creating Offer',
-        description: error.message || 'An unexpected error occurred',
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to create offer. Please try again.",
       });
-      setShowPreview(false);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Next tab handler
-  const handleNextTab = () => {
-    switch (activeTab) {
-      case 'basic':
-        setActiveTab('commission');
-        break;
-      case 'commission':
-        setActiveTab('targeting');
-        break;
-      case 'targeting':
-        setActiveTab('creatives');
-        break;
-      case 'creatives':
-        setActiveTab('tracking');
-        break;
-      default:
-        break;
+  // Traffic source management
+  const handleAddTrafficSource = (source: string) => {
+    if (source && !trafficSources.includes(source)) {
+      setTrafficSources([...trafficSources, source]);
     }
   };
 
-  // Previous tab handler
-  const handlePrevTab = () => {
-    switch (activeTab) {
-      case 'commission':
-        setActiveTab('basic');
-        break;
-      case 'targeting':
-        setActiveTab('commission');
-        break;
-      case 'creatives':
-        setActiveTab('targeting');
-        break;
-      case 'tracking':
-        setActiveTab('creatives');
-        break;
-      default:
-        break;
+  const handleRemoveTrafficSource = (source: string) => {
+    setTrafficSources(trafficSources.filter(s => s !== source));
+  };
+
+  // Geo targets management
+  const handleAddGeoTarget = (geo: string) => {
+    if (geo && !geoTargets.includes(geo)) {
+      setGeoTargets([...geoTargets, geo]);
     }
   };
 
-  // Traffic source tag input handler
-  const handleTrafficSourcesChange = useCallback(
-    (value: string[]) => {
-      setValue('allowed_traffic_sources', value);
-    },
-    [setValue]
-  );
-
-  // Restricted geos tag input handler
-  const handleRestrictedGeosChange = useCallback(
-    (value: string[]) => {
-      setValue('restricted_geos', value);
-    },
-    [setValue]
-  );
-
-  // Prepare offer data for preview
-  const getOfferPreviewData = (): Partial<Offer> => {
-    const formValues = getValues();
-    return {
-      name: formValues.name,
-      description: formValues.description,
-      niche: formValues.niche,
-      commission_type: formValues.commission_type as any,
-      commission_amount: formValues.commission_amount ? parseFloat(formValues.commission_amount) : undefined,
-      commission_percent: formValues.commission_percent ? parseFloat(formValues.commission_percent) : undefined,
-      geo_targets: formValues.geo_targets,
-      offer_image: formValues.offer_image,
-      is_featured: false,
-      status: formValues.status as any,
-    };
+  const handleRemoveGeoTarget = (geo: string) => {
+    setGeoTargets(geoTargets.filter(g => g !== geo));
   };
 
-  // Update the generateUrlWithParams function
-  const generateUrlWithParams = (baseUrl: string) => {
-    const params: string[] = [];
-    
-    // Add required params first
-    params.push(`click_id={click_id}`);
-    params.push(`type={type}`);
-    params.push(`payout={payout}`);
-    
-    // Add custom params
-    Object.entries(customParams).forEach(([key, value]) => {
-      params.push(`${key}={${value}}`);
-    });
-    
-    const queryString = params.join('&');
-    return `${baseUrl}${queryString ? `?${queryString}` : ''}`;
-  };
-
-  // Add handler for adding new params
-  const handleAddParam = () => {
-    if (newParamKey && newParamValue) {
-      setCustomParams(prev => ({
-        ...prev,
-        [newParamKey]: newParamValue
-      }));
-      setNewParamKey('');
-      setNewParamValue('');
+  // Restricted geos management
+  const handleAddRestrictedGeo = (geo: string) => {
+    if (geo && !restrictedGeos.includes(geo)) {
+      setRestrictedGeos([...restrictedGeos, geo]);
     }
   };
 
-  // Add handler for removing params
-  const handleRemoveParam = (key: string) => {
-    setCustomParams(prev => {
-      const newParams = { ...prev };
-      delete newParams[key];
-      return newParams;
-    });
+  const handleRemoveRestrictedGeo = (geo: string) => {
+    setRestrictedGeos(restrictedGeos.filter(g => g !== geo));
   };
+
+  // Offer image management
+  const handleOfferImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setOfferImageFile(file);
+      setOfferImage(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemoveOfferImage = () => {
+    setOfferImage(null);
+    setOfferImageFile(null);
+  };
+
+  // Creatives management
+  const handleAddCreatives = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const filesArray = Array.from(e.target.files);
+      setCreatives([...creatives, ...filesArray]);
+    }
+  };
+
+  const handleRemoveCreative = (index: number) => {
+    setCreatives(creatives.filter((_, i) => i !== index));
+  };
+
+  // Update commission fields based on commission type
+  const commissionType = form.watch('commission_type');
+  useEffect(() => {
+    if (commissionType === 'RevShare') {
+      form.setValue('commission_amount', 0);
+    } else {
+      form.setValue('commission_percent', 0);
+    }
+  }, [commissionType, form]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <div className="flex items-center gap-2">
-          <PenSquare className="h-5 w-5" />
-          <h2 className="text-2xl font-bold tracking-tight">Create New Offer</h2>
+    <FormProvider {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Offer Name</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="url"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Offer URL</FormLabel>
+                <FormControl>
+                  <Input {...field} type="url" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Status</FormLabel>
+                <Select 
+                  onValueChange={field.onChange} 
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="pending_review">Pending Review</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="niche"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Niche</FormLabel>
+                <Select 
+                  onValueChange={field.onChange} 
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select niche" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {NICHES.map((niche) => (
+                      <SelectItem key={niche} value={niche.toLowerCase()}>
+                        {niche}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  The category or industry of your offer
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
-        <p className="text-muted-foreground ml-7">
-          Create a new affiliate offer to promote your product or service
-        </p>
-      </div>
 
-      <form onSubmit={handleFormSubmit}>
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="basic" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Basic Info
-            </TabsTrigger>
-            <TabsTrigger value="commission" className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              Commission
-            </TabsTrigger>
-            <TabsTrigger value="targeting" className="flex items-center gap-2">
-              <Target className="h-4 w-4" />
-              Targeting
-            </TabsTrigger>
-            <TabsTrigger value="creatives" className="flex items-center gap-2">
-              <Images className="h-4 w-4" />
-              Creatives
-            </TabsTrigger>
-            <TabsTrigger value="tracking" className="flex items-center gap-2">
-              <LineChart className="h-4 w-4" />
-              Tracking
-            </TabsTrigger>
-          </TabsList>
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea 
+                  {...field} 
+                  placeholder="Describe your offer" 
+                  className="min-h-[100px]" 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-          <TabsContent value="basic" className="space-y-4 mt-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="grid gap-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name" className="flex items-center gap-2">
-                        <FileEdit className="h-4 w-4" />
-                        Offer Name
-                      </Label>
-                      <Input
-                        id="name"
-                        placeholder="e.g. Premium Product Promotion"
-                        {...register('name')}
-                      />
-                      {errors.name && (
-                        <p className="text-red-500 text-sm">{errors.name.message}</p>
-                      )}
-                    </div>
+        <Separator />
 
-                    <div className="space-y-2">
-                      <Label htmlFor="niche" className="flex items-center gap-2">
-                        <Store className="h-4 w-4" />
-                        Niche/Category
-                      </Label>
-                      <Select
-                        onValueChange={(value) => setValue('niche', value)}
-                        defaultValue={getValues('niche')}
-                      >
-                        <SelectTrigger id="niche">
-                          <SelectValue placeholder="Select niche" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="health">Health & Fitness</SelectItem>
-                          <SelectItem value="beauty">Beauty</SelectItem>
-                          <SelectItem value="finance">Finance</SelectItem>
-                          <SelectItem value="education">Education</SelectItem>
-                          <SelectItem value="technology">Technology</SelectItem>
-                          <SelectItem value="ecommerce">eCommerce</SelectItem>
-                          <SelectItem value="dating">Dating</SelectItem>
-                          <SelectItem value="gaming">Gaming</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {errors.niche && (
-                        <p className="text-red-500 text-sm">{errors.niche.message}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="url" className="flex items-center gap-2">
-                        <Link className="h-4 w-4" />
-                        Offer URL
-                      </Label>
-                      <Input
-                        id="url"
-                        placeholder="https://yourdomain.com/offer"
-                        {...register('url')}
-                      />
-                      {errors.url && (
-                        <p className="text-red-500 text-sm">{errors.url.message}</p>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="status" className="flex items-center gap-2">
-                        <BadgeCheck className="h-4 w-4" />
-                        Offer Status
-                      </Label>
-                      <Select
-                        onValueChange={(value) => setValue('status', value)}
-                        defaultValue={getValues('status')}
-                      >
-                        <SelectTrigger id="status">
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="paused">Paused</SelectItem>
-                          <SelectItem value="draft">Draft</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="description" className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      Offer Description
-                    </Label>
-                    <Textarea
-                      id="description"
-                      placeholder="Describe your offer in detail"
-                      className="min-h-[100px]"
-                      {...register('description')}
-                    />
-                    {errors.description && (
-                      <p className="text-red-500 text-sm">{errors.description.message}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="target_audience" className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      Target Audience
-                    </Label>
-                    <Textarea
-                      id="target_audience"
-                      placeholder="Describe the ideal customer for this offer"
-                      className="min-h-[80px]"
-                      {...register('target_audience')}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="offer_image" className="flex items-center gap-2">
-                      <ImageIcon className="h-4 w-4" />
-                      Offer Image
-                    </Label>
-                    <input
-                      ref={imageInputRef}
-                      type="file"
-                      id="image-upload"
-                      className="hidden"
-                      accept="image/*"
-                      onChange={handleImageInputChange}
-                    />
-                    
-                    {imagePreview ? (
-                      <div className="mt-2 border rounded-md p-3 relative">
-                        <img 
-                          src={imagePreview} 
-                          alt="Offer preview" 
-                          className="max-h-48 object-contain mx-auto"
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-2 right-2"
-                          onClick={handleRemoveImage}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div 
-                        className="border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition-colors"
-                        onClick={() => imageInputRef.current?.click()}
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                      >
-                        <div className="flex flex-col items-center justify-center gap-2">
-                          <Upload className="h-10 w-10 text-muted-foreground mb-2" />
-                          <p className="text-sm font-medium">
-                            Click or drag and drop to upload an image
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Supported formats: JPG, PNG, GIF (max 5MB)
-                          </p>
-                          {uploading && (
-                            <div className="flex items-center gap-2 mt-2">
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              <span className="text-sm">Uploading...</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">Offer Image</h3>
+          <div className="flex items-start space-x-4">
+            {offerImage ? (
+              <div className="relative group">
+                <img 
+                  src={offerImage} 
+                  alt="Offer Preview" 
+                  className="w-32 h-32 object-cover rounded-md border"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemoveOfferImage}
+                  className="absolute top-1 right-1 bg-background/80 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center w-32 h-32 border-2 border-dashed rounded-md">
+                <span className="text-muted-foreground text-sm">No image</span>
+              </div>
+            )}
+            <div>
+              <Label htmlFor="offerImage" className="cursor-pointer">
+                <div className="flex items-center gap-2 bg-primary/10 text-primary rounded-md py-2 px-3">
+                  <Upload className="h-4 w-4" />
+                  <span>{offerImage ? 'Change Image' : 'Upload Image'}</span>
                 </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex justify-end space-x-2">
-              <Button type="button" onClick={handleNextTab}>
-                Next
-                <ChevronRight className="ml-1 h-4 w-4" />
-              </Button>
+              </Label>
+              <Input 
+                id="offerImage" 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={handleOfferImageChange}
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                Recommended: 1200×628px. Max 5MB
+              </p>
             </div>
-          </TabsContent>
+          </div>
+        </div>
 
-          <TabsContent value="commission" className="space-y-4 mt-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="grid gap-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="commission_type" className="flex items-center gap-2">
-                        <Coins className="h-4 w-4" />
-                        Commission Type
-                      </Label>
-                      <Select
-                        onValueChange={(value) => setValue('commission_type', value)}
-                        defaultValue={getValues('commission_type')}
-                      >
-                        <SelectTrigger id="commission_type">
-                          <SelectValue placeholder="Select commission type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="CPA">CPA (Cost Per Action)</SelectItem>
-                          <SelectItem value="CPL">CPL (Cost Per Lead)</SelectItem>
-                          <SelectItem value="CPS">CPS (Cost Per Sale)</SelectItem>
-                          <SelectItem value="RevShare">Revenue Share</SelectItem>
-                          <SelectItem value="CPC">CPC (Cost Per Click)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {errors.commission_type && (
-                        <p className="text-red-500 text-sm">{errors.commission_type.message}</p>
-                      )}
-                    </div>
+        <Separator />
 
-                    {!geoCommissionsEnabled && commissionType !== 'RevShare' ? (
-                      <div className="space-y-2">
-                        <Label htmlFor="commission_amount" className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4" />
-                          Commission Amount ($)
-                        </Label>
-                        <Input
-                          id="commission_amount"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="0.00"
-                          {...register('commission_amount')}
-                        />
-                      </div>
-                    ) : !geoCommissionsEnabled && commissionType === 'RevShare' ? (
-                      <div className="space-y-2">
-                        <Label htmlFor="commission_percent" className="flex items-center gap-2">
-                          <Percent className="h-4 w-4" />
-                          Commission Percentage (%)
-                        </Label>
-                        <Input
-                          id="commission_percent"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                          placeholder="0"
-                          {...register('commission_percent')}
-                        />
-                      </div>
-                    ) : null}
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-medium">Creatives</h3>
+            <Button 
+              type="button"
+              variant="outline" 
+              onClick={() => setShowCreativesDialog(true)}
+            >
+              Manage Creatives
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Add banners, images, and other creative assets for affiliates to use
+          </p>
+        </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="payout_frequency" className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4" />
-                        Payout Frequency
-                      </Label>
-                      <Select
-                        onValueChange={(value) => setValue('payout_frequency', value)}
-                        defaultValue={getValues('payout_frequency')}
-                      >
-                        <SelectTrigger id="payout_frequency">
-                          <SelectValue placeholder="Select payout frequency" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Weekly">Weekly</SelectItem>
-                          <SelectItem value="Biweekly">Bi-weekly</SelectItem>
-                          <SelectItem value="Monthly">Monthly</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {errors.payout_frequency && (
-                        <p className="text-red-500 text-sm">{errors.payout_frequency.message}</p>
-                      )}
-                      <p className="text-sm text-muted-foreground">
-                        How often affiliates will receive payouts for this offer
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <Label className="flex items-center gap-2">
-                      <GanttChartSquare className="h-4 w-4" />
-                      Commission Structure
-                    </Label>
-                    <GeoCommissionSelector 
-                      geoCommissions={geoCommissions}
-                      onChange={handleGeoCommissionsChange}
-                      onGeoTargetsUpdate={handleGeoTargetsUpdate}
-                      enabled={geoCommissionsEnabled}
-                      onEnabledChange={handleGeoCommissionsEnabledChange}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="conversion_requirements" className="flex items-center gap-2">
-                      <ScrollText className="h-4 w-4" />
-                      Conversion Requirements
-                    </Label>
-                    <Textarea
-                      id="conversion_requirements"
-                      placeholder="What is required for a conversion to be valid?"
-                      className="min-h-[80px]"
-                      {...register('conversion_requirements')}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex justify-between space-x-2">
-              <Button type="button" variant="outline" onClick={handlePrevTab}>
-                <ChevronLeft className="mr-1 h-4 w-4" />
-                Previous
-              </Button>
-              <Button type="button" onClick={handleNextTab}>
-                Next
-                <ChevronRight className="ml-1 h-4 w-4" />
-              </Button>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="targeting" className="space-y-4 mt-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="grid gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="traffic_sources" className="flex items-center gap-2">
-                      <Share2 className="h-4 w-4" />
-                      Allowed Traffic Sources
-                    </Label>
-                    <TagInput
-                      placeholder="Add a traffic source and press Enter (e.g. Facebook, Google)"
-                      tags={watch('allowed_traffic_sources') || []}
-                      onTagsChange={handleTrafficSourcesChange}
-                      suggestions={['Facebook', 'Google', 'Instagram', 'TikTok', 'Native Ads', 'Push', 'Email', 'SEO']}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="geo_targets" className="flex items-center gap-2">
-                      <Globe2 className="h-4 w-4" />
-                      Geographic Targeting (Allowed)
-                    </Label>
-                    {geoCommissionsEnabled ? (
-                      <>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          {watch('geo_targets')?.length 
-                            ? 'These countries are automatically selected from your GEO pricing settings.'
-                            : 'Add countries in the commission tab to enable geo targeting'}
-                        </p>
-                        {watch('geo_targets')?.length > 0 && (
-                          <div className="flex flex-wrap gap-2">
-                            {watch('geo_targets')?.map((country) => (
-                              <Badge key={country} variant="outline">
-                                {country}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <TagInput
-                        placeholder="Add country codes and press Enter (e.g. US, UK, CA)"
-                        tags={watch('geo_targets') || []}
-                        onTagsChange={handleGeoTargetsChange}
-                        suggestions={['US', 'UK', 'CA', 'AU', 'DE', 'FR', 'ES', 'IT', 'JP']}
-                      />
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="restricted_geos" className="flex items-center gap-2">
-                      <Ban className="h-4 w-4" />
-                      Geographic Restrictions (Blocked)
-                    </Label>
-                    <TagInput
-                      placeholder="Add restricted country codes (e.g. CN, RU)"
-                      tags={watch('restricted_geos') || []}
-                      onTagsChange={handleRestrictedGeosChange}
-                      suggestions={['CN', 'RU', 'IR', 'KP', 'CU', 'VE', 'MM']}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="restrictions" className="flex items-center gap-2">
-                      <ShieldAlert className="h-4 w-4" />
-                      Additional Restrictions
-                    </Label>
-                    <Textarea
-                      id="restrictions"
-                      placeholder="Any other restrictions or compliance requirements"
-                      className="min-h-[80px]"
-                      {...register('restrictions')}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="flex justify-between space-x-2">
-              <Button type="button" variant="outline" onClick={handlePrevTab}>
-                <ChevronLeft className="mr-1 h-4 w-4" />
-                Previous
-              </Button>
-              <Button type="button" onClick={handleNextTab}>
-                Next
-                <ChevronRight className="ml-1 h-4 w-4" />
-              </Button>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="creatives" className="space-y-4 mt-4">
-            <CreativesTab 
-              advertiserId={advertiserId || user?.id || ''}
-              savedCreatives={creatives} 
-              onCreativesChange={handleCreativesChange}
-            />
+        <Dialog open={showCreativesDialog} onOpenChange={setShowCreativesDialog}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Manage Creatives</DialogTitle>
+              <DialogDescription>
+                Upload creative assets for your offer
+              </DialogDescription>
+            </DialogHeader>
             
-            <div className="flex justify-between space-x-2">
-              <Button type="button" variant="outline" onClick={handlePrevTab}>
-                <ChevronLeft className="mr-1 h-4 w-4" />
-                Previous
-              </Button>
-              <Button type="button" onClick={handleNextTab}>
-                Next
-                <ChevronRight className="ml-1 h-4 w-4" />
-              </Button>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="tracking" className="space-y-4 mt-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-medium">Tracking Setup</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Configure your postback URL and custom parameters
-                    </p>
-
-                    <div className="space-y-4">
-                      <div className="p-4 border rounded-md bg-muted">
-                        <p className="text-sm font-medium mb-2">Global Postback URL:</p>
-                        <div className="flex items-center gap-2">
-                          <code className="text-xs bg-background p-2 rounded flex-1">
-                            {generateUrlWithParams(POSTBACK_BASE_URL)}
-                          </code>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              navigator.clipboard.writeText(
-                                generateUrlWithParams(POSTBACK_BASE_URL)
-                              );
-                              toast({
-                                title: "Copied!",
-                                description: "Postback URL copied to clipboard",
-                              });
-                            }}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <Collapsible className="w-full">
-                        <div className="p-4 border rounded-md bg-muted">
-                          <CollapsibleTrigger className="flex items-center justify-between w-full">
-                            <div>
-                              <p className="text-sm font-medium">Custom Parameters</p>
-                              <p className="text-xs text-muted-foreground">
-                                Add optional parameters to your postback URLs
-                              </p>
-                            </div>
-                            <ChevronRight className="h-4 w-4 transform transition-transform duration-200" />
-                          </CollapsibleTrigger>
-
-                          <CollapsibleContent className="space-y-4 mt-4">
-                            <div className="space-y-2">
-                              <div className="flex gap-2">
-                                <Select
-                                  value={newParamKey}
-                                  onValueChange={setNewParamKey}
-                                >
-                                  <SelectTrigger className="flex-1">
-                                    <SelectValue placeholder="Select parameter" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {PREDEFINED_PARAMETERS.map((param) => (
-                                      <SelectItem key={param.key} value={param.key}>
-                                        <div>
-                                          <p className="font-medium">{param.key}</p>
-                                          <p className="text-xs text-muted-foreground">{param.description}</p>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <Input
-                                  placeholder="Variable name"
-                                  value={newParamValue}
-                                  onChange={(e) => setNewParamValue(e.target.value)}
-                                  className="flex-1"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="secondary"
-                                  onClick={handleAddParam}
-                                  disabled={!newParamKey || !newParamValue}
-                                >
-                                  Add
-                                </Button>
-                              </div>
-                            </div>
-
-                            {Object.entries(customParams).length > 0 && (
-                              <div>
-                                <p className="text-sm font-medium mb-2">Added Parameters:</p>
-                                <div className="space-y-2">
-                                  {Object.entries(customParams).map(([key, value]) => (
-                                    <div key={key} className="flex items-center gap-2 bg-background p-2 rounded">
-                                      <div className="flex-1">
-                                        <p className="text-sm font-medium">{key}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                          {PREDEFINED_PARAMETERS.find(p => p.key === key)?.description}
-                                        </p>
-                                      </div>
-                                      <code className="text-xs bg-muted px-2 py-1 rounded">
-                                        {`{${value}}`}
-                                      </code>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => handleRemoveParam(key)}
-                                      >
-                                        <X className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </CollapsibleContent>
-                        </div>
-                      </Collapsible>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="h-5 w-5 text-green-500" />
-                          <p className="text-sm">
-                            Automatic click tracking for all affiliate traffic
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="h-5 w-5 text-green-500" />
-                          <p className="text-sm">
-                            Conversion postback URL for server-to-server tracking
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className="h-5 w-5 text-green-500" />
-                          <p className="text-sm">
-                            Detailed reporting on clicks, conversions, and revenue
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+            <div className="space-y-4 mt-4">
+              <div className="border rounded-md p-4">
+                <Label htmlFor="uploadCreatives" className="cursor-pointer">
+                  <div className="flex flex-col items-center gap-2 p-6 border-2 border-dashed rounded-md">
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <span className="font-medium">Click to upload creatives</span>
+                    <span className="text-sm text-muted-foreground">
+                      PNG, JPG, GIF up to 10MB
+                    </span>
                   </div>
+                </Label>
+                <Input 
+                  id="uploadCreatives" 
+                  type="file" 
+                  accept="image/*" 
+                  multiple 
+                  className="hidden" 
+                  onChange={handleAddCreatives}
+                />
+              </div>
+              
+              {/* Files to upload */}
+              {creatives.length > 0 && (
+                <>
+                  <h4 className="font-medium mt-4">Selected Files</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {creatives.map((file, index) => (
+                      <div key={index} className="border rounded-md p-2 relative group">
+                        <img 
+                          src={URL.createObjectURL(file)} 
+                          alt={file.name} 
+                          className="w-full h-32 object-cover mb-2 rounded"
+                        />
+                        <div className="text-sm truncate">{file.name}</div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCreative(index)}
+                          className="absolute top-1 right-1 bg-background/80 p-1 rounded-full"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              
+              <div className="flex justify-end mt-4">
+                <Button
+                  type="button"
+                  onClick={() => setShowCreativesDialog(false)}
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      After creating the offer, you can configure advanced tracking options
-                    </p>
+        <Separator />
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">Commission Details</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField
+              control={form.control}
+              name="commission_type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Commission Type</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select commission type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="CPA">CPA (Cost Per Action)</SelectItem>
+                      <SelectItem value="CPL">CPL (Cost Per Lead)</SelectItem>
+                      <SelectItem value="CPS">CPS (Cost Per Sale)</SelectItem>
+                      <SelectItem value="CPI">CPI (Cost Per Install)</SelectItem>
+                      <SelectItem value="RevShare">Revenue Share</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {form.watch('commission_type') === 'RevShare' ? (
+              <FormField
+                control={form.control}
+                name="commission_percent"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Commission Percentage (%)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        {...field} 
+                        type="number" 
+                        min="1" 
+                        max="100" 
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : (
+              <>
+                <FormField
+                  control={form.control}
+                  name="commission_amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Commission Amount ($)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          type="number" 
+                          min="0" 
+                          step="0.01" 
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Add GeoCommissionSelector */}
+                <div className="col-span-2">
+                  <Card>
+                    <CardContent className="pt-6">
+                      <GeoCommissionSelector
+                        geoCommissions={geoCommissions}
+                        onChange={setGeoCommissions}
+                        onGeoTargetsUpdate={setGeoTargets}
+                        enabled={geoCommissionsEnabled}
+                        onEnabledChange={setGeoCommissionsEnabled}
+                        commissionType={form.watch('commission_type')}
+                      />
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
+            )}
+          </div>
+        
+          {/* Add Payout Frequency field */}
+          <FormField
+            control={form.control}
+            name="payout_frequency"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Payout Frequency</FormLabel>
+                <Select 
+                  onValueChange={field.onChange} 
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select payout frequency" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="Weekly">Weekly</SelectItem>
+                    <SelectItem value="Biweekly">Bi-weekly</SelectItem>
+                    <SelectItem value="Monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  How often affiliates will receive payouts for this offer
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">Target Settings</h3>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                <div>
+                  <Label>Allowed Traffic Sources</Label>
+                  <div className="flex mt-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                          Select Traffic Sources
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-auto">
+                        {TRAFFIC_SOURCES.map((source) => (
+                          <DropdownMenuItem
+                            key={source}
+                            onClick={() => handleAddTrafficSource(source)}
+                            disabled={trafficSources.includes(source)}
+                          >
+                            {source}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {trafficSources.map((source, index) => (
+                      <div 
+                        key={index} 
+                        className="bg-secondary text-secondary-foreground px-3 py-1 rounded-full flex items-center"
+                      >
+                        <span>{source}</span>
+                        <button 
+                          type="button"
+                          className="ml-2 text-secondary-foreground/70 hover:text-secondary-foreground"
+                          onClick={() => handleRemoveTrafficSource(source)}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
 
-            <div className="flex justify-between space-x-2">
-              <Button type="button" variant="outline" onClick={handlePrevTab}>
-                <ChevronLeft className="mr-1 h-4 w-4" />
-                Previous
-              </Button>
-              <Button type="submit" disabled={isSubmitting}>
-                Create Offer
-              </Button>
-            </div>
-          </TabsContent>
-        </Tabs>
+                <div>
+                  <Label>Geo Targeting</Label>
+                  <div className="flex mt-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                          Select Countries
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-72 max-h-80 overflow-auto">
+                        {COUNTRIES.map((country) => (
+                          <DropdownMenuItem
+                            key={country.code}
+                            onClick={() => handleAddGeoTarget(country.code)}
+                            disabled={geoTargets.includes(country.code)}
+                          >
+                            {country.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {geoTargets.map((geo, index) => (
+                      <div 
+                        key={index} 
+                        className="bg-secondary text-secondary-foreground px-3 py-1 rounded-full flex items-center"
+                      >
+                        <span>{geo} - {COUNTRY_CODES[geo] || ''}</span>
+                        <button 
+                          type="button"
+                          className="ml-2 text-secondary-foreground/70 hover:text-secondary-foreground"
+                          onClick={() => handleRemoveGeoTarget(geo)}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Restricted Geos</Label>
+                  <div className="flex mt-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start">
+                          Select Restricted Countries
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-72 max-h-80 overflow-auto">
+                        {COUNTRIES.map((country) => (
+                          <DropdownMenuItem
+                            key={country.code}
+                            onClick={() => handleAddRestrictedGeo(country.code)}
+                            disabled={restrictedGeos.includes(country.code)}
+                          >
+                            {country.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {restrictedGeos.map((geo, index) => (
+                      <div 
+                        key={index} 
+                        className="bg-destructive/10 text-destructive px-3 py-1 rounded-full flex items-center"
+                      >
+                        <span>{geo} - {COUNTRY_CODES[geo] || ''}</span>
+                        <button 
+                          type="button"
+                          className="ml-2 text-destructive/70 hover:text-destructive"
+                          onClick={() => handleRemoveRestrictedGeo(geo)}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">Additional Information</h3>
+          
+          <FormField
+            control={form.control}
+            name="target_audience"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Target Audience</FormLabel>
+                <FormControl>
+                  <Textarea 
+                    {...field} 
+                    placeholder="Describe the ideal audience for this offer" 
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="conversion_requirements"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Conversion Requirements</FormLabel>
+                <FormControl>
+                  <Textarea 
+                    {...field} 
+                    placeholder="What constitutes a valid conversion" 
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="restrictions"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Restrictions</FormLabel>
+                <FormControl>
+                  <Textarea 
+                    {...field} 
+                    placeholder="Any restrictions or limitations for this offer" 
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="flex justify-end space-x-2">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => navigate(-1)}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Creating..." : "Create Offer"}
+          </Button>
+        </div>
       </form>
-
-      <OfferPreviewDialog
-        open={showPreview}
-        onOpenChange={setShowPreview}
-        offer={getOfferPreviewData()}
-        onConfirm={handleFinalSubmit}
-        isSubmitting={isSubmitting}
-      />
-    </div>
+    </FormProvider>
   );
-};
+}
 
 export default CreateOffer;

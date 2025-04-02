@@ -29,7 +29,7 @@ export const debugJwtClaims = async () => {
 
 export const testDatabaseAccess = async () => {
   try {
-    const results = {};
+    const results: Record<string, any> = {};
     const tables = [
       'users',
       'offers',
@@ -43,16 +43,24 @@ export const testDatabaseAccess = async () => {
     
     // Test access to each table
     for (const table of tables) {
-      const { data, error } = await supabase
-        .from(table)
-        .select('id')
-        .limit(1);
-      
-      results[table] = {
-        success: !error,
-        message: error ? error.message : `Successfully queried ${table}`,
-        data: data && data.length > 0 ? 'Data found' : 'No data found'
-      };
+      try {
+        const { data, error } = await supabase
+          .from(table)
+          .select('id')
+          .limit(1);
+        
+        results[table] = {
+          success: !error,
+          message: error ? error.message : `Successfully queried ${table}`,
+          data: data && data.length > 0 ? 'Data found' : 'No data found'
+        };
+      } catch (e) {
+        results[table] = {
+          success: false,
+          message: e instanceof Error ? e.message : `Error querying ${table}`,
+          data: null
+        };
+      }
     }
     
     console.log('Database access test results:', results);

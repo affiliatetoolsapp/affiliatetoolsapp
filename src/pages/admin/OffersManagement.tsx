@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -61,7 +60,7 @@ import { OffersFilter, FilterOptions } from '@/components/offers/OffersFilter';
 import { useOfferFilters } from '@/hooks/useOfferFilters';
 import { transformOffersData } from '@/utils/offerTransformations';
 
-type SortField = 'created_at' | 'name' | 'status' | 'advertiser';
+type SortField = 'created_at' | 'name' | 'status' | 'advertiser_id';
 type SortOrder = 'asc' | 'desc';
 type FilterOption = 'all' | 'active' | 'inactive' | 'paused';
 type ViewMode = 'grid' | 'table';
@@ -214,7 +213,7 @@ export function OffersManagement() {
     
     return matchesSearch && matchesStatus;
   }).sort((a, b) => {
-    if (sortField === 'advertiser') {
+    if (sortField === 'advertiser_id') {
       return sortOrder === 'asc' 
         ? (a.advertiser?.name || '').localeCompare(b.advertiser?.name || '')
         : (b.advertiser?.name || '').localeCompare(a.advertiser?.name || '');
@@ -332,11 +331,11 @@ export function OffersManagement() {
                   </TableHead>
                   <TableHead 
                     className="cursor-pointer"
-                    onClick={() => handleSort('advertiser')}
+                    onClick={() => handleSort('advertiser_id')}
                   >
                     <div className="flex items-center">
                       Advertiser
-                      {sortField === 'advertiser' && (
+                      {sortField === 'advertiser_id' && (
                         sortOrder === 'asc' ? <ArrowUpAZ className="ml-2 h-4 w-4" /> : <ArrowDownAZ className="ml-2 h-4 w-4" />
                       )}
                     </div>

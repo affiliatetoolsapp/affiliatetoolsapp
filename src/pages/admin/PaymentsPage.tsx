@@ -1,173 +1,145 @@
-import { useState } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
+import { Payment } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Search, Download, Filter } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Calendar } from '@/components/ui/calendar';
+import { CalendarIcon } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { DateRange } from 'react-day-picker';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
-// Mock data - replace with actual data from your backend
-const payments = [
-  {
-    id: 1,
-    affiliate: 'John Doe',
-    amount: '$1,234.56',
-    status: 'Pending',
-    method: 'Bank Transfer',
-    date: '2024-03-25',
-    reference: 'PAY-123456',
-  },
-  // Add more mock data as needed
-];
-
-export function AdminPaymentsPage() {
+export function PaymentsPage() {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  
+  const { data: payments, isLoading, isError } = useQuery({
+    queryKey: ['payments', searchQuery, dateRange],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      let query = supabase
+        .from('payments')
+        .select('*');
+      
+      if (searchQuery) {
+        query = query.ilike('id', `%${searchQuery}%`);
+      }
+      
+      if (dateRange?.from && dateRange?.to) {
+        query = query.gte('created_at', dateRange.from.toISOString());
+        query = query.lte('created_at', dateRange.to.toISOString());
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error("Error fetching payments:", error);
+        throw error;
+      }
+      
+      return data as Payment[];
+    },
+    enabled: !!user,
+  });
+  
+  if (isLoading) {
+    return <div>Loading payments...</div>;
+  }
+  
+  if (isError) {
+    return <div>Error fetching payments.</div>;
+  }
+  
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Payments Management</h1>
-        <Button>
-          <Download className="mr-2 h-4 w-4" />
-          Export Payments
-        </Button>
+    <div className="container mx-auto py-10">
+      <h1 className="text-3xl font-bold mb-4">Payments</h1>
+      
+      <div className="flex justify-between items-center mb-4">
+        <Input
+          type="search"
+          placeholder="Search payments..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-1/3"
+        />
+        
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={"outline"}
+              className={cn(
+                "w-[300px] justify-start text-left font-normal",
+                !dateRange?.from && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dateRange?.from ? (
+                dateRange.to ? (
+                  `${format(dateRange.from, "LLL dd, y")} - ${format(
+                    dateRange.to,
+                    "LLL dd, y"
+                  )}`
+                ) : (
+                  format(dateRange.from, "LLL dd, y")
+                )
+              ) : (
+                <span>Pick a date</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              mode="range"
+              defaultMonth={dateRange?.from}
+              selected={dateRange}
+              onSelect={setDateRange}
+              numberOfMonths={2}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Payments Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="p-4 bg-card rounded-lg border">
-              <h3 className="text-sm font-medium text-muted-foreground">Total Pending</h3>
-              <p className="text-2xl font-bold">$45,231.89</p>
-            </div>
-            <div className="p-4 bg-card rounded-lg border">
-              <h3 className="text-sm font-medium text-muted-foreground">Total Processed</h3>
-              <p className="text-2xl font-bold">$123,456.78</p>
-            </div>
-            <div className="p-4 bg-card rounded-lg border">
-              <h3 className="text-sm font-medium text-muted-foreground">Total Failed</h3>
-              <p className="text-2xl font-bold">$2,345.67</p>
-            </div>
-            <div className="p-4 bg-card rounded-lg border">
-              <h3 className="text-sm font-medium text-muted-foreground">Total Paid</h3>
-              <p className="text-2xl font-bold">$1.2M</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Payments List</CardTitle>
-            <div className="flex items-center gap-4">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="processed">Processed</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search payments..."
-                  className="pl-8"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Reference</TableHead>
-                <TableHead>Affiliate</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Method</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {payments.map((payment) => (
-                <TableRow key={payment.id}>
-                  <TableCell>{payment.reference}</TableCell>
-                  <TableCell>{payment.affiliate}</TableCell>
-                  <TableCell>{payment.amount}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        payment.status === 'Pending'
-                          ? 'secondary'
-                          : payment.status === 'Processed'
-                          ? 'default'
-                          : payment.status === 'Failed'
-                          ? 'destructive'
-                          : 'success'
-                      }
-                    >
-                      {payment.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{payment.method}</TableCell>
-                  <TableCell>{payment.date}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>View Details</DropdownMenuItem>
-                        <DropdownMenuItem>Process Payment</DropdownMenuItem>
-                        <DropdownMenuItem>Mark as Paid</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
-                          Cancel Payment
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>ID</TableHead>
+            <TableHead>Affiliate ID</TableHead>
+            <TableHead>Amount</TableHead>
+            <TableHead>Fee</TableHead>
+            <TableHead>Total</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Payment Method</TableHead>
+            <TableHead>Created At</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {payments?.map((payment) => (
+            <TableRow key={payment.id}>
+              <TableCell>{payment.id}</TableCell>
+              <TableCell>{payment.affiliate_id}</TableCell>
+              <TableCell>{payment.amount}</TableCell>
+              <TableCell>{payment.fee}</TableCell>
+              <TableCell>{payment.total}</TableCell>
+              <TableCell>
+                <Badge variant={payment.status === 'paid' ? 'default' : payment.status === 'approved' ? 'default' : payment.status === 'rejected' ? 'destructive' : 'secondary'}>
+                  {payment.status}
+                </Badge>
+              </TableCell>
+              <TableCell>{payment.payment_method}</TableCell>
+              <TableCell>{new Date(payment.created_at || '').toLocaleDateString()}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
-} 
+}
+
+export default PaymentsPage;

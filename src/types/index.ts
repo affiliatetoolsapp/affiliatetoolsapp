@@ -8,19 +8,19 @@ export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'paid';
 
 export interface GeoCommission {
   country: string;
+  geo?: string; // Added for backward compatibility
   commission_amount: number;
   commission_percent: number;
-  geo?: string; // Added to maintain backward compatibility
 }
 
 export interface MarketingMaterial {
-  id: string;
+  id?: string;
   url: string;
-  type: string;
+  type?: string;
   name?: string;
   path?: string;
   size?: number;
-  description: string | null;
+  description?: string | null;
 }
 
 export interface Offer {
@@ -57,31 +57,100 @@ export interface Offer {
   }
 }
 
-export type AffiliateOffer = Database['public']['Tables']['affiliate_offers']['Row'];
-export type Click = Database['public']['Tables']['clicks']['Row'];
-export type Conversion = Database['public']['Tables']['conversions']['Row'];
-export type Payment = Database['public']['Tables']['payments']['Row'];
-export type TrackingLink = Database['public']['Tables']['tracking_links']['Row'] & {
-  link_type: 'direct' | 'shortened' | 'qr';
-};
-export type Wallet = Database['public']['Tables']['wallets']['Row'];
-export type UserData = Database['public']['Tables']['users']['Row'];
-export type PayoutRequest = Database['public']['Tables']['payout_requests']['Row'];
+export interface AffiliateOffer {
+  id: string;
+  affiliate_id: string;
+  offer_id: string;
+  status: string;
+  applied_at: string | null;
+  traffic_source: string | null;
+  notes: string | null;
+  reviewed_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
 
 export interface AffiliateOfferWithOffer extends AffiliateOffer {
   offer: Offer;
+}
+
+export interface TrackingLink {
+  id: string;
+  affiliate_id: string;
+  offer_id: string;
+  tracking_code: string;
+  custom_params: any | null;
+  created_at: string | null;
+  link_type: 'direct' | 'shortened' | 'qr';
 }
 
 export interface TrackingLinkWithOffer extends TrackingLink {
   offer: Partial<Offer>;
 }
 
-export interface TrackingLinkGeneratorProps {
-  offer: Offer;
-  linkType: string;
+export interface Click {
+  id: string;
+  click_id: string;
+  tracking_code: string;
+  affiliate_id: string;
+  offer_id: string;
+  ip_address: string | null;
+  geo: string | null;
+  user_agent: string | null;
+  device: string | null;
+  referrer: string | null;
+  custom_params: any | null;
+  created_at: string | null;
 }
 
-// User interface
+export interface Conversion {
+  id: string;
+  click_id: string;
+  event_type: string;
+  revenue: number | null;
+  commission: number | null;
+  status: string;
+  metadata: any | null;
+  created_at: string | null;
+  updated_at: string | null;
+  payout_amount: number | null;
+  advertiser_id?: string; // For certain queries that add this 
+}
+
+export interface Payment {
+  id: string;
+  affiliate_id: string | null;
+  advertiser_id: string | null;
+  amount: number;
+  fee: number;
+  total: number;
+  status: PaymentStatus;
+  payment_method: string | null;
+  payment_details: any | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface Wallet {
+  id: string;
+  user_id: string | null;
+  balance: number | null;
+  pending: number | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface PayoutRequest {
+  id: string;
+  affiliate_id: string;
+  amount: number;
+  method: string;
+  status: PaymentStatus;
+  created_at: string;
+  processed_at: string | null;
+}
+
+// User interface for primary app usage
 export interface User {
   id: string;
   email: string;
@@ -94,4 +163,11 @@ export interface User {
   contact_name?: string | null;
   phone?: string | null;
   website?: string | null;
+}
+
+// Processed from database, used in transformations
+export interface CountryOption {
+  code: string;
+  name: string;
+  flag: string;
 }

@@ -1,5 +1,5 @@
 
-import { Offer, GeoCommission } from '@/types';
+import { Offer, GeoCommission, Json } from '@/types';
 
 /**
  * Helper function to safely transform database offer data to the Offer type
@@ -23,7 +23,7 @@ export const transformOfferData = (offerData: any): Offer => {
     payout_frequency: offerData.payout_frequency || null,
     geo_commissions: Array.isArray(offerData.geo_commissions) 
       ? offerData.geo_commissions.map((gc: any) => ({
-          country: gc.country || '',
+          country: gc.country || gc.geo || '',
           commission_amount: Number(gc.commission_amount || 0),
           commission_percent: Number(gc.commission_percent || 0),
           geo: gc.geo || gc.country || '' // Backward compatibility

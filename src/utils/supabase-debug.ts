@@ -1,102 +1,99 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
+// Define known table names to avoid TypeScript errors
 type TableName = 
-  | 'offers'
-  | 'affiliate_offers'
-  | 'users'
-  | 'clicks'
-  | 'conversions'
-  | 'custom_postbacks'
-  | 'payments'
-  | 'payout_requests'
-  | 'pending_applications_view'
-  | 'system_logs'
-  | 'system_settings'
-  | 'tracking_links'
-  | 'wallets'
-  | 'affiliate_offer_details'
-  | 'affiliate_offers_match'
-  | 'affiliate_offers_with_advertiser'
-  | 'affiliate_offers_with_offers';
+  | "affiliate_offers" 
+  | "users" 
+  | "offers" 
+  | "clicks" 
+  | "conversions" 
+  | "custom_postbacks" 
+  | "payments" 
+  | "payout_requests" 
+  | "pending_applications_view" 
+  | "system_logs" 
+  | "system_settings" 
+  | "tracking_links" 
+  | "wallets"
+  | "affiliate_offer_details"
+  | "affiliate_offers_match"
+  | "affiliate_offers_with_advertiser"
+  | "affiliate_offers_with_offers";
 
 /**
- * A utility function for debugging Supabase Row Level Security (RLS) policies.
- * This function performs various database queries and checks permissions.
+ * Utility for debugging database structure and contents
  */
-export const debugRlsPolicies = async () => {
-  const results: Record<string, any> = {};
+export const debugTable = async (tableName: TableName, limit: number = 10) => {
   try {
-    // Get current session for debugging
-    const { data: { session } } = await supabase.auth.getSession();
+    console.log(`Fetching ${limit} records from ${tableName}...`);
     
-    if (!session) {
-      console.error('No active session found. User is not authenticated.');
-      return { 
-        success: false, 
-        message: 'Not authenticated' 
-      };
+    const { data, error } = await supabase
+      .from(tableName)
+      .select('*')
+      .limit(limit);
+    
+    if (error) {
+      console.error(`Error fetching from ${tableName}:`, error);
+      return { success: false, error };
     }
     
-    console.log('Current user:', session.user);
+    console.log(`Data from ${tableName}:`, data);
     
-    // Test tables access
-    const tables: TableName[] = [
-      'users',
-      'offers',
-      'affiliate_offers',
-      'clicks',
-      'conversions',
-      'tracking_links',
-      'wallets',
-      'payments',
-      'payout_requests'
-    ];
-    
-    // Try selecting from each table
-    for (const table of tables) {
-      try {
-        const { data, error } = await supabase
-          .from(table)
-          .select('*')
-          .limit(1);
-          
-        if (error) {
-          console.error(`Access denied to ${table}:`, error);
-          results[table] = {
-            access: false,
-            error: error.message
-          };
-        } else {
-          console.log(`Access granted to ${table}`);
-          results[table] = {
-            access: true,
-            sample: data
-          };
-        }
-      } catch (err) {
-        console.error(`Error testing ${table}:`, err);
-        results[table] = {
-          access: false,
-          error: err instanceof Error ? err.message : String(err)
-        };
-      }
+    if (data && data.length > 0) {
+      const sample = data[0];
+      console.log(`Sample structure:`, Object.keys(sample));
+      console.log(`Column types:`, Object.entries(sample).map(([key, value]) => 
+        `${key}: ${typeof value}`
+      ));
+    } else {
+      console.log(`No records found in ${tableName}`);
     }
     
-    return {
-      success: true,
-      session: {
-        user: session.user.id,
-        email: session.user.email,
-        role: session.user.user_metadata?.role
-      },
-      results
-    };
+    return { success: true, data };
   } catch (error) {
-    console.error('Error in RLS debugging:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : String(error)
-    };
+    console.error(`Error in debugTable for ${tableName}:`, error);
+    return { success: false, error };
+  }
+};
+
+/**
+ * Utility for debugging RPC function signatures
+ */
+export const debugRpcFunction = async (functionName: string) => {
+  try {
+    console.log(`Checking RPC function ${functionName}`);
+    
+    const { data, error } = await supabase.rpc('debug_jwt_claims');
+    
+    if (error) {
+      console.error(`Error checking RPC function ${functionName}:`, error);
+      return { success: false, error };
+    }
+    
+    return { success: true, data };
+  } catch (error) {
+    console.error(`Error in debugRpcFunction for ${functionName}:`, error);
+    return { success: false, error };
+  }
+};
+
+/**
+ * Utility to check JWT claims for debugging auth issues
+ */
+export const debugJwtClaims = async () => {
+  try {
+    const { data, error } = await supabase.rpc('debug_jwt_claims');
+    
+    if (error) {
+      console.error('Error fetching JWT claims:', error);
+      return { success: false, error };
+    }
+    
+    console.log('JWT claims:', data);
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error in debugJwtClaims:', error);
+    return { success: false, error };
   }
 };

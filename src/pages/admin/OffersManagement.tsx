@@ -1,7 +1,9 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { supabase, deleteOfferCompletely } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
+import { deleteOfferCompletely } from '@/utils/offerDeletion';
 import { useAuth } from '@/context/AuthContext';
 import { Offer } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -57,13 +59,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { OffersFilter, FilterOptions } from '@/components/offers/OffersFilter';
 import { useOfferFilters } from '@/hooks/useOfferFilters';
+import { transformOffersData } from '@/utils/offerTransformations';
 
 type SortField = 'created_at' | 'name' | 'status' | 'advertiser';
 type SortOrder = 'asc' | 'desc';
 type FilterOption = 'all' | 'active' | 'inactive' | 'paused';
 type ViewMode = 'grid' | 'table';
 
-export default function AdminOffersManagement() {
+export function OffersManagement() {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -97,7 +100,7 @@ export default function AdminOffersManagement() {
   };
   
   // Get all offers query with advertiser information
-  const { data: offers, isLoading: offersLoading, refetch } = useQuery({
+  const { data: offersData, isLoading: offersLoading, refetch } = useQuery({
     queryKey: ['admin-offers'],
     queryFn: async () => {
       if (!user) return [];
@@ -119,22 +122,13 @@ export default function AdminOffersManagement() {
         throw error;
       }
       
-      // Transform the data to match Offer type
-      return (data || []).map(offer => ({
-        ...offer,
-        commission_amount: offer.commission_amount || 0,
-        commission_percent: offer.commission_percent || 0,
-        geo_commissions: Array.isArray(offer.geo_commissions) 
-          ? offer.geo_commissions.map(gc => ({
-              country: (gc as any).country || '',
-              commission_amount: (gc as any).commission_amount || 0,
-              commission_percent: (gc as any).commission_percent || 0
-            }))
-          : []
-      })) as Offer[];
+      return data || [];
     },
     enabled: !!user,
   });
+  
+  // Transform the database data to match our type definitions
+  const offers = offersData ? transformOffersData(offersData) : [];
   
   // Function to handle status updates
   const handleStatusUpdate = async (offerId: string, newStatus: string) => {
@@ -212,7 +206,7 @@ export default function AdminOffersManagement() {
   const filteredOffers = offers?.filter(offer => {
     const matchesSearch = 
       offer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      offer.advertiser?.name.toLowerCase().includes(searchQuery.toLowerCase());
+      (offer.advertiser?.name?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
     
     const matchesStatus = 
       filterOption === 'all' || 
@@ -228,8 +222,8 @@ export default function AdminOffersManagement() {
     
     if (sortField === 'created_at') {
       return sortOrder === 'asc'
-        ? new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        : new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        ? new Date(a.created_at || '').getTime() - new Date(b.created_at || '').getTime()
+        : new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime();
     }
     
     if (sortField === 'name') {
@@ -240,8 +234,8 @@ export default function AdminOffersManagement() {
     
     if (sortField === 'status') {
       return sortOrder === 'asc'
-        ? a.status.localeCompare(b.status)
-        : b.status.localeCompare(a.status);
+        ? (a.status || '').localeCompare(b.status || '')
+        : (b.status || '').localeCompare(a.status || '');
     }
     
     return 0;
@@ -317,7 +311,7 @@ export default function AdminOffersManagement() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {offersLoading ? (
             <div className="flex justify-center items-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
@@ -405,15 +399,19 @@ export default function AdminOffersManagement() {
                         <HoverCardContent>
                           <div className="space-y-2">
                             <h4 className="text-sm font-semibold">Geo Targets</h4>
-                            <p className="text-sm text-muted-foreground">
-                              {formatGeoTargets(offer.geo_targets)}
-                            </p>
+                            <div className="text-sm text-muted-foreground">
+                              {offer.geo_targets?.map(code => (
+                                <div key={code} className="flex items-center gap-1">
+                                  <span>{code}</span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         </HoverCardContent>
                       </HoverCard>
                     </TableCell>
                     <TableCell>
-                      {new Date(offer.created_at).toLocaleDateString()}
+                      {offer.created_at ? new Date(offer.created_at).toLocaleDateString() : 'N/A'}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -482,3 +480,6 @@ export default function AdminOffersManagement() {
     </div>
   );
 } 
+
+// Export for lazy loading
+export default OffersManagement;

@@ -1,5 +1,5 @@
 
-import { Offer, GeoCommission } from '@/types';
+import { Offer, GeoCommission, CountryOption } from '@/types';
 import countryCodes from '../../offers/countryCodes';
 
 export const formatGeoTargets = (offer: Offer | { geo_targets?: any }): string[] => {
@@ -43,6 +43,14 @@ export const formatCountryWithFlag = (countryCode: string): string => {
   return `${getCountryFlag(countryCode)} ${getCountryName(countryCode)}`;
 };
 
+export const formatCountryOption = (countryCode: string): CountryOption => {
+  return {
+    code: countryCode,
+    name: getCountryName(countryCode),
+    flag: getCountryFlag(countryCode)
+  };
+};
+
 export const getCountryFilterOptions = (offers: Offer[]) => {
   const allCountries = new Set<string>();
   
@@ -54,11 +62,7 @@ export const getCountryFilterOptions = (offers: Offer[]) => {
     }
   });
   
-  return Array.from(allCountries).map(code => ({
-    value: code,
-    label: countryCodes[code] || code,
-    flag: getCountryFlag(code)
-  }));
+  return Array.from(allCountries).map(code => formatCountryOption(code));
 };
 
 export const formatTrackingUrl = (url: string) => {

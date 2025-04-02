@@ -3,18 +3,20 @@ import { Route } from 'react-router-dom';
 import { lazy } from 'react';
 
 // Use dynamic imports to avoid issues with non-default exports
-const AdminLayout = lazy(() => import('@/components/layouts/AdminLayout'));
-const Dashboard = lazy(() => import('@/pages/admin/DashboardPage'));
-const OffersManagement = lazy(() => import('@/pages/admin/OffersManagement'));
-const UsersPage = lazy(() => import('@/pages/admin/UsersPage'));
-const SettingsPage = lazy(() => import('@/pages/admin/SettingsPage'));
-const AffiliatesPage = lazy(() => import('@/pages/admin/AffiliatesPage'));
-const AdvertisersPage = lazy(() => import('@/pages/admin/AdvertisersPage'));
-const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage'));
-const PaymentsPage = lazy(() => import('@/pages/admin/PaymentsPage'));
-const DocumentsPage = lazy(() => import('@/pages/admin/DocumentsPage'));
-const EditUserPage = lazy(() => import('@/pages/admin/EditUserPage'));
-const OffersPage = lazy(() => import('@/pages/admin/OffersPage'));
+// Note: We're using path aliases for the imports that should work with proper setup
+// If these paths are not working, they need to be configured in the build setup
+const AdminLayout = lazy(() => import('@/components/layouts/AdminLayout').then(module => ({ default: module.AdminLayout })));
+const Dashboard = lazy(() => import('@/pages/admin/DashboardPage').then(module => ({ default: module.DashboardPage })));
+const OffersManagement = lazy(() => import('@/pages/admin/OffersManagement').then(module => ({ default: module.OffersManagement })));
+const UsersPage = lazy(() => import('@/pages/admin/UsersPage').then(module => ({ default: module.UsersPage })));
+const SettingsPage = lazy(() => import('@/pages/admin/SettingsPage').then(module => ({ default: module.SettingsPage })));
+const AffiliatesPage = lazy(() => import('@/pages/admin/AffiliatesPage').then(module => ({ default: module.AffiliatesPage })));
+const AdvertisersPage = lazy(() => import('@/pages/admin/AdvertisersPage').then(module => ({ default: module.AdvertisersPage })));
+const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage').then(module => ({ default: module.ReportsPage })));
+const PaymentsPage = lazy(() => import('@/pages/admin/PaymentsPage').then(module => ({ default: module.PaymentsPage })));
+const DocumentsPage = lazy(() => import('@/pages/admin/DocumentsPage').then(module => ({ default: module.DocumentsPage })));
+const EditUserPage = lazy(() => import('@/pages/admin/EditUserPage').then(module => ({ default: module.EditUserPage })));
+const OffersPage = lazy(() => import('@/pages/admin/OffersPage').then(module => ({ default: module.OffersPage })));
 
 const adminRoutes = (
   <Route path="/admin" element={<AdminLayout />}>

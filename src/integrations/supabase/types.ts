@@ -13,32 +13,38 @@ export type Database = {
         Row: {
           affiliate_id: string | null
           applied_at: string | null
+          created_at: string | null
           id: string
           notes: string | null
           offer_id: string | null
           reviewed_at: string | null
           status: string | null
           traffic_source: string | null
+          updated_at: string | null
         }
         Insert: {
           affiliate_id?: string | null
           applied_at?: string | null
+          created_at?: string | null
           id?: string
           notes?: string | null
           offer_id?: string | null
           reviewed_at?: string | null
           status?: string | null
           traffic_source?: string | null
+          updated_at?: string | null
         }
         Update: {
           affiliate_id?: string | null
           applied_at?: string | null
+          created_at?: string | null
           id?: string
           notes?: string | null
           offer_id?: string | null
           reviewed_at?: string | null
           status?: string | null
           traffic_source?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -139,6 +145,7 @@ export type Database = {
           event_type: string
           id: string
           metadata: Json | null
+          payout_amount: number | null
           revenue: number | null
           status: string | null
           updated_at: string | null
@@ -150,6 +157,7 @@ export type Database = {
           event_type: string
           id?: string
           metadata?: Json | null
+          payout_amount?: number | null
           revenue?: number | null
           status?: string | null
           updated_at?: string | null
@@ -161,6 +169,7 @@ export type Database = {
           event_type?: string
           id?: string
           metadata?: Json | null
+          payout_amount?: number | null
           revenue?: number | null
           status?: string | null
           updated_at?: string | null
@@ -386,6 +395,78 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_applications_view: {
+        Row: {
+          affiliate_id: string
+          created_at: string | null
+          id: string
+          offer_advertiser_id: string
+          offer_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          affiliate_id: string
+          created_at?: string | null
+          id: string
+          offer_advertiser_id: string
+          offer_id: string
+          status: string
+          updated_at?: string | null
+        }
+        Update: {
+          affiliate_id?: string
+          created_at?: string | null
+          id?: string
+          offer_advertiser_id?: string
+          offer_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      system_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: string | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      system_settings: {
+        Row: {
+          key: string
+          updated_at: string | null
+          value: string | null
+        }
+        Insert: {
+          key: string
+          updated_at?: string | null
+          value?: string | null
+        }
+        Update: {
+          key?: string
+          updated_at?: string | null
+          value?: string | null
+        }
+        Relationships: []
+      }
       tracking_links: {
         Row: {
           affiliate_id: string | null
@@ -423,20 +504,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "tracking_links_affiliate_id_offer_id_fkey"
-            columns: ["affiliate_id", "offer_id"]
-            isOneToOne: false
-            referencedRelation: "affiliate_offer_details"
-            referencedColumns: ["affiliate_id", "ao_offer_id"]
-          },
-          {
-            foreignKeyName: "tracking_links_affiliate_id_offer_id_fkey"
-            columns: ["affiliate_id", "offer_id"]
-            isOneToOne: false
-            referencedRelation: "affiliate_offers"
-            referencedColumns: ["affiliate_id", "offer_id"]
-          },
-          {
             foreignKeyName: "tracking_links_offer_id_fkey"
             columns: ["offer_id"]
             isOneToOne: false
@@ -462,6 +529,7 @@ export type Database = {
           id: string
           phone: string | null
           role: string
+          status: string | null
           updated_at: string | null
           website: string | null
         }
@@ -474,6 +542,7 @@ export type Database = {
           id: string
           phone?: string | null
           role: string
+          status?: string | null
           updated_at?: string | null
           website?: string | null
         }
@@ -486,6 +555,7 @@ export type Database = {
           id?: string
           phone?: string | null
           role?: string
+          status?: string | null
           updated_at?: string | null
           website?: string | null
         }
@@ -592,8 +662,174 @@ export type Database = {
           },
         ]
       }
+      affiliate_offers_match: {
+        Row: {
+          affiliate_id: string | null
+          created_at: string | null
+          id: string | null
+          offer: Json | null
+          offer_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_offers_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_offers_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_offer_details"
+            referencedColumns: ["o_id"]
+          },
+          {
+            foreignKeyName: "affiliate_offers_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      affiliate_offers_with_advertiser: {
+        Row: {
+          advertiser_id: string | null
+          affiliate_id: string | null
+          created_at: string | null
+          id: string | null
+          offer_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_offers_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_offers_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_offer_details"
+            referencedColumns: ["o_id"]
+          },
+          {
+            foreignKeyName: "affiliate_offers_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offers_advertiser_id_fkey"
+            columns: ["advertiser_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      affiliate_offers_with_offers: {
+        Row: {
+          advertiser_id: string | null
+          affiliate_id: string | null
+          created_at: string | null
+          id: string | null
+          offer_id: string | null
+          offer_name: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_offers_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_offers_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_offer_details"
+            referencedColumns: ["o_id"]
+          },
+          {
+            foreignKeyName: "affiliate_offers_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offers_advertiser_id_fkey"
+            columns: ["advertiser_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      create_offer: {
+        Args: {
+          p_offer_data: Json
+        }
+        Returns: string
+      }
+      create_offer_safely: {
+        Args: {
+          p_offer_data: Json
+        }
+        Returns: string
+      }
+      debug_jwt_claims: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          claim: string
+          value: Json
+        }[]
+      }
+      debug_offers: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          id: string
+          name: string
+          advertiser_id: string
+          status: string
+          created_at: string
+        }[]
+      }
+      delete_offer_by_id: {
+        Args: {
+          p_offer_id: string
+        }
+        Returns: boolean
+      }
+      direct_delete_offer: {
+        Args: {
+          p_offer_id: string
+        }
+        Returns: boolean
+      }
+      fix_date_range_query: {
+        Args: {
+          table_name: string
+          start_date: string
+          end_date: string
+        }
+        Returns: string
+      }
       force_delete_affiliate_offers: {
         Args: {
           p_offer_id: string
@@ -617,11 +853,70 @@ export type Database = {
           users: Json
         }[]
       }
-      get_user_role: {
+      get_conversions_by_date_range: {
         Args: {
-          user_id: string
+          start_date: string
+          end_date: string
         }
+        Returns: {
+          click_id: string | null
+          commission: number | null
+          created_at: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          payout_amount: number | null
+          revenue: number | null
+          status: string | null
+          updated_at: string | null
+        }[]
+      }
+      get_conversions_by_month: {
+        Args: {
+          year: number
+          month: number
+        }
+        Returns: {
+          click_id: string | null
+          commission: number | null
+          created_at: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          payout_amount: number | null
+          revenue: number | null
+          status: string | null
+          updated_at: string | null
+        }[]
+      }
+      get_jwt_role: {
+        Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_pending_applications_count: {
+        Args: {
+          advertiser_id: string
+        }
+        Returns: number
+      }
+      get_pending_applications_for_advertiser: {
+        Args: {
+          advertiser_id: string
+        }
+        Returns: {
+          id: string
+          affiliate_id: string
+          offer_id: string
+          status: string
+          created_at: string
+          updated_at: string
+        }[]
+      }
+      get_pending_apps_count: {
+        Args: {
+          advertiser_id: string
+        }
+        Returns: number
       }
       insert_click: {
         Args: {
@@ -639,6 +934,18 @@ export type Database = {
         }
         Returns: string
       }
+      is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_advertiser: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_affiliate: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       log_conversion: {
         Args: {
           p_click_id: string
@@ -647,6 +954,10 @@ export type Database = {
           p_metadata: Json
         }
         Returns: string
+      }
+      refresh_pending_applications_view: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
     }
     Enums: {

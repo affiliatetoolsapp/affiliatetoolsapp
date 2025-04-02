@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -22,7 +23,11 @@ export function SignInForm() {
     setIsSubmitting(true);
 
     try {
-      await signIn(email, password);
+      const session = await signIn(email, password);
+      if (session) {
+        console.log('Login successful, navigating to:', from);
+        navigate(from);
+      }
     } catch (error: any) {
       console.error('SignInForm: Sign in error:', error);
       toast({
@@ -94,4 +99,4 @@ export function SignInForm() {
       </form>
     </div>
   );
-} 
+}

@@ -5,7 +5,7 @@ import { SignInForm } from '@/components/auth/SignInForm';
 import { useAuth } from '@/context/AuthContext';
 import { PublicHeader } from '@/components/PublicHeader';
 import { LoadingState } from '@/components/LoadingState';
-import { testDatabaseAccess } from '@/utils/rls-debug';
+import { testDatabaseAccess } from '@/utils/supabase-debug';
 import { useToast } from '@/hooks/use-toast';
 import { debugJwtClaims } from '@/utils/supabase-debug'; 
 

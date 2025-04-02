@@ -1,75 +1,45 @@
 
-import { Offer, GeoCommission, CountryOption } from '@/types';
-import countryCodes from '../../offers/countryCodes';
+import { Offer, CountryOption } from '@/types';
 
-export const formatGeoTargets = (offer: Offer | { geo_targets?: any }): string[] => {
-  if (!offer || !offer.geo_targets) return [];
-
-  let geoArray: string[] = [];
-
-  // Handle different forms of geo_targets
-  if (Array.isArray(offer.geo_targets)) {
-    geoArray = offer.geo_targets;
-  } else if (typeof offer.geo_targets === 'object') {
-    geoArray = Object.keys(offer.geo_targets);
-  } else if (typeof offer.geo_targets === 'string') {
-    try {
-      const parsed = JSON.parse(offer.geo_targets);
-      if (Array.isArray(parsed)) {
-        geoArray = parsed;
-      } else if (typeof parsed === 'object') {
-        geoArray = Object.keys(parsed);
-      }
-    } catch (e) {
-      console.error("Error parsing geo_targets:", e);
-    }
+export const formatGeoTargets = (offer: Offer | { geo_targets?: any }): CountryOption[] => {
+  if (!offer.geo_targets || !Array.isArray(offer.geo_targets) || offer.geo_targets.length === 0) {
+    return [];
   }
-
-  return geoArray;
+  
+  return offer.geo_targets.map(code => ({
+    code,
+    name: getCountryName(code),
+    flag: getCountryFlag(code)
+  }));
 };
 
 export const getCountryFlag = (countryCode: string): string => {
-  // Convert country code to flag emoji
-  return countryCode.toUpperCase().replace(/./g, char => 
-    String.fromCodePoint(char.charCodeAt(0) + 127397)
-  );
+  // Simple lookup for country flags using emoji
+  const baseOffset = 127397; // Unicode offset for regional indicator symbols
+  const chars = [...countryCode.toUpperCase()];
+  
+  // Convert chars to regional indicator symbols
+  return chars
+    .map(char => String.fromCodePoint(char.charCodeAt(0) + baseOffset))
+    .join('');
 };
 
 export const getCountryName = (countryCode: string): string => {
-  return countryCodes[countryCode] || countryCode;
-};
-
-export const formatCountryWithFlag = (countryCode: string): string => {
-  return `${getCountryFlag(countryCode)} ${getCountryName(countryCode)}`;
-};
-
-export const formatCountryOption = (countryCode: string): CountryOption => {
-  return {
-    code: countryCode,
-    name: getCountryName(countryCode),
-    flag: getCountryFlag(countryCode)
+  // This is a simplified function - in a real app, 
+  // you would use a complete country names database
+  const countryNames: Record<string, string> = {
+    US: 'United States',
+    UK: 'United Kingdom',
+    CA: 'Canada',
+    AU: 'Australia',
+    DE: 'Germany',
+    FR: 'France',
+    JP: 'Japan',
+    CN: 'China',
+    IN: 'India',
+    BR: 'Brazil',
+    // Add more as needed
   };
-};
-
-export const getCountryFilterOptions = (offers: Offer[]) => {
-  const allCountries = new Set<string>();
   
-  offers.forEach(offer => {
-    if (offer.geo_targets && Array.isArray(offer.geo_targets)) {
-      offer.geo_targets.forEach(code => allCountries.add(code));
-    } else if (offer.geo_targets && typeof offer.geo_targets === 'object') {
-      Object.keys(offer.geo_targets).forEach(code => allCountries.add(code));
-    }
-  });
-  
-  return Array.from(allCountries).map(code => formatCountryOption(code));
-};
-
-export const formatTrackingUrl = (url: string) => {
-  if (!url) return '';
-  
-  const maxLength = 30;
-  if (url.length <= maxLength) return url;
-  
-  return `${url.substring(0, maxLength)}...`;
+  return countryNames[countryCode] || countryCode;
 };

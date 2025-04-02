@@ -1,24 +1,26 @@
-import { supabase } from "../integrations/supabase/client";
 
-// Function for creating offers via RPC
-export async function createOfferViaRPC(offerData: any) {
-  console.log('Attempting to create offer with data:', JSON.stringify(offerData, null, 2));
-  
+import { supabase } from '@/integrations/supabase/client';
+import { Offer } from '@/types';
+
+/**
+ * Creates a new offer using the Supabase RPC function
+ */
+export const createOffer = async (offerData: Partial<Offer>) => {
   try {
-    // Use the create_offer_simple RPC function
-    const { data, error } = await supabase.rpc('create_offer_simple', { 
-      p_offer_data: offerData 
-    });
-    
+    const { data, error } = await supabase
+      .rpc('create_offer_safely', { p_offer_data: offerData });
+
     if (error) {
       console.error('Error creating offer:', error);
-      return { success: false, error };
+      throw error;
     }
-    
-    console.log('Offer created successfully:', data);
-    return { success: true, data };
+
+    return { success: true, offerId: data };
   } catch (error) {
-    console.error('Exception creating offer:', error);
-    return { success: false, error };
+    console.error('Error in createOffer:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error : new Error('Unknown error occurred')
+    };
   }
-} 
+};

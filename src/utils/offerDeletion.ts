@@ -1,24 +1,25 @@
-import { supabase } from "../integrations/supabase/client";
 
-// Function for deleting offers via RPC
-export async function deleteOfferViaRPC(offerId: string) {
-  console.log('Attempting to delete offer with ID:', offerId);
-  
+import { supabase } from '@/integrations/supabase/client';
+
+/**
+ * Deletes an offer and all its related data
+ */
+export const deleteOfferCompletely = async (offerId: string) => {
   try {
-    // Use the delete_offer_simple RPC function
-    const { data, error } = await supabase.rpc('delete_offer_simple', {
-      p_offer_id: offerId
-    });
-    
+    const { data, error } = await supabase
+      .rpc('direct_delete_offer', { p_offer_id: offerId });
+
     if (error) {
       console.error('Error deleting offer:', error);
-      return { success: false, error };
+      throw error;
     }
-    
-    console.log('Offer deleted successfully:', data);
-    return { success: true, data };
+
+    return { success: true };
   } catch (error) {
-    console.error('Exception deleting offer:', error);
-    return { success: false, error };
+    console.error('Error in deleteOfferCompletely:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error : new Error('Unknown error occurred')
+    };
   }
-} 
+};

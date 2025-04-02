@@ -1,24 +1,26 @@
 
 import { Route } from 'react-router-dom';
-import AdminLayout from '@/components/layouts/AdminLayout';
-import Dashboard from '@/pages/admin/DashboardPage';
-import { OffersManagement } from '@/components/admin/OffersManagement';
-import UsersPage from '@/pages/admin/UsersPage';
-import SettingsPage from '@/pages/admin/SettingsPage';
-import AffiliatesPage from '@/pages/admin/AffiliatesPage';
-import AdvertisersPage from '@/pages/admin/AdvertisersPage';
-import ReportsPage from '@/pages/admin/ReportsPage';
-import PaymentsPage from '@/pages/admin/PaymentsPage';
-import DocumentsPage from '@/pages/admin/DocumentsPage';
-import EditUserPage from '@/pages/admin/EditUserPage';
-import AdminOffersManagement from '@/pages/admin/OffersManagement';
-import OffersPage from '@/pages/admin/OffersPage';
+import { lazy } from 'react';
+
+// Use dynamic imports to avoid issues with non-default exports
+const AdminLayout = lazy(() => import('@/components/layouts/AdminLayout'));
+const Dashboard = lazy(() => import('@/pages/admin/DashboardPage'));
+const OffersManagement = lazy(() => import('@/pages/admin/OffersManagement'));
+const UsersPage = lazy(() => import('@/pages/admin/UsersPage'));
+const SettingsPage = lazy(() => import('@/pages/admin/SettingsPage'));
+const AffiliatesPage = lazy(() => import('@/pages/admin/AffiliatesPage'));
+const AdvertisersPage = lazy(() => import('@/pages/admin/AdvertisersPage'));
+const ReportsPage = lazy(() => import('@/pages/admin/ReportsPage'));
+const PaymentsPage = lazy(() => import('@/pages/admin/PaymentsPage'));
+const DocumentsPage = lazy(() => import('@/pages/admin/DocumentsPage'));
+const EditUserPage = lazy(() => import('@/pages/admin/EditUserPage'));
+const OffersPage = lazy(() => import('@/pages/admin/OffersPage'));
 
 const adminRoutes = (
   <Route path="/admin" element={<AdminLayout />}>
     <Route index element={<Dashboard />} />
     <Route path="dashboard" element={<Dashboard />} />
-    <Route path="offers" element={<AdminOffersManagement />} />
+    <Route path="offers" element={<OffersManagement />} />
     <Route path="offers/:offerId" element={<OffersPage />} />
     <Route path="offers/:offerId/edit" element={<OffersPage />} />
     <Route path="offers/create" element={<OffersPage />} />

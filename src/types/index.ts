@@ -3,6 +3,9 @@ import { Database } from '@/integrations/supabase/types';
 
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
+export type UserRole = 'admin' | 'advertiser' | 'affiliate';
+export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'paid';
+
 export interface GeoCommission {
   country: string;
   commission_amount: number;
@@ -45,7 +48,8 @@ export interface Offer {
   featured_until: string | null;
   created_at: string | null;
   updated_at: string | null;
-  payout_amount?: number; // Made optional with a default value
+  payout_amount: number | null;
+  subtitle?: string | null;
   advertiser?: { // Optional property for joins
     id?: string;
     name?: string;
@@ -64,16 +68,12 @@ export type Wallet = Database['public']['Tables']['wallets']['Row'];
 export type UserData = Database['public']['Tables']['users']['Row'];
 export type PayoutRequest = Database['public']['Tables']['payout_requests']['Row'];
 
-export type UserRole = 'admin' | 'advertiser' | 'affiliate';
-export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'paid';
-
 export interface AffiliateOfferWithOffer extends AffiliateOffer {
   offer: Offer;
 }
 
 export interface TrackingLinkWithOffer extends TrackingLink {
   offer: Partial<Offer>;
-  link_type: 'direct' | 'shortened' | 'qr';
 }
 
 export interface TrackingLinkGeneratorProps {

@@ -1,6 +1,25 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
+type TableName = 
+  | 'offers'
+  | 'affiliate_offers'
+  | 'users'
+  | 'clicks'
+  | 'conversions'
+  | 'custom_postbacks'
+  | 'payments'
+  | 'payout_requests'
+  | 'pending_applications_view'
+  | 'system_logs'
+  | 'system_settings'
+  | 'tracking_links'
+  | 'wallets'
+  | 'affiliate_offer_details'
+  | 'affiliate_offers_match'
+  | 'affiliate_offers_with_advertiser'
+  | 'affiliate_offers_with_offers';
+
 /**
  * A utility function for debugging Supabase Row Level Security (RLS) policies.
  * This function performs various database queries and checks permissions.
@@ -22,7 +41,7 @@ export const debugRlsPolicies = async () => {
     console.log('Current user:', session.user);
     
     // Test tables access
-    const tables = [
+    const tables: TableName[] = [
       'users',
       'offers',
       'affiliate_offers',

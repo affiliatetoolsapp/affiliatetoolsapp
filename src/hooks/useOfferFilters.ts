@@ -25,14 +25,14 @@ export const useOfferFilters = (offers: Offer[], filters: FilterOptions) => {
     if (filters.payoutMin !== null) {
       result = result.filter(offer => {
         const amount = Number(offer.commission_amount);
-        return !isNaN(amount) && amount >= (filters.payoutMin || 0);
+        return !isNaN(amount) && amount >= (Number(filters.payoutMin) || 0);
       });
     }
     
     if (filters.payoutMax !== null) {
       result = result.filter(offer => {
         const amount = Number(offer.commission_amount);
-        return !isNaN(amount) && amount <= (filters.payoutMax || Infinity);
+        return !isNaN(amount) && amount <= (Number(filters.payoutMax) || Infinity);
       });
     }
 
